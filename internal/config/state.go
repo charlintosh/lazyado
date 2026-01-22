@@ -20,7 +20,7 @@ func getStatePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "devops-tui", "state.json"), nil
+	return filepath.Join(home, ".config", "lazyado", "state.json"), nil
 }
 
 // LoadFilterState loads the persisted filter state

@@ -19,11 +19,13 @@ type FilterOption struct {
 
 // FilterGroup represents a group of filter options
 type FilterGroup struct {
-	Type    FilterType
-	Title   string
-	Options []FilterOption
-	Cursor  int
-	Offset  int // Scroll offset for viewing
+	Type       FilterType
+	Title      string
+	Options    []FilterOption
+	Cursor     int
+	Offset     int            // Scroll offset for viewing
+	allOptions []FilterOption // Original unfiltered options
+	isFiltered bool           // Whether search filter is active
 }
 
 // SelectedOption returns the currently selected option
@@ -54,6 +56,18 @@ func (f *FilterGroup) SelectCurrent() {
 	f.Select(f.Cursor)
 }
 
+// SelectByValue marks the option with the given value as selected
+func (f *FilterGroup) SelectByValue(value string) {
+	for i := range f.Options {
+		if f.Options[i].Value == value {
+			f.Options[i].Selected = true
+			f.Cursor = i
+		} else {
+			f.Options[i].Selected = false
+		}
+	}
+}
+
 // MoveUp moves the cursor up
 func (f *FilterGroup) MoveUp() {
 	if f.Cursor > 0 {
@@ -80,11 +94,82 @@ func (f *FilterGroup) MoveToBottom() {
 	}
 }
 
+// ApplySearchFilter filters options based on search query
+func (f *FilterGroup) ApplySearchFilter(query string) {
+	if query == "" {
+		f.ClearSearchFilter()
+		return
+	}
+
+	// Store original options on first filter
+	if !f.isFiltered {
+		f.allOptions = make([]FilterOption, len(f.Options))
+		copy(f.allOptions, f.Options)
+		f.isFiltered = true
+	}
+
+	// Filter options by query (case-insensitive substring match)
+	filtered := []FilterOption{}
+	lowerQuery := toLower(query)
+	for _, opt := range f.allOptions {
+		if contains(toLower(opt.Label), lowerQuery) {
+			filtered = append(filtered, opt)
+		}
+	}
+
+	f.Options = filtered
+	f.Cursor = 0
+	f.Offset = 0
+}
+
+// ClearSearchFilter restores all options
+func (f *FilterGroup) ClearSearchFilter() {
+	if f.isFiltered && f.allOptions != nil {
+		f.Options = make([]FilterOption, len(f.allOptions))
+		copy(f.Options, f.allOptions)
+		f.isFiltered = false
+	}
+}
+
+// Helper functions for case-insensitive string operations
+func toLower(s string) string {
+	result := make([]rune, 0, len(s))
+	for _, r := range s {
+		if r >= 'A' && r <= 'Z' {
+			r = r + 32
+		}
+		result = append(result, r)
+	}
+	return string(result)
+}
+
+func contains(s, substr string) bool {
+	if len(substr) == 0 {
+		return true
+	}
+	if len(substr) > len(s) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		match := true
+		for j := 0; j < len(substr); j++ {
+			if s[i+j] != substr[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
 // FilterState holds the complete filter state
 type FilterState struct {
-	Groups       []*FilterGroup
-	ActiveGroup  int
-	SearchQuery  string
+	Groups      []*FilterGroup
+	ActiveGroup int
+	SearchQuery string
 }
 
 // NewFilterState creates a new filter state with default groups
@@ -105,9 +190,11 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 
 	// If no current sprint found, select "All"
 	hasSelected := false
-	for _, opt := range sprintOptions {
+	selectedIdx := 0
+	for i, opt := range sprintOptions {
 		if opt.Selected {
 			hasSelected = true
+			selectedIdx = i
 			break
 		}
 	}
@@ -115,16 +202,31 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 		sprintOptions[0].Selected = true
 	}
 
+	// Calculate initial cursor and offset for sprint group
+	sprintCursor := selectedIdx
+	sprintOffset := 0
+	const maxVisibleOptions = 6
+	if sprintCursor >= maxVisibleOptions {
+		sprintOffset = sprintCursor - maxVisibleOptions + 1
+	}
+
 	// Build area options from areas
 	areaOptions := []FilterOption{
 		{Label: "All", Value: "all", Selected: true},
 	}
-	for _, area := range areas {
+	areaCursor := 0
+	for i, area := range areas {
 		areaOptions = append(areaOptions, FilterOption{
 			Label:    area.DisplayName(),
 			Value:    area.Path,
 			Selected: false,
 		})
+		// Track if this area becomes selected later
+		_ = i
+	}
+	areaOffset := 0
+	if areaCursor >= maxVisibleOptions {
+		areaOffset = areaCursor - maxVisibleOptions + 1
 	}
 
 	// Build state options from all work item types (unique states)
@@ -176,34 +278,55 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 		}
 	}
 
+	// Calculate cursor and offset for state group
+	stateCursor := 0
+	for i, opt := range stateOptions {
+		if opt.Selected {
+			stateCursor = i
+			break
+		}
+	}
+	stateOffset := 0
+	if stateCursor >= maxVisibleOptions {
+		stateOffset = stateCursor - maxVisibleOptions + 1
+	}
+
+	// Calculate cursor for assigned group
+	assignedOptions := []FilterOption{
+		{Label: "All", Value: "all", Selected: false},
+		{Label: "Me", Value: "me", Selected: true},
+	}
+	assignedCursor := 1 // "Me" is selected by default
+
 	return &FilterState{
 		Groups: []*FilterGroup{
 			{
 				Type:    FilterTypeSprint,
 				Title:   "Sprint",
 				Options: sprintOptions,
-				Cursor:  0,
+				Cursor:  sprintCursor,
+				Offset:  sprintOffset,
 			},
 			{
 				Type:    FilterTypeState,
 				Title:   "State",
 				Options: stateOptions,
-				Cursor:  0,
+				Cursor:  stateCursor,
+				Offset:  stateOffset,
 			},
 			{
-				Type:  FilterTypeAssigned,
-				Title: "Assigned",
-				Options: []FilterOption{
-					{Label: "All", Value: "all", Selected: false},
-					{Label: "Me", Value: "me", Selected: true},
-				},
-				Cursor: 0,
+				Type:    FilterTypeAssigned,
+				Title:   "Assigned",
+				Options: assignedOptions,
+				Cursor:  assignedCursor,
+				Offset:  0,
 			},
 			{
 				Type:    FilterTypeArea,
 				Title:   "Area",
 				Options: areaOptions,
-				Cursor:  0,
+				Cursor:  areaCursor,
+				Offset:  areaOffset,
 			},
 		},
 		ActiveGroup: 0,
@@ -282,6 +405,8 @@ func (f *FilterState) GetSelectedArea() string {
 
 // ApplySavedSelections applies saved filter selections
 func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string) {
+	const maxVisibleOptions = 6
+
 	for _, g := range f.Groups {
 		var targetValue string
 		switch g.Type {
@@ -304,6 +429,13 @@ func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string)
 		for i, opt := range g.Options {
 			if opt.Value == targetValue {
 				g.Select(i)
+				g.Cursor = i
+				// Adjust offset to make selected item visible
+				if g.Cursor >= maxVisibleOptions {
+					g.Offset = g.Cursor - maxVisibleOptions + 1
+				} else {
+					g.Offset = 0
+				}
 				found = true
 				break
 			}
@@ -311,7 +443,18 @@ func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string)
 
 		// If not found and it's sprint with "current", keep the current selection
 		if !found && g.Type == FilterTypeSprint && targetValue == "current" {
-			// Already handled in NewFilterState
+			// Already handled in NewFilterState - just ensure cursor is on selected
+			for i, opt := range g.Options {
+				if opt.Selected {
+					g.Cursor = i
+					if g.Cursor >= maxVisibleOptions {
+						g.Offset = g.Cursor - maxVisibleOptions + 1
+					} else {
+						g.Offset = 0
+					}
+					break
+				}
+			}
 		}
 	}
 }

@@ -1,33 +1,32 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/config"
+	ui "github.com/charlintosh/lazyado/internal/app"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/samuelenocsson/devops-tui/internal/api"
-	"github.com/samuelenocsson/devops-tui/internal/config"
-	"github.com/samuelenocsson/devops-tui/internal/ui"
 )
 
-// Execute runs the application
+var ErrConfigCreated = errors.New("default config created; please edit ~/.config/lazyado/config.yaml")
+
 func Execute() error {
-	// Load configuration
+
 	cfg, err := config.Load()
 	if err != nil {
-		// If config not found, try to create default
 		if err := config.CreateDefaultConfig(); err == nil {
-			fmt.Println("Created default config file at ~/.config/devops-tui/config.yaml")
-			fmt.Println("Please edit the config file with your Azure DevOps settings.")
-			os.Exit(0)
+			fmt.Fprintln(os.Stderr, "Created default config file at ~/.config/lazyado/config.yaml")
+			fmt.Fprintln(os.Stderr, "Please edit the config file with your Azure DevOps settings.")
+			return ErrConfigCreated
 		}
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
-	// Create API client
 	client := api.NewClient(cfg)
 
-	// Create and run the TUI
 	app := ui.NewApp(client)
 
 	p := tea.NewProgram(

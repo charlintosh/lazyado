@@ -4,13 +4,13 @@ import "time"
 
 // Iteration represents an Azure DevOps iteration (sprint)
 type Iteration struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Path          string    `json:"path"`
-	StartDate     time.Time `json:"startDate"`
-	FinishDate    time.Time `json:"finishDate"`
-	TimeFrame     string    `json:"timeFrame"` // "past", "current", "future"
-	URL           string    `json:"url"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Path       string    `json:"path"`
+	StartDate  time.Time `json:"startDate"`
+	FinishDate time.Time `json:"finishDate"`
+	TimeFrame  string    `json:"timeFrame"` // "past", "current", "future"
+	URL        string    `json:"url"`
 }
 
 // IsCurrent returns true if this is the current iteration

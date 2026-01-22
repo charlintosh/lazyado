@@ -36,7 +36,7 @@ func Load() (*Config, error) {
 	// Add config paths
 	home, err := os.UserHomeDir()
 	if err == nil {
-		v.AddConfigPath(filepath.Join(home, ".config", "devops-tui"))
+		v.AddConfigPath(filepath.Join(home, ".config", "lazyado"))
 	}
 	v.AddConfigPath(".")
 
@@ -107,7 +107,7 @@ func CreateDefaultConfig() error {
 		return err
 	}
 
-	configDir := filepath.Join(home, ".config", "devops-tui")
+	configDir := filepath.Join(home, ".config", "lazyado")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}

@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/samuelenocsson/devops-tui/internal/config"
+	"github.com/charlintosh/lazyado/internal/config"
+	"github.com/charlintosh/lazyado/internal/debug"
 )
+
+var clientLogger = debug.Scope("client")
 
 const apiVersion = "7.1"
 
@@ -59,14 +62,23 @@ func (c *Client) doRequestWithContentType(method, url string, body io.Reader, co
 	req.Header.Set("Authorization", c.authHeader)
 	req.Header.Set("Content-Type", contentType)
 
+	// Log start
+	clientLogger.Debugf("fetching %s %s", method, url)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		clientLogger.Debugf("error fetching %s %v", url, err)
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
+
+	// Log completion
+	clientLogger.Debugf("fetched %s %d", url, resp.StatusCode)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		// Log error body for debugging
+		clientLogger.Debugf("API error %d: %s", resp.StatusCode, string(body))
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -83,8 +95,18 @@ func (c *Client) getTeam(endpoint string) (*http.Response, error) {
 	return c.getWithBase(c.teamURL, endpoint)
 }
 
+// getPreview performs a GET request with preview API version
+func (c *Client) getPreview(endpoint string) (*http.Response, error) {
+	return c.getWithVersion(c.baseURL, endpoint, apiVersion+"-preview")
+}
+
 // getWithBase performs a GET request with a specific base URL
 func (c *Client) getWithBase(baseURL, endpoint string) (*http.Response, error) {
+	return c.getWithVersion(baseURL, endpoint, apiVersion)
+}
+
+// getWithVersion performs a GET request with a specific API version
+func (c *Client) getWithVersion(baseURL, endpoint, version string) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", baseURL, endpoint)
 	if endpoint[0] != '/' {
 		url = fmt.Sprintf("%s/%s", baseURL, endpoint)
@@ -101,7 +123,7 @@ func (c *Client) getWithBase(baseURL, endpoint string) (*http.Response, error) {
 				}
 			}
 		}
-		url = fmt.Sprintf("%s%sapi-version=%s", url, separator, apiVersion)
+		url = fmt.Sprintf("%s%sapi-version=%s", url, separator, version)
 	}
 
 	return c.doRequest("GET", url, nil)
@@ -127,6 +149,26 @@ func (c *Client) post(endpoint string, body io.Reader) (*http.Response, error) {
 	return c.doRequest("POST", url, body)
 }
 
+// postPreview performs a POST request with preview API version
+func (c *Client) postPreview(endpoint string, body io.Reader) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
+	if endpoint[0] != '/' {
+		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
+	}
+
+	// Add API version with preview
+	separator := "?"
+	for _, ch := range url {
+		if ch == '?' {
+			separator = "&"
+			break
+		}
+	}
+	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
+
+	return c.doRequest("POST", url, body)
+}
+
 // patch performs a PATCH request (for work item updates)
 func (c *Client) patch(endpoint string, body io.Reader) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
@@ -145,6 +187,46 @@ func (c *Client) patch(endpoint string, body io.Reader) (*http.Response, error) 
 	url = fmt.Sprintf("%s%sapi-version=%s", url, separator, apiVersion)
 
 	return c.doRequestWithContentType("PATCH", url, body, "application/json-patch+json")
+}
+
+// patchPreview performs a PATCH request with preview API version
+func (c *Client) patchPreview(endpoint string, body io.Reader) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
+	if endpoint[0] != '/' {
+		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
+	}
+
+	// Add API version with preview
+	separator := "?"
+	for _, ch := range url {
+		if ch == '?' {
+			separator = "&"
+			break
+		}
+	}
+	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
+
+	return c.doRequestWithContentType("PATCH", url, body, "application/json")
+}
+
+// deletePreview performs a DELETE request with preview API version
+func (c *Client) deletePreview(endpoint string) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
+	if endpoint[0] != '/' {
+		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
+	}
+
+	// Add API version with preview
+	separator := "?"
+	for _, ch := range url {
+		if ch == '?' {
+			separator = "&"
+			break
+		}
+	}
+	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
+
+	return c.doRequest("DELETE", url, nil)
 }
 
 // decode decodes a JSON response into the given target

@@ -4,17 +4,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/samuelenocsson/devops-tui/internal/models"
+	"github.com/charlintosh/lazyado/internal/models"
 )
 
 // classificationNode represents an area node from the API
 type classificationNode struct {
-	ID         int                   `json:"id"`
-	Identifier string                `json:"identifier"`
-	Name       string                `json:"name"`
-	Path       string                `json:"path"`
+	ID          int                  `json:"id"`
+	Identifier  string               `json:"identifier"`
+	Name        string               `json:"name"`
+	Path        string               `json:"path"`
 	HasChildren bool                 `json:"hasChildren"`
-	Children   []classificationNode `json:"children"`
+	Children    []classificationNode `json:"children"`
 }
 
 // GetAreas fetches all areas for the project

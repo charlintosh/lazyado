@@ -3,21 +3,21 @@ package api
 import (
 	"time"
 
-	"github.com/samuelenocsson/devops-tui/internal/models"
+	"github.com/charlintosh/lazyado/internal/models"
 )
 
 // iterationsResponse represents the API response for iterations
 type iterationsResponse struct {
-	Count int                 `json:"count"`
+	Count int                `json:"count"`
 	Value []iterationAPIItem `json:"value"`
 }
 
 type iterationAPIItem struct {
-	ID         string             `json:"id"`
-	Name       string             `json:"name"`
-	Path       string             `json:"path"`
-	Attributes iterationAttrs     `json:"attributes"`
-	URL        string             `json:"url"`
+	ID         string         `json:"id"`
+	Name       string         `json:"name"`
+	Path       string         `json:"path"`
+	Attributes iterationAttrs `json:"attributes"`
+	URL        string         `json:"url"`
 }
 
 type iterationAttrs struct {

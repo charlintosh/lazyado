@@ -1,0 +1,33 @@
+# Taskfile.yml
+version: "3"
+
+vars:
+  output: lazyado
+  debug_output: lazyado-debug
+  cmd_path: .
+
+tasks:
+  build:
+    desc: Build release binary
+    cmds:
+      - go build -o {{.output}} {{.cmd_path}}
+
+  dev:
+    desc: Run in development (rebuilds by Go on each run)
+    cmds:
+      - go run .
+
+  debug:
+    desc: Build binary and run with `-debug` flag (simple runtime debug)
+    cmds:
+      - go run . -debug
+
+  install:
+    desc: Move built binary to /usr/local/bin (requires sudo)
+    check-update-antipatterns:
+      desc: Check for I/O/network/go-routine anti-patterns inside Update handlers
+      cmds:
+        - bash scripts/check_update_antipatterns.sh
+      silent: false
+    cmds:
+      - sudo mv {{.output}} /usr/local/bin/

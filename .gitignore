@@ -1,5 +1,5 @@
 # Binaries
-devops-tui
+lazyado
 *.exe
 *.exe~
 *.dll
@@ -32,3 +32,5 @@ config.yaml
 
 # Serena
 .serena/
+
+lazyado

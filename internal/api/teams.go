@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 
-	"github.com/samuelenocsson/devops-tui/internal/models"
+	"github.com/charlintosh/lazyado/internal/models"
 )
 
 // teamMembersResponse represents the response from team members API
