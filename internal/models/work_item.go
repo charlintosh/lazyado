@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // WorkItemType represents the type of work item
 type WorkItemType string
@@ -12,6 +15,26 @@ const (
 	WorkItemTypeBug     WorkItemType = "Bug"
 	WorkItemTypeFeature WorkItemType = "Feature"
 	WorkItemTypeEpic    WorkItemType = "Epic"
+)
+
+var (
+	// parentWorkItemTypes are work item types that can have children
+	parentWorkItemTypes = []WorkItemType{
+		WorkItemTypeStory,
+		WorkItemTypePBI,
+		WorkItemTypeBug,
+		WorkItemTypeFeature,
+		WorkItemTypeEpic,
+	}
+
+	// advancedWorkItemTypes are work item types with advanced fields like tags and assignee
+	advancedWorkItemTypes = []WorkItemType{
+		WorkItemTypeStory,
+		WorkItemTypePBI,
+		WorkItemTypeBug,
+		WorkItemTypeFeature,
+		WorkItemTypeEpic,
+	}
 )
 
 // WorkItemState represents the state of a work item
@@ -98,13 +121,13 @@ func (w *WorkItem) HasChildren() bool {
 
 // IsParentType returns true if this work item type can have children
 func (w *WorkItem) IsParentType() bool {
-	return w.Type == WorkItemTypeStory || w.Type == WorkItemTypePBI || w.Type == WorkItemTypeFeature || w.Type == WorkItemTypeEpic
+	return slices.Contains(parentWorkItemTypes, w.Type)
 }
 
 // HasAdvancedFields returns true if this work item type has advanced fields like tags and assignee
 // PBI, Bug, Story, Feature, Epic all have these fields
 func (w *WorkItem) HasAdvancedFields() bool {
-	return w.Type == WorkItemTypeStory || w.Type == WorkItemTypePBI || w.Type == WorkItemTypeBug || w.Type == WorkItemTypeFeature || w.Type == WorkItemTypeEpic
+	return slices.Contains(advancedWorkItemTypes, w.Type)
 }
 
 // WorkItemStateInfo represents state metadata from Azure DevOps
