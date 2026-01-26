@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/html"
+
 	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -208,13 +210,18 @@ func (c *CommentsPanel) updateViewportContent() {
 		commentContent.WriteString(c.styles.CommentHeader.Render(header))
 		commentContent.WriteString("\n")
 
-		// Comment text with proper wrapping
+		// Comment text with proper wrapping and styling for mentions/links
 		boxWidth := c.viewport.Width - 6 // Account for box borders and padding
 		if boxWidth < 20 {
 			boxWidth = 20
 		}
-		text := c.wrapText(comment.Text, boxWidth)
-		commentContent.WriteString(c.styles.CommentText.Render(text))
+		// Use renderedText if available (HTML format with mentions), otherwise plain text
+		sourceText := comment.Text
+		if comment.RenderedText != "" {
+			sourceText = comment.RenderedText
+		}
+		text := c.parseAndStyleHTML(sourceText, boxWidth)
+		commentContent.WriteString(text)
 
 		// Modified indicator if applicable
 		if !comment.ModifiedDate.IsZero() && !comment.ModifiedDate.Equal(comment.CreatedDate) {
@@ -276,6 +283,112 @@ func (c *CommentsPanel) wrapText(text string, width int) string {
 	}
 
 	return result.String()
+}
+
+// parseAndStyleHTML parses HTML comment text and applies styles for mentions and links
+func (c *CommentsPanel) parseAndStyleHTML(htmlText string, width int) string {
+	if width <= 0 || htmlText == "" {
+		return htmlText
+	}
+
+	// Parse HTML
+	doc, err := html.Parse(strings.NewReader(htmlText))
+	if err != nil {
+		// Fallback to plain text if parsing fails
+		return c.styles.CommentText.Render(htmlText)
+	}
+
+	// Extract styled segments from HTML
+	var segments []string
+	c.extractStyledSegments(doc, &segments)
+
+	// Join segments and wrap
+	result := strings.Join(segments, "")
+	return result
+}
+
+// extractStyledSegments recursively extracts text from HTML nodes and applies styling
+func (c *CommentsPanel) extractStyledSegments(n *html.Node, segments *[]string) {
+	if n.Type == html.TextNode {
+		text := n.Data
+		// Only skip completely empty text nodes
+		if text != "" && strings.TrimSpace(text) != "" {
+			// Preserve original spacing - don't collapse spaces here
+			*segments = append(*segments, c.styles.CommentText.Render(text))
+		}
+		return
+	}
+
+	if n.Type == html.ElementNode {
+		switch n.Data {
+		case "a":
+			// Check if it's a mention or regular link
+			isMention := false
+			for _, attr := range n.Attr {
+				if attr.Key == "data-vss-mention" {
+					isMention = true
+					break
+				}
+			}
+
+			// Extract link text (preserve the @ symbol!)
+			linkText := c.getNodeText(n)
+			if linkText != "" {
+				if isMention {
+					// Style as mention (cyan/bold)
+					*segments = append(*segments, c.styles.CommentMention.Render(linkText))
+				} else {
+					// Style as link (blue/underline)
+					*segments = append(*segments, c.styles.CommentLink.Render(linkText))
+				}
+			}
+			return
+
+		case "br":
+			*segments = append(*segments, "\n")
+			return
+
+		case "b", "strong":
+			// Bold text
+			boldText := c.getNodeText(n)
+			if boldText != "" {
+				boldStyle := c.styles.CommentText.Copy().Bold(true)
+				*segments = append(*segments, boldStyle.Render(boldText))
+			}
+			return
+
+		case "li":
+			*segments = append(*segments, "\n  • ")
+
+		case "ul", "ol":
+			*segments = append(*segments, "\n")
+
+		case "div", "p":
+			if len(*segments) > 0 {
+				*segments = append(*segments, "\n")
+			}
+		}
+	}
+
+	// Process children
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		c.extractStyledSegments(child, segments)
+	}
+}
+
+// getNodeText extracts all text content from a node and its children
+// Preserves all characters including @ symbols and spaces
+func (c *CommentsPanel) getNodeText(n *html.Node) string {
+	if n.Type == html.TextNode {
+		// Preserve all text content exactly as-is
+		return n.Data
+	}
+
+	var text strings.Builder
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		text.WriteString(c.getNodeText(child))
+	}
+	return text.String()
 }
 
 // formatCommentDate formats a comment date for display

@@ -86,6 +86,8 @@ type Styles struct {
 	CommentDate        lipgloss.Style
 	CommentText        lipgloss.Style
 	CommentEdited      lipgloss.Style
+	CommentMention     lipgloss.Style
+	CommentLink        lipgloss.Style
 
 	HelpKey   lipgloss.Style
 	HelpDesc  lipgloss.Style
@@ -241,6 +243,14 @@ func DefaultStyles() Styles {
 			Foreground(ColorMuted).
 			Italic(true).
 			MarginTop(0),
+
+		CommentMention: lipgloss.NewStyle().
+			Foreground(ColorSecondary).
+			Bold(true),
+
+		CommentLink: lipgloss.NewStyle().
+			Foreground(ColorAccent).
+			Underline(true),
 
 		HelpKey: lipgloss.NewStyle().
 			Foreground(ColorPrimary).
