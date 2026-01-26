@@ -1,8 +1,6 @@
 package screens
 
 import (
-	"fmt"
-
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,8 +18,8 @@ type SplashScreen struct {
 // NewSplashScreen creates a new splash screen
 func NewSplashScreen(st styles.Styles) SplashScreen {
 	sp := spinner.New()
-	sp.Style = st.Accent
-	sp.Spinner = spinner.Dot
+	sp.Style = st.AccentBold
+	sp.Spinner = spinner.Points // Larger spinner style
 
 	return SplashScreen{
 		styles:  st,
@@ -68,20 +66,18 @@ func (s SplashScreen) View() string {
 
 	logoBlock := lipgloss.JoinVertical(lipgloss.Left, styledLogo...)
 
-	// Loading animation (use bubbles spinner)
+	// Loading animation (use bubbles spinner) - larger and centered
 	spinnerView := s.spinner.View()
+	loading := lipgloss.NewStyle().
+		MarginTop(3).
+		Width(lipgloss.Width(logoBlock)).
+		Align(lipgloss.Center).
+		Render(spinnerView)
 
-	loadingText := fmt.Sprintf("%s Loading Azure DevOps data...", spinnerView)
-	loading := s.styles.Accent.MarginTop(2).Render(loadingText)
-
-	// Info text
-	info := s.styles.TextMuted.MarginTop(1).Render("• Fetching iterations, areas, and team members")
-
-	// Combine all elements
-	content := lipgloss.JoinVertical(lipgloss.Left,
+	// Combine logo and spinner
+	content := lipgloss.JoinVertical(lipgloss.Center,
 		logoBlock,
 		loading,
-		info,
 	)
 
 	// Center everything
