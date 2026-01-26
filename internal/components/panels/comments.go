@@ -195,48 +195,44 @@ func (c *CommentsPanel) updateViewportContent() {
 	for i, comment := range c.comments {
 		isSelected := c.focused && i == c.cursor
 
-		// Header: Author and date
-		author := c.styles.DetailLabel.Render(comment.CreatedBy)
+		// Build comment content
+		var commentContent strings.Builder
+
+		// Header: Author and date with visual hierarchy
+		author := c.styles.CommentAuthor.Render(comment.CreatedBy)
 		dateStr := formatCommentDate(comment.CreatedDate)
-		date := c.styles.Subtitle.Render(dateStr)
+		date := c.styles.CommentDate.Render(dateStr)
+		separator := c.styles.TextMuted.Render(" • ")
 
-		header := lipgloss.JoinHorizontal(lipgloss.Left, author, " • ", date)
+		header := lipgloss.JoinHorizontal(lipgloss.Left, author, separator, date)
+		commentContent.WriteString(c.styles.CommentHeader.Render(header))
+		commentContent.WriteString("\n")
 
-		if isSelected {
-			header = c.styles.ListItemSelected.Render(header)
+		// Comment text with proper wrapping
+		boxWidth := c.viewport.Width - 6 // Account for box borders and padding
+		if boxWidth < 20 {
+			boxWidth = 20
 		}
-
-		b.WriteString(header)
-		b.WriteString("\n")
-
-		// Comment text
-		text := c.wrapText(comment.Text, c.viewport.Width-2)
-		commentStyle := lipgloss.NewStyle().
-			Foreground(styles.ColorOffWhite).
-			PaddingLeft(1)
-
-		if isSelected {
-			commentStyle = commentStyle.Background(styles.ColorHighlight)
-		}
-
-		b.WriteString(commentStyle.Render(text))
-		b.WriteString("\n")
+		text := c.wrapText(comment.Text, boxWidth)
+		commentContent.WriteString(c.styles.CommentText.Render(text))
 
 		// Modified indicator if applicable
 		if !comment.ModifiedDate.IsZero() && !comment.ModifiedDate.Equal(comment.CreatedDate) {
-			modStr := fmt.Sprintf("Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
-			modStyle := c.styles.Subtitle.Italic(true)
-			b.WriteString(modStyle.Render(modStr))
-			b.WriteString("\n")
+			commentContent.WriteString("\n")
+			modStr := fmt.Sprintf("✏ Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
+			commentContent.WriteString(c.styles.CommentEdited.Render(modStr))
 		}
 
-		// Separator between comments
-		if i < len(c.comments)-1 {
-			separator := strings.Repeat("─", c.viewport.Width)
-			sepStyle := lipgloss.NewStyle().Foreground(styles.ColorBorder)
-			b.WriteString(sepStyle.Render(separator))
-			b.WriteString("\n\n")
+		// Wrap comment in styled box that takes full width
+		boxStyle := c.styles.CommentBox
+		if isSelected {
+			boxStyle = c.styles.CommentBoxSelected
 		}
+		// Account for borders (2 chars) when setting width
+		boxStyle = boxStyle.Width(c.viewport.Width - 2)
+
+		b.WriteString(boxStyle.Render(commentContent.String()))
+		b.WriteString("\n")
 	}
 
 	c.viewport.SetContent(b.String())

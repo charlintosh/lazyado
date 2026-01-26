@@ -79,6 +79,14 @@ type Styles struct {
 	DetailDescription  lipgloss.Style
 	DetailTag          lipgloss.Style
 
+	CommentBox         lipgloss.Style
+	CommentBoxSelected lipgloss.Style
+	CommentHeader      lipgloss.Style
+	CommentAuthor      lipgloss.Style
+	CommentDate        lipgloss.Style
+	CommentText        lipgloss.Style
+	CommentEdited      lipgloss.Style
+
 	HelpKey   lipgloss.Style
 	HelpDesc  lipgloss.Style
 	HelpPanel lipgloss.Style
@@ -198,6 +206,41 @@ func DefaultStyles() Styles {
 			Background(ColorDarkBlue).
 			Padding(0, 1).
 			MarginRight(1),
+
+		CommentBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorBorder).
+			Padding(0, 1).
+			MarginBottom(1),
+
+		CommentBoxSelected: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorPrimary).
+			Padding(0, 1).
+			MarginBottom(1),
+
+		CommentHeader: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorText).
+			MarginBottom(0),
+
+		CommentAuthor: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorPrimaryLight),
+
+		CommentDate: lipgloss.NewStyle().
+			Foreground(ColorTextMuted).
+			Italic(true),
+
+		CommentText: lipgloss.NewStyle().
+			Foreground(ColorOffWhite).
+			MarginTop(0).
+			MarginBottom(0),
+
+		CommentEdited: lipgloss.NewStyle().
+			Foreground(ColorMuted).
+			Italic(true).
+			MarginTop(0),
 
 		HelpKey: lipgloss.NewStyle().
 			Foreground(ColorPrimary).
