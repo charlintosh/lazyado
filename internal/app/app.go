@@ -6,6 +6,7 @@ import (
 
 	"github.com/charlintosh/lazyado/internal/api"
 	"github.com/charlintosh/lazyado/internal/components/modals"
+	"github.com/charlintosh/lazyado/internal/components/notification"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/components/screens"
 	"github.com/charlintosh/lazyado/internal/config"
@@ -61,13 +62,14 @@ type App struct {
 	bugParentModal  modals.BugParentModal
 	errorModal      modals.ErrorModal
 	splashScreen    screens.SplashScreen
+	notification    notification.Notification
+	headerBar       panels.HeaderBar
 
 	// State
 	activePanel Panel
 	viewMode    ViewMode
 	loading     bool
 	err         error
-	statusMsg   string // Temporary status message
 
 	// Data
 	iterations         []models.Iteration
@@ -121,6 +123,8 @@ func NewApp(client *api.Client) App {
 		bugParentModal:    modals.NewBugParentModal(styles, keys),
 		errorModal:        modals.NewErrorModal(styles, keys),
 		splashScreen:      screens.NewSplashScreen(styles),
+		notification:      notification.NewNotification(styles, keys),
+		headerBar:         panels.NewHeaderBar(styles),
 		activePanel:       PanelWorkItems,
 		viewMode:          ViewMain,
 		loading:           true,
@@ -136,6 +140,7 @@ func (a App) Init() tea.Cmd {
 	return tea.Batch(
 		loadDataCmd(a.client),
 		tickCmd(),
+		a.headerBar.Init(),
 	)
 }
 
@@ -152,6 +157,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
+		// Always update headerBar spinner to keep it animated
+		newHeaderBar, cmd := a.headerBar.Update(msg)
+		a.headerBar = newHeaderBar
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -160,6 +171,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.splashScreen.SetSize(a.width, a.height)
 
 	case tea.KeyMsg:
+		// Update notification first (captures ESC to dismiss)
+		if a.notification.IsVisible() {
+			newNotif, cmd := a.notification.Update(msg)
+			a.notification = newNotif
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			// Don't process other keys if notification consumed the input
+			if !a.notification.IsVisible() {
+				return a, tea.Batch(cmds...)
+			}
+		}
+
 		// Handle modals first (they capture all input when visible)
 		if a.errorModal.IsVisible() {
 			newModal, cmd := a.errorModal.Update(msg)
@@ -327,7 +351,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Refresh
 		if key.Matches(msg, a.keys.Refresh) {
 			a.loading = true
-			a.statusMsg = ""
 			return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
 		}
 
@@ -579,9 +602,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case stateChangedMsg:
 		a.loading = false
-		a.statusMsg = fmt.Sprintf("State changed to %s", msg.newState)
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("State changed to %s", msg.newState)))
 		// Refresh work items to show updated state
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.ParentSelectionChosenMsg:
 		// User selected PBI or Bug from selection modal
@@ -598,7 +621,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, createBranchCmd(msg.BranchName)
 
 	case modals.BranchCreatedMsg:
-		a.statusMsg = fmt.Sprintf("Branch created: %s", msg.BranchName)
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("Branch created: %s", msg.BranchName)))
 
 	case modals.BranchCreateErrorMsg:
 		a.err = msg.Err
@@ -610,9 +633,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case assignedMsg:
 		a.loading = false
-		a.statusMsg = fmt.Sprintf("Assigned to %s", msg.userName)
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("Assigned to %s", msg.userName)))
 		// Refresh work items to show updated assignment
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.TaskCreateRequestMsg:
 		a.taskModal.SetVisible(false)
@@ -621,8 +644,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case taskCreatedMsg:
 		a.loading = false
-		a.statusMsg = fmt.Sprintf("Task created: #%d", msg.taskID)
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("Task created: #%d", msg.taskID)))
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.ParentCreateRequestMsg:
 		a.parentSelection.SetVisible(false)
@@ -643,8 +666,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case parentCreatedMsg:
 		a.loading = false
-		a.statusMsg = fmt.Sprintf("Parent item created: #%d", msg.itemID)
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("Parent item created: #%d", msg.itemID)))
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.TaskUpdateRequestMsg:
 		a.taskModal.SetVisible(false)
@@ -653,8 +676,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case taskUpdatedMsg:
 		a.loading = false
-		a.statusMsg = "Task updated"
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Task updated"))
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.TaskDeleteRequestMsg:
 		a.deleteModal.SetVisible(false)
@@ -663,8 +686,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case taskDeletedMsg:
 		a.loading = false
-		a.statusMsg = "Task deleted"
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Task deleted"))
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case modals.PBIUpdateRequestMsg:
 		a.pbiModal.SetVisible(false)
@@ -673,8 +696,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case pbiUpdatedMsg:
 		a.loading = false
-		a.statusMsg = "PBI updated"
-		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "PBI updated"))
+		return a, tea.Batch(append(cmds, loadWorkItemsCmd(a.client, a.filterPanel.FilterState()))...)
 
 	case panels.CommentsLoadedMsg:
 		a.commentsPanel.SetComments(msg.Comments)
@@ -687,11 +710,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commentCreatedMsg:
 		a.loading = false
-		a.statusMsg = "Comment added"
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment added"))
 		// Reload comments to show the new one
 		if item := a.workItemsPanel.SelectedItem(); item != nil {
-			return a, loadCommentsCmd(a.client, item.ID)
+			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
 		}
+		return a, tea.Batch(cmds...)
 
 	case panels.EditCommentMsg:
 		if item := a.workItemsPanel.SelectedItem(); item != nil {
@@ -708,10 +732,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commentUpdatedMsg:
 		a.loading = false
-		a.statusMsg = "Comment updated"
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment updated"))
 		if item := a.workItemsPanel.SelectedItem(); item != nil {
-			return a, loadCommentsCmd(a.client, item.ID)
+			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
 		}
+		return a, tea.Batch(cmds...)
 
 	case panels.DeleteCommentMsg:
 		if item := a.workItemsPanel.SelectedItem(); item != nil {
@@ -727,9 +752,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case commentDeletedMsg:
 		a.loading = false
-		a.statusMsg = "Comment deleted"
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment deleted"))
 		if item := a.workItemsPanel.SelectedItem(); item != nil {
-			return a, loadCommentsCmd(a.client, item.ID)
+			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
+		}
+		return a, tea.Batch(cmds...)
+
+	case notification.AutoDismissMsg:
+		// Update notification to handle auto-dismiss
+		newNotif, cmd := a.notification.Update(msg)
+		a.notification = newNotif
+		if cmd != nil {
+			cmds = append(cmds, cmd)
 		}
 	}
 
@@ -845,21 +879,13 @@ func (a *App) renderMainView() string {
 	detailsWidth := (contentWidth - 4) / 2
 	commentsWidth := contentWidth - detailsWidth - 4
 
-	// Title bar
-	title := a.styles.Title.Render("lazyado")
-	projectInfo := a.styles.Subtitle.Render(fmt.Sprintf("%s/%s", a.client.Organization(), a.client.Project()))
-	titleBar := lipgloss.JoinHorizontal(lipgloss.Left, title, "  ", projectInfo)
-
-	// Loading indicator (show whenever loading after initial load)
-	if a.loading {
-		titleBar += "  " + a.styles.Subtitle.Render("Refreshing...")
-	}
-
-	// Status message
-	if a.statusMsg != "" {
-		statusStyle := lipgloss.NewStyle().Foreground(styles.ColorSuccess)
-		titleBar += "  " + statusStyle.Render(a.statusMsg)
-	}
+	// Configure and render header bar (title + notification)
+	a.headerBar.SetWidth(a.width)
+	a.headerBar.SetOrganization(a.client.Organization())
+	a.headerBar.SetProject(a.client.Project())
+	a.headerBar.SetLoading(a.loading)
+	a.headerBar.SetNotification(&a.notification)
+	headerBar := a.headerBar.View()
 
 	// Set panel sizes (content dimensions, borders added by styles)
 	a.filterPanel.SetSize(filterWidth, filterContentHeight)
@@ -887,7 +913,7 @@ func (a *App) renderMainView() string {
 
 	// Combine all
 	return lipgloss.JoinVertical(lipgloss.Left,
-		titleBar,
+		headerBar,
 		mainContent,
 		statusBar,
 	)
@@ -998,6 +1024,8 @@ func (a *App) updateFocus() {
 func (a *App) updateSizes() {
 	a.helpPanel.SetSize(a.width, a.height)
 	a.detailView.SetSize(a.width, a.height)
+	a.notification.SetSize(a.width, a.height)
+	a.headerBar.SetWidth(a.width)
 	a.taskModal.SetSize(a.width, a.height)
 	a.deleteModal.SetSize(a.width, a.height)
 	a.pbiModal.SetSize(a.width, a.height)

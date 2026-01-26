@@ -13,26 +13,27 @@ type KeyMap struct {
 	NextPanel key.Binding
 	PrevPanel key.Binding
 
-	Select        key.Binding
-	Open          key.Binding
-	View          key.Binding
-	Search        key.Binding
-	Refresh       key.Binding
-	Help          key.Binding
-	Back          key.Binding
-	Quit          key.Binding
-	ChangeState   key.Binding
-	CreateBranch  key.Binding
-	Assign        key.Binding
-	CreateTask    key.Binding
-	CreateParent  key.Binding
-	EditTask      key.Binding
-	DeleteTask    key.Binding
-	AddComment    key.Binding
-	EditComment   key.Binding
-	DeleteComment key.Binding
-	Save          key.Binding
-	Confirm       key.Binding
+	Select              key.Binding
+	Open                key.Binding
+	View                key.Binding
+	Search              key.Binding
+	Refresh             key.Binding
+	Help                key.Binding
+	Back                key.Binding
+	DismissNotification key.Binding
+	Quit                key.Binding
+	ChangeState         key.Binding
+	CreateBranch        key.Binding
+	Assign              key.Binding
+	CreateTask          key.Binding
+	CreateParent        key.Binding
+	EditTask            key.Binding
+	DeleteTask          key.Binding
+	AddComment          key.Binding
+	EditComment         key.Binding
+	DeleteComment       key.Binding
+	Save                key.Binding
+	Confirm             key.Binding
 
 	SortByID    key.Binding
 	SortByState key.Binding
@@ -114,6 +115,10 @@ func DefaultKeyMap() KeyMap {
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("Esc", "back"),
+		),
+		DismissNotification: key.NewBinding(
+			key.WithKeys(","),
+			key.WithHelp(",", "dismiss notification"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),

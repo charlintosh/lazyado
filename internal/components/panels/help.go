@@ -109,6 +109,7 @@ func (h HelpPanel) View() string {
 				h.keys.Refresh,
 				h.keys.Help,
 				h.keys.Back,
+				h.keys.DismissNotification,
 				h.keys.Quit,
 			},
 		},
