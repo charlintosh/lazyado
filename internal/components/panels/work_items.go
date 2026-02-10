@@ -74,6 +74,7 @@ func (w *WorkItemsPanel) GetAvailableActions() []string {
 	edit := w.keys.EditTask.Help()
 	del := w.keys.DeleteTask.Help()
 	comment := w.keys.AddComment.Help()
+	info := w.keys.Info.Help()
 
 	actions := []string{
 		keyStyle.Render(sel.Key) + descStyle.Render(" - "+sel.Desc),
@@ -86,6 +87,7 @@ func (w *WorkItemsPanel) GetAvailableActions() []string {
 		keyStyle.Render(del.Key) + descStyle.Render(" - "+del.Desc),
 		keyStyle.Render(comment.Key) + descStyle.Render(" - "+comment.Desc),
 		keyStyle.Render(branch.Key) + descStyle.Render(" - "+branch.Desc),
+		keyStyle.Render(info.Key) + descStyle.Render(" - "+info.Desc),
 	}
 
 	return actions

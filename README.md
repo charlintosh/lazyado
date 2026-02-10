@@ -14,6 +14,7 @@ A terminal user interface (TUI) for Azure DevOps Boards.
 - **CRUD** — Create, edit, delete PBIs, Bugs and child tasks via modal forms.
 - **Assignments** — Assign or unassign work items to team members using a searchable list.
 - **Comments** — Add, edit, delete comments (supports @mentions).
+- **Work item info** — Quickly copy work item ID or URL to clipboard via info modal.
 - **Integration helpers** — Create a git branch from a work item (branch-name helper).
 - **Detail view** — Fullscreen view showing metadata, description, acceptance criteria, tags and comments.
 - **Keyboard-driven UX** — Modals for search/assign/branch/change-state/parent-selection; Vim-like navigation (j/k/g/G); panel switching and contextual help.
@@ -132,6 +133,7 @@ Note: keys `1`, `2`, `3` are also used for sorting in some contexts (see Sort se
 | `c` | Add comment (with @mentions) |
 | `b` | Create git branch |
 | `a` | Assign to user |
+| `i` | Show work item info (copy URL/ID) |
 
 #### Modals & Confirmation
 

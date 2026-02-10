@@ -32,6 +32,7 @@ type KeyMap struct {
 	AddComment          key.Binding
 	EditComment         key.Binding
 	DeleteComment       key.Binding
+	Info                key.Binding
 	Save                key.Binding
 	Confirm             key.Binding
 
@@ -163,6 +164,10 @@ func DefaultKeyMap() KeyMap {
 		DeleteComment: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete comment"),
+		),
+		Info: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "info"),
 		),
 		Save: key.NewBinding(
 			key.WithKeys("ctrl+s"),

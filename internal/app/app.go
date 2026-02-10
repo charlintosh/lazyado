@@ -61,6 +61,7 @@ type App struct {
 	parentSelection modals.ParentSelectionModal
 	bugParentModal  modals.BugParentModal
 	errorModal      modals.ErrorModal
+	infoModal       modals.InfoModal
 	splashScreen    screens.SplashScreen
 	notification    notification.Notification
 	headerBar       panels.HeaderBar
@@ -122,6 +123,7 @@ func NewApp(client *api.Client) App {
 		parentSelection:   modals.NewParentSelectionModal(styles, keys),
 		bugParentModal:    modals.NewBugParentModal(styles, keys),
 		errorModal:        modals.NewErrorModal(styles, keys),
+		infoModal:         modals.NewInfoModal(styles, keys),
 		splashScreen:      screens.NewSplashScreen(styles),
 		notification:      notification.NewNotification(styles, keys),
 		headerBar:         panels.NewHeaderBar(styles),
@@ -269,6 +271,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.bugParentModal.IsVisible() {
 			newModal, cmd := a.bugParentModal.Update(msg)
 			a.bugParentModal = newModal
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			return a, tea.Batch(cmds...)
+		}
+
+		if a.infoModal.IsVisible() {
+			newModal, cmd := a.infoModal.Update(msg)
+			a.infoModal = newModal
 			if cmd != nil {
 				cmds = append(cmds, cmd)
 			}
@@ -462,6 +473,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Open info modal (only when work items panel is active)
+		if key.Matches(msg, a.keys.Info) && a.activePanel == PanelWorkItems {
+			if item := a.workItemsPanel.SelectedItem(); item != nil {
+				a.infoModal.SetItem(item)
+				a.infoModal.SetSize(a.width, a.height)
+				a.infoModal.SetVisible(true)
+				return a, nil
+			}
+		}
+
 		// Update active panel
 		switch a.activePanel {
 		case PanelFilterSprint, PanelFilterState, PanelFilterAssigned, PanelFilterArea:
@@ -594,6 +615,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.parentSelection.SetVisible(false)
 		a.pbiModal.SetVisible(false)
 		a.bugParentModal.SetVisible(false)
+		a.infoModal.SetVisible(false)
 
 	case modals.StateChangeRequestMsg:
 		a.stateModal.SetVisible(false)
@@ -765,6 +787,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+
+	case modals.InfoCopiedMsg:
+		a.infoModal.SetVisible(false)
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, msg.Text))
+
+	case modals.InfoCopyErrorMsg:
+		a.infoModal.SetVisible(false)
+		a.errorModal.SetError(msg.Err)
+		a.errorModal.SetSize(a.width, a.height)
+		a.errorModal.SetVisible(true)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -827,6 +859,11 @@ func (a App) View() string {
 	}
 	if a.bugParentModal.IsVisible() {
 		return a.bugParentModal.View()
+	}
+
+	// Render info modal if visible
+	if a.infoModal.IsVisible() {
+		return a.infoModal.View()
 	}
 
 	// Render comment modal if visible
@@ -1034,6 +1071,7 @@ func (a *App) updateSizes() {
 	a.bugParentModal.SetSize(a.width, a.height)
 	a.commentModal.SetSize(a.width, a.height)
 	a.errorModal.SetSize(a.width, a.height)
+	a.infoModal.SetSize(a.width, a.height)
 	a.updateFocus()
 }
 
