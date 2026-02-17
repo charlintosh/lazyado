@@ -35,6 +35,7 @@ type KeyMap struct {
 	Info                key.Binding
 	Save                key.Binding
 	Confirm             key.Binding
+	QuickSearch         key.Binding
 
 	SortByID    key.Binding
 	SortByState key.Binding
@@ -176,6 +177,10 @@ func DefaultKeyMap() KeyMap {
 		Confirm: key.NewBinding(
 			key.WithKeys("y", "Y"),
 			key.WithHelp("y", "confirm"),
+		),
+		QuickSearch: key.NewBinding(
+			key.WithKeys("ctrl+f"),
+			key.WithHelp("Ctrl+f", "quick search"),
 		),
 		SortByID: key.NewBinding(
 			key.WithKeys("1"),

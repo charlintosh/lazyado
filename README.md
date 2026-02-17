@@ -10,6 +10,7 @@ A terminal user interface (TUI) for Azure DevOps Boards.
 
 ## Features
 - **Work items** — Browse, search and filter by sprint, state, assigned, area, tags; sort by ID / Type / State.
+- **Quick search** — Instantly jump to any work item by ID using Ctrl+F.
 - **Hierarchical view** — PBIs / Bugs with expandable child tasks.
 - **CRUD** — Create, edit, delete PBIs, Bugs and child tasks via modal forms.
 - **Assignments** — Assign or unassign work items to team members using a searchable list.
@@ -125,6 +126,7 @@ Note: keys `1`, `2`, `3` are also used for sorting in some contexts (see Sort se
 | `enter` | Select / Open |
 | `v` | View fullscreen details |
 | `/` | Search in filter panels |
+| `Ctrl+f` | Quick search by work item ID |
 | `s` | Change work item state |
 | `n` | Create new parent item (PBI/Bug) |
 | `t` | Create new child task (on PBI) |

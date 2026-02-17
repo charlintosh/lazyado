@@ -44,27 +44,28 @@ const (
 // App is the main application model
 type App struct {
 	// Components
-	filterPanel     panels.FilterPanel
-	workItemsPanel  panels.WorkItemsPanel
-	detailsPanel    panels.DetailsPanel
-	commentsPanel   panels.CommentsPanel
-	commentModal    modals.CommentModal
-	detailView      panels.DetailView
-	helpPanel       panels.HelpPanel
-	stateModal      modals.StateModal
-	branchModal     modals.BranchModal
-	assignModal     modals.AssignModal
-	taskModal       modals.TaskModal
-	deleteModal     modals.DeleteModal
-	pbiModal        modals.PBIModal
-	searchModal     modals.SearchModal
-	parentSelection modals.ParentSelectionModal
-	bugParentModal  modals.BugParentModal
-	errorModal      modals.ErrorModal
-	infoModal       modals.InfoModal
-	splashScreen    screens.SplashScreen
-	notification    notification.Notification
-	headerBar       panels.HeaderBar
+	filterPanel      panels.FilterPanel
+	workItemsPanel   panels.WorkItemsPanel
+	detailsPanel     panels.DetailsPanel
+	commentsPanel    panels.CommentsPanel
+	commentModal     modals.CommentModal
+	detailView       panels.DetailView
+	helpPanel        panels.HelpPanel
+	stateModal       modals.StateModal
+	branchModal      modals.BranchModal
+	assignModal      modals.AssignModal
+	taskModal        modals.TaskModal
+	deleteModal      modals.DeleteModal
+	pbiModal         modals.PBIModal
+	searchModal      modals.SearchModal
+	parentSelection  modals.ParentSelectionModal
+	bugParentModal   modals.BugParentModal
+	errorModal       modals.ErrorModal
+	infoModal        modals.InfoModal
+	quickSearchModal modals.QuickSearchModal
+	splashScreen     screens.SplashScreen
+	notification     notification.Notification
+	headerBar        panels.HeaderBar
 
 	// State
 	activePanel Panel
@@ -124,6 +125,7 @@ func NewApp(client *api.Client) App {
 		bugParentModal:    modals.NewBugParentModal(styles, keys),
 		errorModal:        modals.NewErrorModal(styles, keys),
 		infoModal:         modals.NewInfoModal(styles, keys),
+		quickSearchModal:  modals.NewQuickSearchModal(styles, keys),
 		splashScreen:      screens.NewSplashScreen(styles),
 		notification:      notification.NewNotification(styles, keys),
 		headerBar:         panels.NewHeaderBar(styles),
@@ -295,6 +297,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(cmds...)
 		}
 
+		if a.quickSearchModal.IsVisible() {
+			newModal, cmd := a.quickSearchModal.Update(msg)
+			a.quickSearchModal = newModal
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			// Add spinner tick command if loading
+			spinnerCmd := a.quickSearchModal.GetSpinnerCmd()
+			if spinnerCmd != nil {
+				cmds = append(cmds, spinnerCmd)
+			}
+			return a, tea.Batch(cmds...)
+		}
+
 		// Global keys
 		if key.Matches(msg, a.keys.Quit) && !a.helpPanel.IsVisible() && a.viewMode == ViewMain {
 			return a, tea.Quit
@@ -363,6 +379,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, a.keys.Refresh) {
 			a.loading = true
 			return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
+		}
+
+		// Quick search (Ctrl+F) - available in main view only
+		if key.Matches(msg, a.keys.QuickSearch) && a.viewMode == ViewMain {
+			a.quickSearchModal.SetSize(a.width, a.height)
+			a.quickSearchModal.SetVisible(true)
+			return a, nil
 		}
 
 		// Open state change modal (only when work items panel is active)
@@ -616,6 +639,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.pbiModal.SetVisible(false)
 		a.bugParentModal.SetVisible(false)
 		a.infoModal.SetVisible(false)
+		a.quickSearchModal.SetVisible(false)
 
 	case modals.StateChangeRequestMsg:
 		a.stateModal.SetVisible(false)
@@ -797,6 +821,21 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.errorModal.SetError(msg.Err)
 		a.errorModal.SetSize(a.width, a.height)
 		a.errorModal.SetVisible(true)
+
+	case modals.QuickSearchRequestMsg:
+		a.quickSearchModal.SetLoading(true)
+		return a, quickSearchWorkItemCmd(a.client, msg.ID)
+
+	case modals.QuickSearchSuccessMsg:
+		a.quickSearchModal.SetVisible(false)
+		a.viewMode = ViewDetail
+		a.detailView.SetItem(msg.Item)
+		a.updateSizes()
+		return a, loadCommentsCmd(a.client, msg.Item.ID)
+
+	case modals.QuickSearchErrorMsg:
+		a.quickSearchModal.SetLoading(false)
+		a.quickSearchModal.SetError(msg.Err)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -869,6 +908,10 @@ func (a App) View() string {
 	// Render comment modal if visible
 	if a.commentModal.IsVisible() {
 		return a.commentModal.View()
+	}
+
+	if a.quickSearchModal.IsVisible() {
+		return a.quickSearchModal.View()
 	}
 
 	// Render help overlay if visible
@@ -1072,6 +1115,7 @@ func (a *App) updateSizes() {
 	a.commentModal.SetSize(a.width, a.height)
 	a.errorModal.SetSize(a.width, a.height)
 	a.infoModal.SetSize(a.width, a.height)
+	a.quickSearchModal.SetSize(a.width, a.height)
 	a.updateFocus()
 }
 
@@ -1310,6 +1354,16 @@ func deleteCommentCmd(client *api.Client, workItemID, commentID int) tea.Cmd {
 			return errMsg{err: err}
 		}
 		return commentDeletedMsg{}
+	}
+}
+
+func quickSearchWorkItemCmd(client *api.Client, itemID int) tea.Cmd {
+	return func() tea.Msg {
+		item, err := client.GetWorkItem(itemID)
+		if err != nil {
+			return modals.QuickSearchErrorMsg{Err: err}
+		}
+		return modals.QuickSearchSuccessMsg{Item: item}
 	}
 }
 
