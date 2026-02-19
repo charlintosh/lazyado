@@ -101,55 +101,55 @@ type ParentModal struct {
 }
 
 // NewParentModal creates a new parent modal
-func NewParentModal(styles styles.Styles, keys keys.KeyMap) ParentModal {
+func NewParentModal(st styles.Styles, keys keys.KeyMap) ParentModal {
 	ti := textinput.New()
 	ti.Placeholder = placeholderText["title"]
-	ti.CharLimit = 255
-	ti.Width = 60
+	ti.CharLimit = styles.TitleCharLimit
+	ti.Width = styles.TextareaWidthLG
 
 	ta := textarea.New()
 	ta.Placeholder = placeholderText["description"]
-	ta.CharLimit = 2000
-	ta.SetWidth(60)
-	ta.SetHeight(4)
+	ta.CharLimit = styles.ContentCharLimitLG
+	ta.SetWidth(styles.TextareaWidthLG)
+	ta.SetHeight(styles.TextareaHeightMD)
 	ta.ShowLineNumbers = false
 
 	aca := textarea.New()
 	aca.Placeholder = placeholderText["acceptanceCriteria"]
-	aca.CharLimit = 2000
-	aca.SetWidth(60)
-	aca.SetHeight(3)
+	aca.CharLimit = styles.ContentCharLimitLG
+	aca.SetWidth(styles.TextareaWidthLG)
+	aca.SetHeight(styles.TextareaHeightSM)
 	aca.ShowLineNumbers = false
 
 	ei := textinput.New()
 	ei.Placeholder = placeholderText["effort"]
-	ei.CharLimit = 10
-	ei.Width = 15
+	ei.CharLimit = styles.InputCharLimitSM
+	ei.Width = styles.TextInputWidthSM
 
 	pi := textinput.New()
 	pi.Placeholder = placeholderText["priority"]
-	pi.CharLimit = 10
-	pi.Width = 15
+	pi.CharLimit = styles.InputCharLimitSM
+	pi.Width = styles.TextInputWidthSM
 
 	tagi := textinput.New()
 	tagi.Placeholder = placeholderText["tags"]
-	tagi.CharLimit = 500
-	tagi.Width = 60
+	tagi.CharLimit = styles.TagsCharLimit
+	tagi.Width = styles.TextareaWidthLG
 
 	areai := textinput.New()
 	areai.Placeholder = placeholderText["area"]
-	areai.CharLimit = 500
-	areai.Width = 60
+	areai.CharLimit = styles.TagsCharLimit
+	areai.Width = styles.TextareaWidthLG
 
 	assi := textinput.New()
 	assi.Placeholder = placeholderText["assignee"]
-	assi.CharLimit = 100
-	assi.Width = 60
+	assi.CharLimit = styles.InputCharLimitLG
+	assi.Width = styles.TextareaWidthLG
 
 	dci := textinput.New()
 	dci.Placeholder = placeholderText["defectCause"]
-	dci.CharLimit = 500
-	dci.Width = 60
+	dci.CharLimit = styles.TagsCharLimit
+	dci.Width = styles.TextareaWidthLG
 
 	return ParentModal{
 		titleInput:             ti,
@@ -169,7 +169,7 @@ func NewParentModal(styles styles.Styles, keys keys.KeyMap) ParentModal {
 		focusedField:           1,
 		workItemType:           workItemTypePBI,
 		selectedSprint:         0,
-		styles:                 styles,
+		styles:                 st,
 		keys:                   keys,
 	}
 }
@@ -521,8 +521,8 @@ func (p ParentModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 70
-	modalHeight := 35
+	modalWidth := styles.ModalWidthXL
+	modalHeight := styles.ModalHeightXXL
 
 	// Build content
 	var b strings.Builder
@@ -623,7 +623,7 @@ func (p ParentModal) View() string {
 		// Show assignee list if focused and has results
 		if p.focusedField == 9 && p.showAssigneeList && len(p.filteredMembers) > 0 {
 			b.WriteString("\n")
-			maxVisible := 4
+			maxVisible := styles.AssigneeListVisibleItems
 			end := len(p.filteredMembers)
 			if end > maxVisible {
 				end = maxVisible
@@ -678,7 +678,7 @@ func (p ParentModal) View() string {
 		// Show assignee list if focused and has results
 		if p.focusedField == 8 && p.showAssigneeList && len(p.filteredMembers) > 0 {
 			b.WriteString("\n")
-			maxVisible := 4
+			maxVisible := styles.AssigneeListVisibleItems
 			end := len(p.filteredMembers)
 			if end > maxVisible {
 				end = maxVisible
@@ -728,7 +728,7 @@ func (p ParentModal) View() string {
 	content := lipgloss.NewStyle().
 		Width(modalWidth).
 		Height(modalHeight).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())

@@ -31,7 +31,7 @@ type QuickSearchModal struct {
 func NewQuickSearchModal(st styles.Styles, k keys.KeyMap) QuickSearchModal {
 	ti := textinput.New()
 	ti.Placeholder = "Enter work item ID..."
-	ti.CharLimit = 10
+	ti.CharLimit = styles.InputCharLimitSM
 	ti.Prompt = "🔍 "
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	ti.TextStyle = lipgloss.NewStyle().Foreground(styles.ColorText)
@@ -189,13 +189,13 @@ func (m QuickSearchModal) View() string {
 	content := b.String()
 
 	// Modal styling
-	modalWidth := 50
-	modalHeight := 12
+	modalWidth := styles.ModalWidthMD
+	modalHeight := styles.ModalHeightLG
 
 	panel := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth).
 		Height(modalHeight).
 		Render(content)

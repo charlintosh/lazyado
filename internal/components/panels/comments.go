@@ -129,12 +129,10 @@ func (c *CommentsPanel) SetSize(width, height int) {
 	c.width = width
 	c.height = height
 
-	// Account for panel borders and padding
-	contentWidth := width - 2
-	contentHeight := height - 2
-
-	c.viewport.Width = contentWidth
-	c.viewport.Height = contentHeight
+	// Width(W) → outer = W+2 (border additive); inner text = W - padding(2) = W-2.
+	// Height(H) → outer = H+2 (border additive); inner lines = H (no vertical padding).
+	c.viewport.Width = width - styles.PanelBorderOffset
+	c.viewport.Height = height
 
 	if c.ready {
 		c.updateViewportContent()

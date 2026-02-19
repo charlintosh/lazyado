@@ -1,5 +1,7 @@
 package models
 
+import "github.com/charlintosh/lazyado/internal/styles"
+
 // FilterType represents the type of filter
 type FilterType int
 
@@ -205,9 +207,8 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 	// Calculate initial cursor and offset for sprint group
 	sprintCursor := selectedIdx
 	sprintOffset := 0
-	const maxVisibleOptions = 6
-	if sprintCursor >= maxVisibleOptions {
-		sprintOffset = sprintCursor - maxVisibleOptions + 1
+	if sprintCursor >= styles.FilterGroupVisibleOptions {
+		sprintOffset = sprintCursor - styles.FilterGroupVisibleOptions + 1
 	}
 
 	// Build area options from areas
@@ -225,8 +226,8 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 		_ = i
 	}
 	areaOffset := 0
-	if areaCursor >= maxVisibleOptions {
-		areaOffset = areaCursor - maxVisibleOptions + 1
+	if areaCursor >= styles.FilterGroupVisibleOptions {
+		areaOffset = areaCursor - styles.FilterGroupVisibleOptions + 1
 	}
 
 	// Build state options from all work item types (unique states)
@@ -287,8 +288,8 @@ func NewFilterState(iterations []Iteration, areas []Area, statesByType map[strin
 		}
 	}
 	stateOffset := 0
-	if stateCursor >= maxVisibleOptions {
-		stateOffset = stateCursor - maxVisibleOptions + 1
+	if stateCursor >= styles.FilterGroupVisibleOptions {
+		stateOffset = stateCursor - styles.FilterGroupVisibleOptions + 1
 	}
 
 	// Calculate cursor for assigned group
@@ -405,7 +406,6 @@ func (f *FilterState) GetSelectedArea() string {
 
 // ApplySavedSelections applies saved filter selections
 func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string) {
-	const maxVisibleOptions = 6
 
 	for _, g := range f.Groups {
 		var targetValue string
@@ -431,8 +431,8 @@ func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string)
 				g.Select(i)
 				g.Cursor = i
 				// Adjust offset to make selected item visible
-				if g.Cursor >= maxVisibleOptions {
-					g.Offset = g.Cursor - maxVisibleOptions + 1
+				if g.Cursor >= styles.FilterGroupVisibleOptions {
+					g.Offset = g.Cursor - styles.FilterGroupVisibleOptions + 1
 				} else {
 					g.Offset = 0
 				}
@@ -447,8 +447,8 @@ func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string)
 			for i, opt := range g.Options {
 				if opt.Selected {
 					g.Cursor = i
-					if g.Cursor >= maxVisibleOptions {
-						g.Offset = g.Cursor - maxVisibleOptions + 1
+					if g.Cursor >= styles.FilterGroupVisibleOptions {
+						g.Offset = g.Cursor - styles.FilterGroupVisibleOptions + 1
 					} else {
 						g.Offset = 0
 					}

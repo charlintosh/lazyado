@@ -13,7 +13,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const searchMaxVisibleResults = 8
+// searchMaxVisibleResults aliases styles.ModalListVisibleItems for local readability.
+const searchMaxVisibleResults = styles.ModalListVisibleItems
 
 // SearchModal is a modal for searching and selecting from filter options
 type SearchModal struct {
@@ -32,7 +33,7 @@ type SearchModal struct {
 func NewSearchModal(st styles.Styles, keys keys.KeyMap) SearchModal {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
-	ti.CharLimit = 50
+	ti.CharLimit = styles.InputCharLimitMD
 	ti.Prompt = "🔍 "
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	ti.TextStyle = lipgloss.NewStyle().Foreground(styles.ColorText)
@@ -207,13 +208,13 @@ func (s SearchModal) View() string {
 	content := b.String()
 
 	// Modal styling
-	modalWidth := 50
-	modalHeight := 20
+	modalWidth := styles.ModalWidthMD
+	modalHeight := styles.ModalHeightXL
 
 	panel := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth).
 		Height(modalHeight).
 		Render(content)

@@ -30,14 +30,14 @@ type AssignModal struct {
 }
 
 // NewAssignModal creates a new assign modal
-func NewAssignModal(styles styles.Styles, keys keys.KeyMap) AssignModal {
+func NewAssignModal(st styles.Styles, keys keys.KeyMap) AssignModal {
 	ti := textinput.New()
 	ti.Placeholder = "Type to filter..."
-	ti.CharLimit = 50
-	ti.Width = 30
+	ti.CharLimit = styles.InputCharLimitMD
+	ti.Width = styles.TextInputWidthMD
 
 	return AssignModal{
-		styles:      styles,
+		styles:      st,
 		keys:        keys,
 		filterInput: ti,
 	}
@@ -156,9 +156,9 @@ func (m AssignModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 50
-	visibleItems := 8
-	modalHeight := visibleItems + 10
+	modalWidth := styles.ModalWidthMD
+	visibleItems := styles.ModalListVisibleItems
+	modalHeight := visibleItems + styles.AssignModalBaseHeight
 
 	// Build content
 	var b strings.Builder
@@ -228,7 +228,7 @@ func (m AssignModal) View() string {
 			}
 
 			// Show name, truncate if needed
-			name := components.TruncateStr(member.DisplayName, modalWidth-10)
+			name := components.TruncateStr(member.DisplayName, modalWidth-styles.ModalListItemOffset)
 			b.WriteString(cursor + style.Render(name) + "\n")
 		}
 

@@ -57,8 +57,8 @@ func (m ErrorModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 80
-	modalHeight := 20
+	modalWidth := styles.ModalWidthXXL
+	modalHeight := styles.ModalHeightXL
 
 	// Build content
 	var b strings.Builder
@@ -74,8 +74,8 @@ func (m ErrorModal) View() string {
 	// Error message with wrapping
 	errorStyle := lipgloss.NewStyle().
 		Foreground(styles.ColorText).
-		Width(modalWidth - 6).
-		MaxWidth(modalWidth - 6)
+		Width(modalWidth - styles.ModalContentOffset).
+		MaxWidth(modalWidth - styles.ModalContentOffset)
 
 	b.WriteString(errorStyle.Render(m.errMsg))
 	b.WriteString("\n\n")
@@ -90,7 +90,7 @@ func (m ErrorModal) View() string {
 	content := lipgloss.NewStyle().
 		Width(modalWidth).
 		Height(modalHeight).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).
 		Render(b.String())

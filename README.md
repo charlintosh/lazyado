@@ -4,11 +4,12 @@
 ![Go Report Card](https://goreportcard.com/badge/github.com/charlintosh/lazyado)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 ![Repo Size](https://img.shields.io/github/repo-size/charlintosh/lazyado)
-![version](https://img.shields.io/badge/version-0.1.0-purple)
+![version](https://img.shields.io/badge/version-0.1.3-purple)
 
 A terminal user interface (TUI) for Azure DevOps Boards.
 
 ## Features
+
 - **Work items** — Browse, search and filter by sprint, state, assigned, area, tags; sort by ID / Type / State.
 - **Quick search** — Instantly jump to any work item by ID using Ctrl+F.
 - **Hierarchical view** — PBIs / Bugs with expandable child tasks.
@@ -85,82 +86,81 @@ Your Personal Access Token needs these scopes:
 
 ## Keyboard Shortcuts
 
-
 ### Keyboard Shortcuts (canonical)
 
 These shortcuts reflect the canonical `internal/keys/keymap.go` bindings used by the application.
 
 #### Global / Panel
 
-| Key | Description |
-| ---- | ----------- |
-| `1` | Panel 1 / Sort by ID |
-| `2` | Panel 2 / Sort by Type |
-| `3` | Panel 3 / Sort by State |
-| `4` | Panel 4 |
-| `5` | Panel 5 |
-| `6` | Panel 6 |
-| `Tab` | Switch to next panel |
-| `Shift+Tab` | Switch to previous panel |
-| `?` | Show/hide help |
-| `Ctrl+r` | Reload data |
-| `q` / `Ctrl+c` | Quit |
+| Key            | Description              |
+| -------------- | ------------------------ |
+| `1`            | Panel 1 / Sort by ID     |
+| `2`            | Panel 2 / Sort by Type   |
+| `3`            | Panel 3 / Sort by State  |
+| `4`            | Panel 4                  |
+| `5`            | Panel 5                  |
+| `6`            | Panel 6                  |
+| `Tab`          | Switch to next panel     |
+| `Shift+Tab`    | Switch to previous panel |
+| `?`            | Show/hide help           |
+| `Ctrl+r`       | Reload data              |
+| `q` / `Ctrl+c` | Quit                     |
 
 Note: keys `1`, `2`, `3` are also used for sorting in some contexts (see Sort section).
 
 #### Navigation
 
-| Key | Description |
-| --- | ----------- |
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
-| `h` / `←` | Left / collapse |
-| `l` / `→` | Right / expand |
-| `g` | Go to first item |
-| `G` | Go to last item |
+| Key       | Description      |
+| --------- | ---------------- |
+| `j` / `↓` | Move down        |
+| `k` / `↑` | Move up          |
+| `h` / `←` | Left / collapse  |
+| `l` / `→` | Right / expand   |
+| `g`       | Go to first item |
+| `G`       | Go to last item  |
 
 #### Actions
 
-| Key | Description |
-| --- | ----------- |
-| `enter` | Select / Open |
-| `v` | View fullscreen details |
-| `/` | Search in filter panels |
-| `Ctrl+f` | Quick search by work item ID |
-| `s` | Change work item state |
-| `n` | Create new parent item (PBI/Bug) |
-| `t` | Create new child task (on PBI) |
-| `e` | Edit work item |
-| `d` | Delete work item |
-| `c` | Add comment (with @mentions) |
-| `b` | Create git branch |
-| `a` | Assign to user |
-| `i` | Show work item info (copy URL/ID) |
+| Key      | Description                       |
+| -------- | --------------------------------- |
+| `enter`  | Select / Open                     |
+| `v`      | View fullscreen details           |
+| `/`      | Search in filter panels           |
+| `Ctrl+f` | Quick search by work item ID      |
+| `s`      | Change work item state            |
+| `n`      | Create new parent item (PBI/Bug)  |
+| `t`      | Create new child task (on PBI)    |
+| `e`      | Edit work item                    |
+| `d`      | Delete work item                  |
+| `c`      | Add comment (with @mentions)      |
+| `b`      | Create git branch                 |
+| `a`      | Assign to user                    |
+| `i`      | Show work item info (copy URL/ID) |
 
 #### Modals & Confirmation
 
-| Key | Description |
-| --- | ----------- |
-| `esc` | Back / Close |
-| `ctrl+s` | Save / Submit in modals |
-| `y` / `Y` | Confirm |
+| Key              | Description                 |
+| ---------------- | --------------------------- |
+| `esc`            | Back / Close                |
+| `ctrl+s`         | Save / Submit in modals     |
+| `y` / `Y`        | Confirm                     |
 | `left` / `right` | Modal-only arrow navigation |
 
 #### Sorting
 
-| Key | Description |
-| --- | ----------- |
-| `1` | Sort by ID (contextual) |
-| `2` | Sort by Type (contextual) |
+| Key | Description                |
+| --- | -------------------------- |
+| `1` | Sort by ID (contextual)    |
+| `2` | Sort by Type (contextual)  |
 | `3` | Sort by State (contextual) |
 
 If a key has multiple meanings, the active context determines the action (panel vs list sort).
 
 ### Work Item Creation/Editing
 
-| Key | Description |
-| --- | ----------- |
-| `Tab` | Switch input field |
+| Key      | Description                |
+| -------- | -------------------------- |
+| `Tab`    | Switch input field         |
 | `Ctrl+S` | Save/Submit form in modals |
 
 ### Comments (when Comments panel is focused)
@@ -173,13 +173,13 @@ If a key has multiple meanings, the active context determines the action (panel 
 
 ## Status Messages
 
-| Key | Description |
-| --- | ----------- |
-| `@` | Trigger user suggestions |
-| `↑` / `↓` | Navigate suggestions |
+| Key             | Description                  |
+| --------------- | ---------------------------- |
+| `@`             | Trigger user suggestions     |
+| `↑` / `↓`       | Navigate suggestions         |
 | `Enter` / `Tab` | Select user from suggestions |
-| `Ctrl+S` | Submit comment |
-| `Esc` | Cancel / Close suggestions |
+| `Ctrl+S`        | Submit comment               |
+| `Esc`           | Cancel / Close suggestions   |
 
 ### Detail View
 
@@ -197,7 +197,9 @@ The detail view displays:
 - Acceptance criteria (if present)
 - Tags
 - Comments with author and timestamp
+
 # Contributing
+
 ### Taskfile
 
 This repository includes a `Taskfile.yml` with convenient tasks for building, running, and debugging the app. Use the `task` CLI (https://github.com/go-task/task) to run them.
@@ -229,7 +231,6 @@ lazyado -debug
 ```
 
 Use this when reporting issues or investigating runtime behaviour.
-
 
 ## Tech Stack
 

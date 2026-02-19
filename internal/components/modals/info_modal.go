@@ -101,8 +101,8 @@ func (m InfoModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 40
-	modalHeight := 10
+	modalWidth := styles.ModalWidthSM
+	modalHeight := styles.ModalHeightMD
 
 	// Build content
 	var b strings.Builder
@@ -144,7 +144,7 @@ func (m InfoModal) View() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth).
 		Height(modalHeight)
 

@@ -31,25 +31,25 @@ type TaskModal struct {
 }
 
 // NewTaskModal creates a new task modal
-func NewTaskModal(styles styles.Styles, keys keys.KeyMap) TaskModal {
+func NewTaskModal(st styles.Styles, keys keys.KeyMap) TaskModal {
 	ti := textinput.New()
 	ti.Placeholder = "Enter task title..."
 	ti.Focus()
-	ti.CharLimit = 255
-	ti.Width = 50
+	ti.CharLimit = styles.TitleCharLimit
+	ti.Width = styles.TextareaWidthMD
 
 	ta := textarea.New()
 	ta.Placeholder = "Enter description (optional)..."
-	ta.CharLimit = 1000
-	ta.SetWidth(50)
-	ta.SetHeight(3)
+	ta.CharLimit = styles.ContentCharLimitMD
+	ta.SetWidth(styles.TextareaWidthMD)
+	ta.SetHeight(styles.TextareaHeightSM)
 	ta.ShowLineNumbers = false
 
 	return TaskModal{
 		titleInput:      ti,
 		descriptionArea: ta,
 		focusedField:    0,
-		styles:          styles,
+		styles:          st,
 		keys:            keys,
 	}
 }
@@ -134,8 +134,8 @@ func (m TaskModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 60
-	modalHeight := 18
+	modalWidth := styles.ModalWidthLG
+	modalHeight := styles.ModalHeightXL
 
 	// Build content
 	var b strings.Builder
@@ -195,11 +195,11 @@ func (m TaskModal) View() string {
 
 	// Style the modal
 	contentStr := b.String()
-	modalHeight = lipgloss.Height(contentStr) + 4
+	modalHeight = lipgloss.Height(contentStr) + styles.PanelBorderOffset*2
 	content := lipgloss.NewStyle().
 		Width(modalWidth).
 		Height(modalHeight).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(contentStr)

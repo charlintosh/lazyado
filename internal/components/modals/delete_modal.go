@@ -74,8 +74,8 @@ func (m DeleteModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 50
-	modalHeight := 8
+	modalWidth := styles.ModalWidthMD
+	modalHeight := styles.ModalHeightSM
 
 	// Build content
 	var b strings.Builder
@@ -125,7 +125,7 @@ func (m DeleteModal) View() string {
 	content := lipgloss.NewStyle().
 		Width(modalWidth).
 		Height(modalHeight).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).
 		Render(b.String())

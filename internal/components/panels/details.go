@@ -7,27 +7,27 @@ import (
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/glamour"
 )
 
 // DetailsPanel shows details for a selected work item
 type DetailsPanel struct {
-	item              *models.WorkItem
-	styles            styles.Styles
-	keys              keys.KeyMap
-	width             int
-	height            int
-	renderedDesc      string
-	renderedDescWidth int
-	renderedAC        string
-	renderedACWidth   int
+	item     *models.WorkItem
+	viewport viewport.Model
+	styles   styles.Styles
+	keys     keys.KeyMap
+	width    int
+	height   int
+	ready    bool
 }
 
 // NewDetailsPanel creates a new details panel
-func NewDetailsPanel(styles styles.Styles, keys keys.KeyMap) DetailsPanel {
+func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 	return DetailsPanel{
-		styles: styles,
-		keys:   keys,
+		viewport: viewport.New(0, 0),
+		styles:   st,
+		keys:     k,
 	}
 }
 
@@ -41,161 +41,181 @@ func (d DetailsPanel) View() string {
 			Render(content)
 	}
 
-	var b strings.Builder
+	var vpContent string
+	if d.ready {
+		vpContent = d.viewport.View()
+	}
 
-	// Title
+	return d.styles.PanelInactive.
+		Width(d.width).
+		Height(d.height).
+		BorderForeground(styles.ColorBorder).
+		Render(vpContent)
+}
+
+// SetItem sets the work item to display
+func (d *DetailsPanel) SetItem(item *models.WorkItem) {
+	d.item = item
+	if d.viewport.Width > 0 {
+		d.viewport.GotoTop()
+		d.updateViewportContent()
+	}
+}
+
+// SetSize sets the size of the details panel and rebuilds viewport content.
+func (d *DetailsPanel) SetSize(width, height int) {
+	d.width = width
+	d.height = height
+	// PanelInactive: Border adds +2 outer; Padding(0,1) adds 1 char each side.
+	// viewport.Width = inner text width = d.width - 2 (padding).
+	// viewport.Height = inner content lines = d.height (no vertical padding).
+	vpWidth := d.width - styles.PanelBorderOffset
+	if vpWidth < styles.FilterMinViewportWidth {
+		vpWidth = styles.FilterMinViewportWidth
+	}
+	d.viewport.Width = vpWidth
+	d.viewport.Height = d.height
+	if d.item != nil {
+		d.updateViewportContent()
+	}
+}
+
+// updateViewportContent builds the full content string and loads it into the viewport.
+func (d *DetailsPanel) updateViewportContent() {
+	if d.item == nil || d.viewport.Width <= 0 {
+		return
+	}
+	wrapWidth := d.viewport.Width - 2
+	if wrapWidth < 10 {
+		wrapWidth = 10
+	}
+	d.viewport.SetContent(d.buildContent(wrapWidth))
+	d.ready = true
+}
+
+// buildContent assembles all sections into a single string for the viewport.
+func (d *DetailsPanel) buildContent(wrapWidth int) string {
+	var b strings.Builder
+	d.writeHeader(&b)
+	d.writeMetadata(&b)
+	d.writeDescriptionSection(&b, wrapWidth)
+	d.writeACSection(&b, wrapWidth)
+	d.writeTagsSection(&b)
+	return b.String()
+}
+
+// writeHeader writes the item title line.
+func (d *DetailsPanel) writeHeader(b *strings.Builder) {
 	title := fmt.Sprintf("#%d %s", d.item.ID, d.item.Title)
-	if len(title) > d.width-6 {
-		title = title[:d.width-9] + "..."
+	if len(title) > d.viewport.Width-2 {
+		title = title[:d.viewport.Width-5] + "..."
 	}
 	b.WriteString(d.styles.DetailTitle.Render(title))
 	b.WriteString("\n\n")
+}
 
-	// Metadata section with aligned columns
+// writeMetadata writes type/state/assigned/sprint/area/priority/effort/parent rows.
+func (d *DetailsPanel) writeMetadata(b *strings.Builder) {
+	labelWidth := styles.DetailMetaLabelWidth
+	valueWidth := styles.DetailMetaValueWidth
+
 	typeStyle := d.styles.TypeBadge(string(d.item.Type))
 	stateStyle := d.styles.StateBadge(string(d.item.State))
 
-	labelWidth := 10
-	valueWidth := 12
-
-	// Type and State row
 	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Type:"))
 	b.WriteString(typeStyle.Width(valueWidth).Render(d.item.ShortType()))
 	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("State:"))
 	b.WriteString(stateStyle.Render(string(d.item.State)))
 	b.WriteString("\n")
 
-	// Assigned and Sprint row
 	assignedTo := d.item.AssignedTo
 	if assignedTo == "" {
 		assignedTo = "Unassigned"
 	}
 	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Assigned:"))
-	b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(truncate(assignedTo, valueWidth)))
+	b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(truncateStr(assignedTo, valueWidth)))
 	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Sprint:"))
 	b.WriteString(d.styles.DetailValue.Render(d.item.SprintName()))
 	b.WriteString("\n")
 
-	// Area row
 	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Area:"))
 	b.WriteString(d.styles.DetailValue.Render(d.item.AreaName()))
 	b.WriteString("\n")
 
-	// Priority and Effort row (for parent types)
-	if d.item.IsParentType() {
-		if d.item.Priority > 0 || d.item.Effort > 0 {
-			if d.item.Priority > 0 {
-				b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Priority:"))
-				b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(fmt.Sprintf("%d", d.item.Priority)))
-			}
-			if d.item.Effort > 0 {
-				b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Effort:"))
-				b.WriteString(d.styles.DetailValue.Render(fmt.Sprintf("%.1f", d.item.Effort)))
-			}
-			b.WriteString("\n")
-		}
+	d.writePriorityEffort(b, labelWidth, valueWidth)
+	d.writeParent(b)
+}
+
+// writePriorityEffort writes priority/effort rows only for parent work item types.
+func (d *DetailsPanel) writePriorityEffort(b *strings.Builder, labelWidth, valueWidth int) {
+	if !d.item.IsParentType() {
+		return
 	}
-
-	// Parent (if exists)
-	if d.item.ParentID > 0 {
-		b.WriteString("\n")
-		parentLabel := fmt.Sprintf("Parent: #%d", d.item.ParentID)
-		if d.item.ParentTitle != "" {
-			parentLabel += " " + d.item.ParentTitle
-		}
-		b.WriteString(d.styles.Subtitle.Render(parentLabel))
-		b.WriteString("\n")
+	if d.item.Priority <= 0 && d.item.Effort <= 0 {
+		return
 	}
-
-	// Description section
-	if d.item.Description != "" {
-		b.WriteString("\n")
-		b.WriteString(d.styles.DetailSectionTitle.Render("─── Description ───"))
-		b.WriteString("\n")
-
-		maxWidth := d.width - 8
-		if maxWidth < 20 {
-			maxWidth = 20
-		}
-
-		// Use cached rendered description if available and width matches
-		desc := d.renderedDesc
-		if desc == "" || d.renderedDescWidth != maxWidth {
-			desc = d.renderMarkdown(d.item.Description, maxWidth)
-		}
-
-		// Limit description height - leave room for AC and tags if present
-		lines := strings.Split(desc, "\n")
-		availableLines := d.height - 15 // Account for header metadata
-		if d.item.AcceptanceCriteria != "" {
-			availableLines = availableLines / 2 // Split space between desc and AC
-		}
-		if availableLines < 5 {
-			availableLines = 5
-		}
-		if len(lines) > availableLines {
-			lines = lines[:availableLines]
-			lines = append(lines, "...")
-		}
-
-		b.WriteString(strings.Join(lines, "\n"))
-		b.WriteString("\n")
+	if d.item.Priority > 0 {
+		b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Priority:"))
+		b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(fmt.Sprintf("%d", d.item.Priority)))
 	}
-
-	// Acceptance Criteria section
-	if d.item.AcceptanceCriteria != "" {
-		b.WriteString("\n")
-		b.WriteString(d.styles.DetailSectionTitle.Render("─── Acceptance Criteria ───"))
-		b.WriteString("\n")
-
-		maxWidth := d.width - 8
-		if maxWidth < 20 {
-			maxWidth = 20
-		}
-
-		// Use cached rendered acceptance criteria if available and width matches
-		ac := d.renderedAC
-		if ac == "" || d.renderedACWidth != maxWidth {
-			ac = d.renderAcceptanceCriteria(d.item.AcceptanceCriteria, maxWidth)
-		}
-
-		// Limit acceptance criteria height
-		lines := strings.Split(ac, "\n")
-		availableLines := d.height - 15
-		if d.item.Description != "" {
-			availableLines = availableLines / 2
-		}
-		if availableLines < 5 {
-			availableLines = 5
-		}
-		if len(lines) > availableLines {
-			lines = lines[:availableLines]
-			lines = append(lines, "...")
-		}
-
-		b.WriteString(strings.Join(lines, "\n"))
-		b.WriteString("\n")
+	if d.item.Effort > 0 {
+		b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Effort:"))
+		b.WriteString(d.styles.DetailValue.Render(fmt.Sprintf("%.1f", d.item.Effort)))
 	}
+	b.WriteString("\n")
+}
 
-	// Tags section
-	if len(d.item.Tags) > 0 {
-		b.WriteString("\n")
-		b.WriteString(d.styles.DetailSectionTitle.Render("─── Tags ───"))
-		b.WriteString("\n")
-
-		var tagStrings []string
-		for _, tag := range d.item.Tags {
-			tagStrings = append(tagStrings, d.styles.DetailTag.Render(tag))
-		}
-		b.WriteString(strings.Join(tagStrings, " "))
+// writeParent writes the parent reference line when one exists.
+func (d *DetailsPanel) writeParent(b *strings.Builder) {
+	if d.item.ParentID <= 0 {
+		return
 	}
+	parentLabel := fmt.Sprintf("Parent: #%d", d.item.ParentID)
+	if d.item.ParentTitle != "" {
+		parentLabel += " " + d.item.ParentTitle
+	}
+	b.WriteString("\n")
+	b.WriteString(d.styles.Subtitle.Render(parentLabel))
+	b.WriteString("\n")
+}
 
-	content := b.String()
-	return d.styles.PanelInactive.
-		Width(d.width).
-		Height(d.height).
-		BorderForeground(styles.ColorBorder).
-		Render(content)
+// writeDescriptionSection writes the description block when present.
+func (d *DetailsPanel) writeDescriptionSection(b *strings.Builder, wrapWidth int) {
+	if d.item.Description == "" {
+		return
+	}
+	b.WriteString("\n")
+	b.WriteString(d.styles.DetailSectionTitle.Render("─── Description ───"))
+	b.WriteString("\n")
+	b.WriteString(renderDetailMarkdown(d.item.Description, wrapWidth))
+	b.WriteString("\n")
+}
+
+// writeACSection writes the acceptance criteria block when present.
+func (d *DetailsPanel) writeACSection(b *strings.Builder, wrapWidth int) {
+	if d.item.AcceptanceCriteria == "" {
+		return
+	}
+	b.WriteString("\n")
+	b.WriteString(d.styles.DetailSectionTitle.Render("─── Acceptance Criteria ───"))
+	b.WriteString("\n")
+	b.WriteString(renderDetailMarkdown(d.item.AcceptanceCriteria, wrapWidth))
+	b.WriteString("\n")
+}
+
+// writeTagsSection writes the tags block when tags exist.
+func (d *DetailsPanel) writeTagsSection(b *strings.Builder) {
+	if len(d.item.Tags) == 0 {
+		return
+	}
+	b.WriteString("\n")
+	b.WriteString(d.styles.DetailSectionTitle.Render("─── Tags ───"))
+	b.WriteString("\n")
+	var tagStrings []string
+	for _, tag := range d.item.Tags {
+		tagStrings = append(tagStrings, d.styles.DetailTag.Render(tag))
+	}
+	b.WriteString(strings.Join(tagStrings, " "))
 }
 
 // GetAvailableActions returns a list of available actions for the current item
@@ -217,14 +237,12 @@ func (d *DetailsPanel) GetAvailableActions() []string {
 		keyStyle.Render("c") + descStyle.Render(" - Add comment"),
 	}
 
-	// Add create task action only for parent types
 	if d.item.IsParentType() {
 		actions = append(actions[:5], append([]string{
 			keyStyle.Render("t") + descStyle.Render(" - Create child task"),
 		}, actions[5:]...)...)
 	}
 
-	// Add expand/collapse actions
 	if d.item.HasChildren() {
 		if d.item.IsExpanded {
 			actions = append(actions, keyStyle.Render("←/h")+descStyle.Render(" - Collapse children"))
@@ -236,72 +254,24 @@ func (d *DetailsPanel) GetAvailableActions() []string {
 	return actions
 }
 
-// SetItem sets the work item to display
-func (d *DetailsPanel) SetItem(item *models.WorkItem) {
-	d.item = item
-	d.renderedDesc = ""
-	d.renderedDescWidth = 0
-	d.renderedAC = ""
-	d.renderedACWidth = 0
-}
-
-// renderMarkdown renders markdown content and caches the result
-func (d *DetailsPanel) renderMarkdown(content string, width int) string {
+// renderDetailMarkdown renders markdown using glamour, falling back to wordWrap.
+func renderDetailMarkdown(content string, width int) string {
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithStylePath("dark"),
 		glamour.WithWordWrap(width),
 	)
-
-	var result string
-	if err == nil {
-		rendered, renderErr := renderer.Render(content)
-		if renderErr == nil {
-			result = strings.TrimSpace(rendered)
-		} else {
-			result = wordWrap(content, width)
-		}
-	} else {
-		result = wordWrap(content, width)
+	if err != nil {
+		return wordWrap(content, width)
 	}
-
-	d.renderedDesc = result
-	d.renderedDescWidth = width
-	return result
-}
-
-// renderAcceptanceCriteria renders acceptance criteria markdown content and caches the result
-func (d *DetailsPanel) renderAcceptanceCriteria(content string, width int) string {
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithStylePath("dark"),
-		glamour.WithWordWrap(width),
-	)
-
-	var result string
-	if err == nil {
-		rendered, renderErr := renderer.Render(content)
-		if renderErr == nil {
-			result = strings.TrimSpace(rendered)
-		} else {
-			result = wordWrap(content, width)
-		}
-	} else {
-		result = wordWrap(content, width)
+	rendered, renderErr := renderer.Render(content)
+	if renderErr != nil {
+		return wordWrap(content, width)
 	}
-
-	d.renderedAC = result
-	d.renderedACWidth = width
-	return result
+	return strings.TrimSpace(rendered)
 }
 
-// SetSize sets the size of the details panel
-func (d *DetailsPanel) SetSize(width, height int) {
-	d.width = width
-	d.height = height
-}
-
-// Helper functions
-
-func truncate(s string, maxLen int) string {
+// truncateStr truncates a string to maxLen runes, appending "..." if needed.
+func truncateStr(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}

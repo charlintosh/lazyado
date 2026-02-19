@@ -246,7 +246,7 @@ func (w WorkItemsPanel) View() string {
 }
 
 func (w *WorkItemsPanel) calculateColumnWidths() []int {
-	availableWidth := w.width - 6 // Account for borders and padding
+	availableWidth := w.width - styles.WorkItemsContentOffset // Account for borders and padding
 
 	// Calculate fixed columns total width
 	fixedWidth := 0
@@ -261,8 +261,8 @@ func (w *WorkItemsPanel) calculateColumnWidths() []int {
 
 	// Calculate flex column width
 	flexWidth := availableWidth - fixedWidth
-	if flexWidth < 20 {
-		flexWidth = 20
+	if flexWidth < styles.WorkItemsMinFlexWidth {
+		flexWidth = styles.WorkItemsMinFlexWidth
 	}
 
 	// Build widths array
@@ -320,9 +320,9 @@ func (w *WorkItemsPanel) renderSeparator(colWidths []int) string {
 	sepStyle := lipgloss.NewStyle().Foreground(styles.ColorBorder)
 
 	// Use content width (accounting for panel padding)
-	contentWidth := w.width - 4
-	if contentWidth < 10 {
-		contentWidth = 10
+	contentWidth := w.width - styles.PanelPaddedOffset
+	if contentWidth < styles.WorkItemsMinContent {
+		contentWidth = styles.WorkItemsMinContent
 	}
 
 	return sepStyle.Render(strings.Repeat("─", contentWidth))
@@ -351,7 +351,7 @@ func (w *WorkItemsPanel) renderItem(item models.WorkItem, isCursor bool, colWidt
 			Bold(true).
 			Foreground(styles.ColorText).
 			Background(styles.ColorPrimary). // Purple highlight
-			Width(w.width - 4)
+			Width(w.width - styles.PanelPaddedOffset)
 
 		// Build plain text cells (no individual colors)
 		cells := []string{
@@ -393,7 +393,7 @@ func padRight(s string, width int) string {
 }
 
 func (w *WorkItemsPanel) visibleItemCount() int {
-	visible := w.height - 7 // title, blank line, header, separator, borders
+	visible := w.height - styles.WorkItemsHeaderHeight // title, blank line, header, separator, borders
 	if visible < 1 {
 		visible = 1
 	}
@@ -736,7 +736,7 @@ func (w *WorkItemsPanel) renderItemEntry(entry workItemViewEntry, isCursor bool,
 			Bold(true).
 			Foreground(styles.ColorText).
 			Background(styles.ColorPrimary). // Purple highlight
-			Width(w.width - 4)
+			Width(w.width - styles.PanelPaddedOffset)
 
 		// Build plain text cells (no individual colors)
 		cells := []string{

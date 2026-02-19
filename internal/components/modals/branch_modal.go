@@ -28,15 +28,15 @@ type BranchModal struct {
 }
 
 // NewBranchModal creates a new branch modal
-func NewBranchModal(styles styles.Styles, keys keys.KeyMap) BranchModal {
+func NewBranchModal(st styles.Styles, keys keys.KeyMap) BranchModal {
 	ti := textinput.New()
 	ti.Placeholder = "feature/123-task-name"
-	ti.CharLimit = 100
-	ti.Width = 35
+	ti.CharLimit = styles.InputCharLimitLG
+	ti.Width = styles.TextInputWidthLG
 
 	return BranchModal{
 		textInput: ti,
-		styles:    styles,
+		styles:    st,
 		keys:      keys,
 	}
 }
@@ -95,8 +95,8 @@ func (m BranchModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 50
-	modalHeight := 10
+	modalWidth := styles.ModalWidthMD
+	modalHeight := styles.ModalHeightMD
 
 	// Build content
 	var b strings.Builder
@@ -197,10 +197,10 @@ func generateBranchName(item *models.WorkItem) string {
 	// Remove leading/trailing hyphens
 	title = strings.Trim(title, "-")
 	// Truncate to reasonable length
-	if len(title) > 40 {
-		title = title[:40]
+	if len(title) > styles.BranchNameMaxLen {
+		title = title[:styles.BranchNameMaxLen]
 		// Don't cut off in middle of a word if possible
-		if lastHyphen := strings.LastIndex(title, "-"); lastHyphen > 20 {
+		if lastHyphen := strings.LastIndex(title, "-"); lastHyphen > styles.BranchNameWordBoundaryMin {
 			title = title[:lastHyphen]
 		}
 	}

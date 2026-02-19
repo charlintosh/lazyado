@@ -36,18 +36,18 @@ type CommentModal struct {
 }
 
 // NewCommentModal creates a new comment modal
-func NewCommentModal(styles styles.Styles, keys keys.KeyMap) CommentModal {
+func NewCommentModal(st styles.Styles, keys keys.KeyMap) CommentModal {
 	ta := textarea.New()
 	ta.Placeholder = "Write a comment... (Use @name to mention someone)"
-	ta.CharLimit = 2000
-	ta.SetWidth(60)
-	ta.SetHeight(6)
+	ta.CharLimit = styles.ContentCharLimitLG
+	ta.SetWidth(styles.TextareaWidthLG)
+	ta.SetHeight(styles.TextareaHeightLG)
 	ta.ShowLineNumbers = false
 	ta.Focus()
 
 	return CommentModal{
 		commentArea:        ta,
-		styles:             styles,
+		styles:             st,
 		keys:               keys,
 		selectedSuggestion: 0,
 		mentionStart:       -1,
@@ -194,8 +194,8 @@ func (m CommentModal) View() string {
 	commentView := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1).
-		Width(m.commentArea.Width() + 4).
+		Padding(styles.ModalPaddingV).
+		Width(m.commentArea.Width() + styles.PanelPaddedOffset).
 		Render(m.commentArea.View())
 
 	// Show suggestions if active
@@ -242,8 +242,8 @@ func (m CommentModal) View() string {
 	modalStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1, 2).
-		Width(70)
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
+		Width(styles.ModalWidthXL)
 
 	modal := modalStyle.Render(content)
 

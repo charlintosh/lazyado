@@ -6,6 +6,29 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-02-19
+
+### Added
+
+- refactor: details and filter panels to use viewport for improved rendering (eab0bab)
+- feat: add release-bump skill documentation for patch versioning process (66bf6c4)
+- feat: add scripts to sync .agents/skills/ to supported folders via symlinks (37e0f68)
+- feat: add quick search feature for work items by ID with modal interface (4adf942)
+- feat: info modal (9113421)
+- docs: add bubbletea skill (63349fc)
+- feat: add goreleaser configuration and CHANGELOG.md (35343f1)
+- feat: enhance comments functionality with HTML rendering, mentions support, and improved logging (fbf0f8f)
+- feat: add notification system with auto-dismiss functionality and integrate into header bar (d2468ac)
+- feat: enhance splash screen loading animation (be452d0)
+- feat: enhance comments panel styling and structure (f5ffcce)
+- feat: add tasks to bug work item types (24c0d1d)
+- Refactor documentation: consolidate agent guidelines, update API client patterns, and remove outdated files (a81aed3)
+
+### Fixed
+
+- fix: remove invalid symlink causing go install to fail (d31ad33)
+- fix: improve formatting in README for keyboard shortcuts and descriptions (1900f27)
+
 ## [v0.1.2] - 2026-02-17
 
 ## Added

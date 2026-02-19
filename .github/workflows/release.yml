@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -22,11 +22,35 @@ jobs:
         with:
           go-version: stable
 
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          NOTES_FILE=/tmp/release-notes.md
+
+          # Build complete release notes: header + changelog body + footer
+          echo "## What's Changed" > "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+
+          # Extract the section for this version (between two ## [v headings)
+          awk -v ver="$VERSION" '
+            /^## \[v/ { if (found) exit; if (index($0, ver)) { found=1; next } }
+            found { print }
+          ' CHANGELOG.md >> "$NOTES_FILE"
+
+          # Append footer
+          printf '\n---\n\n' >> "$NOTES_FILE"
+          echo "Full changelog: [CHANGELOG.md](https://github.com/charlintosh/lazyado/blob/main/CHANGELOG.md)" >> "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+          echo "Released with [GoReleaser](https://github.com/goreleaser/goreleaser)." >> "$NOTES_FILE"
+
+          echo "--- Extracted release notes for v${VERSION} ---"
+          cat "$NOTES_FILE"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean
+          args: release --clean --release-notes /tmp/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

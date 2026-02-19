@@ -45,51 +45,51 @@ type PBIModal struct {
 }
 
 // NewPBIModal creates a new PBI modal
-func NewPBIModal(styles styles.Styles, keys keys.KeyMap) PBIModal {
+func NewPBIModal(st styles.Styles, keys keys.KeyMap) PBIModal {
 	ti := textinput.New()
 	ti.Placeholder = "Enter title..."
 	ti.Focus()
-	ti.CharLimit = 255
-	ti.Width = 50
+	ti.CharLimit = styles.TitleCharLimit
+	ti.Width = styles.TextareaWidthMD
 
 	da := textarea.New()
 	da.Placeholder = "Enter description (optional)..."
-	da.CharLimit = 1000
-	da.SetWidth(50)
-	da.SetHeight(3)
+	da.CharLimit = styles.ContentCharLimitMD
+	da.SetWidth(styles.TextareaWidthMD)
+	da.SetHeight(styles.TextareaHeightSM)
 	da.ShowLineNumbers = false
 
 	aca := textarea.New()
 	aca.Placeholder = "Enter acceptance criteria (optional)..."
-	aca.CharLimit = 1000
-	aca.SetWidth(50)
-	aca.SetHeight(3)
+	aca.CharLimit = styles.ContentCharLimitMD
+	aca.SetWidth(styles.TextareaWidthMD)
+	aca.SetHeight(styles.TextareaHeightSM)
 	aca.ShowLineNumbers = false
 
 	pi := textinput.New()
 	pi.Placeholder = "1-4"
-	pi.CharLimit = 1
-	pi.Width = 10
+	pi.CharLimit = styles.PriorityCharLimit
+	pi.Width = styles.SmallInputWidth
 
 	ei := textinput.New()
 	ei.Placeholder = "0-999"
-	ei.CharLimit = 5
-	ei.Width = 10
+	ei.CharLimit = styles.EffortCharLimit
+	ei.Width = styles.SmallInputWidth
 
 	tagi := textinput.New()
 	tagi.Placeholder = "tag1; tag2; tag3"
-	tagi.CharLimit = 500
-	tagi.Width = 50
+	tagi.CharLimit = styles.TagsCharLimit
+	tagi.Width = styles.TextareaWidthMD
 
 	assi := textinput.New()
 	assi.Placeholder = "Type to search assignee..."
-	assi.CharLimit = 100
-	assi.Width = 50
+	assi.CharLimit = styles.InputCharLimitLG
+	assi.Width = styles.TextareaWidthMD
 
 	areai := textinput.New()
 	areai.Placeholder = "Area path"
-	areai.CharLimit = 255
-	areai.Width = 50
+	areai.CharLimit = styles.TitleCharLimit
+	areai.Width = styles.TextareaWidthMD
 
 	return PBIModal{
 		titleInput:             ti,
@@ -101,7 +101,7 @@ func NewPBIModal(styles styles.Styles, keys keys.KeyMap) PBIModal {
 		assigneeInput:          assi,
 		areaInput:              areai,
 		focusedField:           0,
-		styles:                 styles,
+		styles:                 st,
 		keys:                   keys,
 	}
 }
@@ -356,7 +356,7 @@ func (m PBIModal) View() string {
 		return ""
 	}
 
-	modalWidth := 70
+	modalWidth := styles.ModalWidthXL
 	var b strings.Builder
 
 	var modalTitle string
@@ -414,7 +414,7 @@ func (m PBIModal) View() string {
 
 	if m.focusedField == 6 && m.showAssigneeList && len(m.filteredMembers) > 0 {
 		b.WriteString("\n")
-		maxVisible := 4
+		maxVisible := styles.AssigneeListVisibleItems
 		end := len(m.filteredMembers)
 		if end > maxVisible {
 			end = maxVisible
@@ -482,7 +482,7 @@ func (m PBIModal) View() string {
 
 	content := lipgloss.NewStyle().
 		Width(modalWidth).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())

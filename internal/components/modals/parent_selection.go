@@ -86,7 +86,7 @@ func (m ParentSelectionModal) View() string {
 	instr := fmt.Sprintf("%s: %s  %s: %s", sel.Key, sel.Desc, back.Key, back.Desc)
 	b.WriteString("\n" + m.styles.ModalInstructions.Render(instr))
 
-	content := m.styles.ModalBox.Width(40).Render(b.String())
+	content := m.styles.ModalBox.Width(styles.ModalWidthSM).Render(b.String())
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 

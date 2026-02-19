@@ -126,7 +126,7 @@ func (h HelpPanel) View() string {
 
 		// Key bindings
 		for _, binding := range section.bindings {
-			keyStyle := h.styles.HelpKey.Width(12)
+			keyStyle := h.styles.HelpKey.Width(styles.HelpKeyColumnWidth)
 			descStyle := h.styles.HelpDesc
 
 			help := binding.Help()
@@ -156,8 +156,8 @@ func (h HelpPanel) View() string {
 	content := b.String()
 
 	// Center the help panel
-	helpWidth := 40
-	helpHeight := 25
+	helpWidth := styles.HelpPanelWidth
+	helpHeight := styles.HelpPanelHeight
 
 	panel := h.styles.HelpPanel.
 		Width(helpWidth).

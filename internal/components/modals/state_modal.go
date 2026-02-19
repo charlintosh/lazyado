@@ -90,8 +90,8 @@ func (m StateModal) View() string {
 	}
 
 	// Modal dimensions
-	modalWidth := 40
-	modalHeight := len(m.states) + 6
+	modalWidth := styles.ModalWidthSM
+	modalHeight := len(m.states) + styles.StateModalBaseHeight
 
 	// Build content
 	var b strings.Builder
@@ -144,7 +144,7 @@ func (m StateModal) View() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
-		Padding(1, 2).
+		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth).
 		Height(modalHeight)
 

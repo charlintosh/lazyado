@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/truncate"
 )
 
 // Panel represents the active panel
@@ -930,36 +931,72 @@ func (a App) View() string {
 }
 
 func (a *App) renderMainView() string {
-	// Calculate dimensions
-	// Borders add 2 chars per panel (1 left + 1 right)
-	// Layout: Filter (20%) | Work Items (full width) / Details (40%) + Comments (40%)
-	filterWidth := int(float64(a.width) * 0.20)
-	if filterWidth < 20 {
-		filterWidth = 20
+	if a.width < styles.MinTerminalWidth || a.height < styles.MinTerminalHeight {
+		return a.renderMinimalView()
 	}
-	contentWidth := a.width - filterWidth - 4
 
-	// Available height: total - title bar (1) - status bar (1) = a.height - 2
-	// Filter panel: content height + border (2) = available height
-	availableHeight := a.height - 2
-	filterContentHeight := availableHeight - 2
+	// Lipgloss border rule: Width(W) → outer = W+2; Height(H) → outer = H+2.
+	// All SetSize calls receive content dimensions; borders are added externally.
 
-	// Right side has two rows:
-	// Row 1: Work items (55% of right side)
-	// Row 2: Details (50%) + Comments (50%)
-	rightContentHeight := availableHeight - 4
-	workItemsHeight := int(float64(rightContentHeight) * 0.55)
-	if workItemsHeight < 8 {
-		workItemsHeight = 8
+	availableHeight := a.height - styles.AppHeaderFooterSize // header(1) + statusBar(1)
+
+	// ── Filter panel (left column) ───────────────────────────────────
+	// Hide the filter panel on narrow terminals to reclaim space.
+	showFilter := a.width >= styles.FilterShowWidth
+	filterWidth := 0
+	contentWidth := a.width - styles.PanelBorderOffset // single-panel default: outer = a.width
+	if showFilter {
+		filterWidth = int(float64(a.width) * styles.FilterPanelWidthRatio)
+		if filterWidth < styles.FilterMinWidth {
+			filterWidth = styles.FilterMinWidth
+		}
+		if filterWidth > styles.FilterMaxWidth {
+			filterWidth = styles.FilterMaxWidth
+		}
+		// Two side-by-side panels: (filterWidth+2) + (contentWidth+2) = a.width
+		contentWidth = a.width - filterWidth - styles.PanelBorderOffset*2
 	}
-	bottomRowHeight := rightContentHeight - workItemsHeight
+	// Filter outer height = availableHeight  →  Height(availableHeight-2)
+	filterContentHeight := availableHeight - styles.PanelBorderOffset
 
-	// Bottom row: split between details and comments
-	// Each has its own border (2 each = 4 total overhead)
-	detailsWidth := (contentWidth - 4) / 2
-	commentsWidth := contentWidth - detailsWidth - 4
+	// ── Bottom row (details / comments) ─────────────────────────────
+	// Right side may have 1 or 2 stacked rows; each row adds +2 to total outer height.
+	// 2-row case: (workItemsHeight+2) + (bottomRowHeight+2) = availableHeight
+	//              workItemsHeight + bottomRowHeight = availableHeight - 4
+	rightContentHeight := availableHeight - styles.PanelBorderOffset*2
 
-	// Configure and render header bar (title + notification)
+	rawWorkItemsH := int(float64(rightContentHeight) * styles.WorkItemsHeightRatio)
+	if rawWorkItemsH < styles.MinWorkItemsHeight {
+		rawWorkItemsH = styles.MinWorkItemsHeight
+	}
+	rawBottomH := rightContentHeight - rawWorkItemsH
+
+	// Only show the bottom row when it would have a usable inner area (≥7 lines)
+	// and the content area is wide enough.
+	showBottomRow := rawBottomH >= styles.MinBottomRowHeight && contentWidth >= styles.MinBottomRowWidth
+
+	workItemsHeight := availableHeight - styles.PanelBorderOffset // single-row: outer = availableHeight
+	bottomRowHeight := 0
+	if showBottomRow {
+		workItemsHeight = rawWorkItemsH
+		bottomRowHeight = rawBottomH
+	}
+
+	// Show comments alongside details when there is enough horizontal space.
+	// At contentWidth=55 each panel gets ~26 inner chars — tight but readable.
+	showComments := showBottomRow && contentWidth >= styles.CommentsShowWidth
+	detailsWidth := 0
+	commentsWidth := 0
+	if showComments {
+		// Two panels: detailsWidth + commentsWidth = contentWidth - PanelBorderOffset
+		detailsWidth = (contentWidth - styles.PanelBorderOffset) / 2
+		commentsWidth = contentWidth - styles.PanelBorderOffset - detailsWidth
+	} else if showBottomRow {
+		// Details takes the full bottom row width
+		detailsWidth = contentWidth - styles.PanelBorderOffset
+	}
+
+	// ── Header bar ───────────────────────────────────────────────────
 	a.headerBar.SetWidth(a.width)
 	a.headerBar.SetOrganization(a.client.Organization())
 	a.headerBar.SetProject(a.client.Project())
@@ -967,41 +1004,115 @@ func (a *App) renderMainView() string {
 	a.headerBar.SetNotification(&a.notification)
 	headerBar := a.headerBar.View()
 
-	// Set panel sizes (content dimensions, borders added by styles)
-	a.filterPanel.SetSize(filterWidth, filterContentHeight)
+	// ── Assemble and return ───────────────────────────────────────────
 	a.workItemsPanel.SetSize(contentWidth, workItemsHeight)
-	a.detailsPanel.SetSize(detailsWidth, bottomRowHeight)
-	a.commentsPanel.SetSize(commentsWidth, bottomRowHeight)
+	rightSide := a.renderRightSide(showBottomRow, showComments, detailsWidth, commentsWidth, bottomRowHeight)
 
-	// Render panels
-	filterView := a.filterPanel.View()
-	workItemsView := a.workItemsPanel.View()
-	detailsView := a.detailsPanel.View()
-	commentsView := a.commentsPanel.View()
+	var mainContent string
+	if showFilter {
+		a.filterPanel.SetSize(filterWidth, filterContentHeight)
+		mainContent = lipgloss.JoinHorizontal(lipgloss.Top, a.filterPanel.View(), rightSide)
+	} else {
+		mainContent = rightSide
+	}
 
-	// Bottom row (details + comments side by side)
-	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, detailsView, commentsView)
-
-	// Right side (work items + bottom row)
-	rightSide := lipgloss.JoinVertical(lipgloss.Left, workItemsView, bottomRow)
-
-	// Main content
-	mainContent := lipgloss.JoinHorizontal(lipgloss.Top, filterView, rightSide)
-
-	// Status bar
 	statusBar := a.renderStatusBar()
+	return lipgloss.JoinVertical(lipgloss.Left, headerBar, mainContent, statusBar)
+}
 
-	// Combine all
-	return lipgloss.JoinVertical(lipgloss.Left,
-		headerBar,
-		mainContent,
-		statusBar,
-	)
+// renderMinimalView is shown when the terminal is too small to render the full layout.
+// It shows one panel at a time; the user switches with Tab/Shift+Tab or 1-6.
+func (a *App) renderMinimalView() string {
+	availableHeight := a.height - styles.AppHeaderFooterSize // header(1) + statusBar(1)
+
+	a.headerBar.SetWidth(a.width)
+	a.headerBar.SetOrganization(a.client.Organization())
+	a.headerBar.SetProject(a.client.Project())
+	a.headerBar.SetLoading(a.loading)
+	a.headerBar.SetNotification(&a.notification)
+	headerBar := a.headerBar.View()
+
+	// A single panel fills the available area.
+	// Border adds +2 outer; pass content dimensions.
+	panelWidth := a.width - styles.PanelBorderOffset
+	panelHeight := availableHeight - styles.PanelBorderOffset
+
+	var panelView string
+	switch a.activePanel {
+	case PanelFilterSprint, PanelFilterState, PanelFilterAssigned, PanelFilterArea:
+		a.filterPanel.SetSize(panelWidth, panelHeight)
+		panelView = a.filterPanel.View()
+	case PanelWorkItems:
+		a.workItemsPanel.SetSize(panelWidth, panelHeight)
+		panelView = a.workItemsPanel.View()
+	case PanelComments:
+		a.commentsPanel.SetSize(panelWidth, panelHeight)
+		panelView = a.commentsPanel.View()
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, headerBar, panelView, a.renderMinimalStatusBar())
+}
+
+// renderMinimalStatusBar shows the active panel name and keyboard navigation hint.
+func (a *App) renderMinimalStatusBar() string {
+	var panelName string
+	switch a.activePanel {
+	case PanelFilterSprint:
+		panelName = "Sprint Filter"
+	case PanelFilterState:
+		panelName = "State Filter"
+	case PanelFilterAssigned:
+		panelName = "Assigned Filter"
+	case PanelFilterArea:
+		panelName = "Area Filter"
+	case PanelWorkItems:
+		panelName = "Work Items"
+	case PanelComments:
+		panelName = "Comments"
+	}
+
+	label := lipgloss.NewStyle().
+		Foreground(styles.ColorText).
+		Background(styles.ColorPrimary).
+		Bold(true).
+		Padding(0, 1).
+		Render(panelName)
+
+	hint := a.styles.TextMuted.Render("Tab/Shift+Tab · 1-6: switch panel")
+	text := label + "  " + hint
+	// StatusBar has Padding(0,1) → truncate to width-2 so it never wraps.
+	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
+	return a.styles.StatusBar.Width(a.width).Render(text)
+}
+
+// renderRightSide builds the right-column view (work items + optional bottom row).
+func (a *App) renderRightSide(showBottomRow, showComments bool, detailsWidth, commentsWidth, bottomRowHeight int) string {
+	workItemsView := a.workItemsPanel.View()
+	if !showBottomRow {
+		return workItemsView
+	}
+
+	a.detailsPanel.SetSize(detailsWidth, bottomRowHeight)
+	detailsView := a.detailsPanel.View()
+
+	if showComments {
+		a.commentsPanel.SetSize(commentsWidth, bottomRowHeight)
+		bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, detailsView, a.commentsPanel.View())
+		return lipgloss.JoinVertical(lipgloss.Left, workItemsView, bottomRow)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, workItemsView, detailsView)
 }
 
 func (a *App) renderStatusBar() string {
 	parts := a.statusBarParts()
-	return a.styles.StatusBar.Width(a.width).Render(strings.Join(parts, "  "))
+	text := strings.Join(parts, "  ")
+	// Truncate to terminal width (ANSI-aware) so the bar is always exactly 1 line.
+	// lipgloss Height(1) only sets a minimum; content still wraps beyond the width,
+	// which pushes the header bar off the top of the alt-screen.
+	// StatusBar has Padding(0,1) which adds 2 outer chars; truncate to width-2
+	// so the rendered box is exactly a.width wide and never wraps.
+	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
+	return a.styles.StatusBar.Width(a.width).Render(text)
 }
 
 func (a *App) statusBarParts() []string {
