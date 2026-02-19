@@ -77,9 +77,8 @@ func (c *Client) doRequestWithContentType(method, url string, body io.Reader, co
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		// Log error body for debugging
 		clientLogger.Debugf("API error %d: %s", resp.StatusCode, string(body))
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, extractAPIMessage(body))
 	}
 
 	return resp, nil
@@ -258,4 +257,14 @@ func (c *Client) Project() string {
 // Team returns the team name
 func (c *Client) Team() string {
 	return c.team
+}
+
+func extractAPIMessage(body []byte) string {
+	var apiErr struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+		return apiErr.Message
+	}
+	return string(body)
 }

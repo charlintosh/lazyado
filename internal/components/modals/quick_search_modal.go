@@ -169,9 +169,11 @@ func (m QuickSearchModal) View() string {
 	if m.errorMessage != "" {
 		b.WriteString("\n")
 		errorStyle := lipgloss.NewStyle().
-			Foreground(styles.ColorError).
-			Italic(true)
-		b.WriteString(errorStyle.Render("⚠ " + m.errorMessage))
+			Background(styles.ColorError).
+			Foreground(styles.ColorText).
+			Bold(true).
+			Padding(0, 2)
+		b.WriteString(errorStyle.Render("✗ " + m.errorMessage))
 	}
 
 	// Help text
@@ -245,12 +247,20 @@ func (m *QuickSearchModal) SetLoading(loading bool) {
 	}
 }
 
-// SetError sets the error message
 func (m *QuickSearchModal) SetError(err error) {
 	m.loading = false
 	m.searchInput.Focus()
 	if err != nil {
-		m.errorMessage = err.Error()
+		msg := err.Error()
+		if idx := strings.Index(msg, "TF"); idx >= 0 {
+			if end := strings.Index(msg[idx:], ":"); end > 0 {
+				msg = strings.TrimSpace(msg[idx+end+1:])
+			}
+		}
+		if strings.HasPrefix(msg, "API error") {
+			msg = "Work item not found or you don't have permissions"
+		}
+		m.errorMessage = msg
 	} else {
 		m.errorMessage = ""
 	}
