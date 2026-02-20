@@ -147,6 +147,8 @@ func (a App) Init() tea.Cmd {
 		loadDataCmd(a.client),
 		tickCmd(),
 		a.headerBar.Init(),
+		screens.AnimateCmd(),
+		a.splashScreen.Tick(),
 	)
 }
 
@@ -155,6 +157,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case screens.FrameMsg:
+		if a.loading && !a.initialLoadDone {
+			newSplash, cmd := a.splashScreen.Update(msg)
+			a.splashScreen = newSplash
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+
 	case spinner.TickMsg:
 		if a.loading && !a.initialLoadDone {
 			newSplash, cmd := a.splashScreen.Update(msg)
