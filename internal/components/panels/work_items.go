@@ -60,19 +60,13 @@ func NewWorkItemsPanel(s styles.Styles, k keys.KeyMap) WorkItemsPanel {
 	tableStyles := table.DefaultStyles()
 	tableStyles.Header = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(styles.ColorTextMuted).
-		BorderBottom(true).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(styles.ColorBorder).
+		Foreground(styles.ColorAccent).
 		Padding(0, 1)
 	tableStyles.Cell = lipgloss.NewStyle().
-		Foreground(styles.ColorText).
 		Padding(0, 1)
 	tableStyles.Selected = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(styles.ColorText).
-		Background(styles.ColorPrimary).
-		Padding(0, 1)
+		Foreground(styles.ColorPrimary)
 
 	km := table.DefaultKeyMap()
 	km.PageUp = key.NewBinding(key.WithKeys("pgup"))
@@ -219,6 +213,10 @@ func (w WorkItemsPanel) View() string {
 		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
 	}
 	b.WriteString("  " + numberStyle.Render("5. ") + titleStyle.Render("Work Items"))
+	if len(w.flattenedView) > 0 {
+		counter := fmt.Sprintf("  %d/%d", w.table.Cursor()+1, len(w.flattenedView))
+		b.WriteString(w.styles.TextMuted.Render(counter))
+	}
 	b.WriteString("\n\n")
 
 	if len(w.flattenedView) == 0 {
