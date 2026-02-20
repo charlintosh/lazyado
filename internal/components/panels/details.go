@@ -7,8 +7,11 @@ import (
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // DetailsPanel shows details for a selected work item
@@ -20,6 +23,7 @@ type DetailsPanel struct {
 	width    int
 	height   int
 	ready    bool
+	focused  bool
 }
 
 // NewDetailsPanel creates a new details panel
@@ -33,48 +37,98 @@ func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 
 // View renders the details panel
 func (d DetailsPanel) View() string {
+	panelStyle := d.styles.PanelInactive
+	if d.focused {
+		panelStyle = d.styles.PanelActive
+	}
+
+	var b strings.Builder
+
+	numberStyle := d.styles.TextMuted
+	if d.focused {
+		numberStyle = d.styles.AccentBold
+	}
+	titleStyle := d.styles.FilterGroupTitle
+	if d.focused {
+		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
+	}
+	b.WriteString("  " + numberStyle.Render("6. ") + titleStyle.Render("Details"))
+	b.WriteString("\n\n")
+
 	if d.item == nil {
-		content := d.styles.Subtitle.Render("Select a work item to view details")
-		return d.styles.PanelInactive.
+		b.WriteString(d.styles.Subtitle.Render("Select a work item to view details"))
+		return panelStyle.
 			Width(d.width).
 			Height(d.height).
-			Render(content)
+			Render(b.String())
 	}
 
-	var vpContent string
 	if d.ready {
-		vpContent = d.viewport.View()
+		b.WriteString(d.viewport.View())
+		canScroll := d.viewport.TotalLineCount() > d.viewport.VisibleLineCount()
+		if canScroll {
+			pct := int(d.viewport.ScrollPercent() * 100)
+			scrollHint := lipgloss.NewStyle().Foreground(styles.ColorMuted).
+				Render(fmt.Sprintf(" %d%% ", pct))
+			b.WriteString("\n" + scrollHint)
+		}
 	}
 
-	return d.styles.PanelInactive.
+	return panelStyle.
 		Width(d.width).
 		Height(d.height).
-		BorderForeground(styles.ColorBorder).
-		Render(vpContent)
+		Render(b.String())
 }
 
 // SetItem sets the work item to display
 func (d *DetailsPanel) SetItem(item *models.WorkItem) {
 	d.item = item
-	if d.viewport.Width > 0 {
-		d.viewport.GotoTop()
-		d.updateViewportContent()
+	d.viewport.GotoTop()
+	d.updateViewportContent()
+}
+
+func (d DetailsPanel) Update(msg tea.Msg) (DetailsPanel, tea.Cmd) {
+	if !d.focused || !d.ready {
+		return d, nil
 	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, d.keys.Top):
+			d.viewport.GotoTop()
+			return d, nil
+		case key.Matches(msg, d.keys.Bottom):
+			d.viewport.GotoBottom()
+			return d, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	d.viewport, cmd = d.viewport.Update(msg)
+	return d, cmd
+}
+
+func (d *DetailsPanel) SetFocused(focused bool) {
+	d.focused = focused
 }
 
 // SetSize sets the size of the details panel and rebuilds viewport content.
 func (d *DetailsPanel) SetSize(width, height int) {
+	if d.width == width && d.height == height && d.ready {
+		return
+	}
 	d.width = width
 	d.height = height
-	// PanelInactive: Border adds +2 outer; Padding(0,1) adds 1 char each side.
-	// viewport.Width = inner text width = d.width - 2 (padding).
-	// viewport.Height = inner content lines = d.height (no vertical padding).
 	vpWidth := d.width - styles.PanelBorderOffset
 	if vpWidth < styles.FilterMinViewportWidth {
 		vpWidth = styles.FilterMinViewportWidth
 	}
 	d.viewport.Width = vpWidth
-	d.viewport.Height = d.height
+	d.viewport.Height = d.height - 3
+	if d.viewport.Height < 1 {
+		d.viewport.Height = 1
+	}
 	if d.item != nil {
 		d.updateViewportContent()
 	}
@@ -96,7 +150,7 @@ func (d *DetailsPanel) updateViewportContent() {
 // buildContent assembles all sections into a single string for the viewport.
 func (d *DetailsPanel) buildContent(wrapWidth int) string {
 	var b strings.Builder
-	d.writeHeader(&b)
+	d.writeHeader(&b, wrapWidth)
 	d.writeMetadata(&b)
 	d.writeDescriptionSection(&b, wrapWidth)
 	d.writeACSection(&b, wrapWidth)
@@ -105,10 +159,10 @@ func (d *DetailsPanel) buildContent(wrapWidth int) string {
 }
 
 // writeHeader writes the item title line.
-func (d *DetailsPanel) writeHeader(b *strings.Builder) {
+func (d *DetailsPanel) writeHeader(b *strings.Builder, wrapWidth int) {
 	title := fmt.Sprintf("#%d %s", d.item.ID, d.item.Title)
-	if len(title) > d.viewport.Width-2 {
-		title = title[:d.viewport.Width-5] + "..."
+	if wrapWidth > 3 && len(title) > wrapWidth {
+		title = title[:wrapWidth-3] + "..."
 	}
 	b.WriteString(d.styles.DetailTitle.Render(title))
 	b.WriteString("\n\n")

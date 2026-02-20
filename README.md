@@ -100,6 +100,7 @@ These shortcuts reflect the canonical `internal/keys/keymap.go` bindings used by
 | `4`            | Panel 4                  |
 | `5`            | Panel 5                  |
 | `6`            | Panel 6                  |
+| `7`            | Panel 7                  |
 | `Tab`          | Switch to next panel     |
 | `Shift+Tab`    | Switch to previous panel |
 | `?`            | Show/hide help           |

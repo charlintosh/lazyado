@@ -46,6 +46,7 @@ type KeyMap struct {
 	Panel4      key.Binding
 	Panel5      key.Binding
 	Panel6      key.Binding
+	Panel7      key.Binding
 
 	ModalLeft  key.Binding
 	ModalRight key.Binding
@@ -217,6 +218,10 @@ func DefaultKeyMap() KeyMap {
 		Panel6: key.NewBinding(
 			key.WithKeys("6"),
 			key.WithHelp("6", "panel 6"),
+		),
+		Panel7: key.NewBinding(
+			key.WithKeys("7"),
+			key.WithHelp("7", "panel 7"),
 		),
 	}
 }

@@ -70,6 +70,7 @@ func (h HelpPanel) View() string {
 				h.keys.Panel4,
 				h.keys.Panel5,
 				h.keys.Panel6,
+				h.keys.Panel7,
 			},
 		},
 		{

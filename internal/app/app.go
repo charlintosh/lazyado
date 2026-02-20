@@ -31,6 +31,7 @@ const (
 	PanelFilterAssigned
 	PanelFilterArea
 	PanelWorkItems
+	PanelDetails
 	PanelComments
 )
 
@@ -174,6 +175,22 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.height = msg.Height
 		a.updateSizes()
 		a.splashScreen.SetSize(a.width, a.height)
+
+	case tea.MouseMsg:
+		switch a.activePanel {
+		case PanelDetails:
+			newDetails, cmd := a.detailsPanel.Update(msg)
+			a.detailsPanel = newDetails
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		case PanelComments:
+			newComments, cmd := a.commentsPanel.Update(msg)
+			a.commentsPanel = newComments
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
 
 	case tea.KeyMsg:
 		// Update notification first (captures ESC to dismiss)
@@ -362,6 +379,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activePanel = PanelWorkItems
 			a.updateFocus()
 		case key.Matches(msg, a.keys.Panel6):
+			a.activePanel = PanelDetails
+			a.updateFocus()
+		case key.Matches(msg, a.keys.Panel7):
 			a.activePanel = PanelComments
 			a.updateFocus()
 		}
@@ -521,9 +541,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd != nil {
 				cmds = append(cmds, cmd)
 			}
-			// Check if selection changed and load comments if needed
 			if selectedCmd := a.updateSelectedItem(); selectedCmd != nil {
 				cmds = append(cmds, selectedCmd)
+			}
+		case PanelDetails:
+			newDetails, cmd := a.detailsPanel.Update(msg)
+			a.detailsPanel = newDetails
+			if cmd != nil {
+				cmds = append(cmds, cmd)
 			}
 		case PanelComments:
 			newComments, cmd := a.commentsPanel.Update(msg)
@@ -1045,6 +1070,9 @@ func (a *App) renderMinimalView() string {
 	case PanelWorkItems:
 		a.workItemsPanel.SetSize(panelWidth, panelHeight)
 		panelView = a.workItemsPanel.View()
+	case PanelDetails:
+		a.detailsPanel.SetSize(panelWidth, panelHeight)
+		panelView = a.detailsPanel.View()
 	case PanelComments:
 		a.commentsPanel.SetSize(panelWidth, panelHeight)
 		panelView = a.commentsPanel.View()
@@ -1067,6 +1095,8 @@ func (a *App) renderMinimalStatusBar() string {
 		panelName = "Area Filter"
 	case PanelWorkItems:
 		panelName = "Work Items"
+	case PanelDetails:
+		panelName = "Details"
 	case PanelComments:
 		panelName = "Comments"
 	}
@@ -1078,7 +1108,7 @@ func (a *App) renderMinimalStatusBar() string {
 		Padding(0, 1).
 		Render(panelName)
 
-	hint := a.styles.TextMuted.Render("Tab/Shift+Tab · 1-6: switch panel")
+	hint := a.styles.TextMuted.Render("Tab/Shift+Tab · 1-7: switch panel")
 	text := label + "  " + hint
 	// StatusBar has Padding(0,1) → truncate to width-2 so it never wraps.
 	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
@@ -1123,6 +1153,8 @@ func (a *App) statusBarParts() []string {
 	switch a.activePanel {
 	case PanelWorkItems:
 		panelName = "Work Items"
+	case PanelDetails:
+		panelName = "Details"
 	case PanelComments:
 		panelName = "Comments"
 	}
@@ -1139,6 +1171,8 @@ func (a *App) statusBarParts() []string {
 	switch a.activePanel {
 	case PanelWorkItems:
 		parts = append(parts, a.workItemsPanel.GetAvailableActions()...)
+	case PanelDetails:
+		parts = append(parts, a.detailsPanel.GetAvailableActions()...)
 	case PanelComments:
 		parts = append(parts, a.commentsPanel.GetAvailableActions()...)
 	default:
@@ -1152,13 +1186,12 @@ func (a *App) statusBarParts() []string {
 func (a *App) nextPanel() {
 	switch a.activePanel {
 	case PanelFilterSprint, PanelFilterState, PanelFilterAssigned, PanelFilterArea:
-		// From any filter panel, go to work items
 		a.activePanel = PanelWorkItems
 	case PanelWorkItems:
-		// From work items, go to comments
+		a.activePanel = PanelDetails
+	case PanelDetails:
 		a.activePanel = PanelComments
 	case PanelComments:
-		// From comments, go back to filters (keep current filter group)
 		switch a.activeFilterGroup {
 		case 0:
 			a.activePanel = PanelFilterSprint
@@ -1178,10 +1211,10 @@ func (a *App) nextPanel() {
 func (a *App) prevPanel() {
 	switch a.activePanel {
 	case PanelComments:
-		// From comments, go to work items
+		a.activePanel = PanelDetails
+	case PanelDetails:
 		a.activePanel = PanelWorkItems
 	case PanelWorkItems:
-		// From work items, go back to filters (keep current filter group)
 		switch a.activeFilterGroup {
 		case 0:
 			a.activePanel = PanelFilterSprint
@@ -1196,7 +1229,6 @@ func (a *App) prevPanel() {
 			a.activeFilterGroup = 0
 		}
 	case PanelFilterSprint, PanelFilterState, PanelFilterAssigned, PanelFilterArea:
-		// From any filter panel, go to comments
 		a.activePanel = PanelComments
 	}
 }
@@ -1209,6 +1241,7 @@ func (a *App) updateFocus() {
 		a.filterPanel.SetActiveGroup(a.activeFilterGroup)
 	}
 	a.workItemsPanel.SetFocused(a.activePanel == PanelWorkItems)
+	a.detailsPanel.SetFocused(a.activePanel == PanelDetails)
 	a.commentsPanel.SetFocused(a.activePanel == PanelComments)
 }
 
@@ -1227,7 +1260,59 @@ func (a *App) updateSizes() {
 	a.errorModal.SetSize(a.width, a.height)
 	a.infoModal.SetSize(a.width, a.height)
 	a.quickSearchModal.SetSize(a.width, a.height)
+	a.updateContentPanelSizes()
 	a.updateFocus()
+}
+
+func (a *App) updateContentPanelSizes() {
+	if a.width == 0 || a.height == 0 {
+		return
+	}
+
+	availableHeight := a.height - styles.AppHeaderFooterSize
+
+	if a.width < styles.MinTerminalWidth || a.height < styles.MinTerminalHeight {
+		panelWidth := a.width - styles.PanelBorderOffset
+		panelHeight := availableHeight - styles.PanelBorderOffset
+		a.detailsPanel.SetSize(panelWidth, panelHeight)
+		a.commentsPanel.SetSize(panelWidth, panelHeight)
+		return
+	}
+
+	contentWidth := a.width - styles.PanelBorderOffset
+	if a.width >= styles.FilterShowWidth {
+		filterWidth := int(float64(a.width) * styles.FilterPanelWidthRatio)
+		if filterWidth < styles.FilterMinWidth {
+			filterWidth = styles.FilterMinWidth
+		}
+		if filterWidth > styles.FilterMaxWidth {
+			filterWidth = styles.FilterMaxWidth
+		}
+		contentWidth = a.width - filterWidth - styles.PanelBorderOffset*2
+	}
+
+	rightContentHeight := availableHeight - styles.PanelBorderOffset*2
+	rawWorkItemsH := int(float64(rightContentHeight) * styles.WorkItemsHeightRatio)
+	if rawWorkItemsH < styles.MinWorkItemsHeight {
+		rawWorkItemsH = styles.MinWorkItemsHeight
+	}
+	rawBottomH := rightContentHeight - rawWorkItemsH
+	showBottomRow := rawBottomH >= styles.MinBottomRowHeight && contentWidth >= styles.MinBottomRowWidth
+
+	if !showBottomRow {
+		return
+	}
+
+	showComments := contentWidth >= styles.CommentsShowWidth
+	if showComments {
+		detailsWidth := (contentWidth - styles.PanelBorderOffset) / 2
+		commentsWidth := contentWidth - styles.PanelBorderOffset - detailsWidth
+		a.detailsPanel.SetSize(detailsWidth, rawBottomH)
+		a.commentsPanel.SetSize(commentsWidth, rawBottomH)
+	} else {
+		detailsWidth := contentWidth - styles.PanelBorderOffset
+		a.detailsPanel.SetSize(detailsWidth, rawBottomH)
+	}
 }
 
 func (a *App) updateSelectedItem() tea.Cmd {

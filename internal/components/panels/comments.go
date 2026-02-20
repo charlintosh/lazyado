@@ -21,15 +21,16 @@ var commentsLogger = debug.Scope("comments")
 
 // CommentsPanel shows comments for a selected work item
 type CommentsPanel struct {
-	comments []models.Comment
-	viewport viewport.Model
-	styles   styles.Styles
-	keys     keys.KeyMap
-	width    int
-	height   int
-	ready    bool
-	focused  bool
-	cursor   int
+	comments       []models.Comment
+	viewport       viewport.Model
+	styles         styles.Styles
+	keys           keys.KeyMap
+	width          int
+	height         int
+	ready          bool
+	focused        bool
+	cursor         int
+	commentOffsets []int
 }
 
 // NewCommentsPanel creates a new comments panel
@@ -54,6 +55,7 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 	if c.focused && len(c.comments) > 0 {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
+			oldCursor := c.cursor
 			switch {
 			case key.Matches(msg, c.keys.Up):
 				if c.cursor > 0 {
@@ -80,6 +82,10 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 					}
 				}
 			}
+			if c.cursor != oldCursor {
+				c.updateViewportContent()
+				c.scrollToSelected()
+			}
 			return c, nil
 		}
 	}
@@ -90,38 +96,51 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 
 // View renders the comments panel
 func (c CommentsPanel) View() string {
-	if !c.ready {
-		content := c.styles.Subtitle.Render("Loading comments...")
-		panelStyle := c.styles.PanelInactive
-		if c.focused {
-			panelStyle = c.styles.PanelActive
-		}
-		return panelStyle.
-			Width(c.width).
-			Height(c.height).
-			Render(content)
-	}
-
-	if len(c.comments) == 0 {
-		content := c.styles.Subtitle.Render("No comments")
-		panelStyle := c.styles.PanelInactive
-		if c.focused {
-			panelStyle = c.styles.PanelActive
-		}
-		return panelStyle.
-			Width(c.width).
-			Height(c.height).
-			Render(content)
-	}
-
 	panelStyle := c.styles.PanelInactive
 	if c.focused {
 		panelStyle = c.styles.PanelActive
 	}
+
+	var b strings.Builder
+
+	numberStyle := c.styles.TextMuted
+	if c.focused {
+		numberStyle = c.styles.AccentBold
+	}
+	titleStyle := c.styles.FilterGroupTitle
+	if c.focused {
+		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
+	}
+
+	if len(c.comments) > 0 {
+		titleText := fmt.Sprintf("Discussion (%d)", len(c.comments))
+		b.WriteString("  " + numberStyle.Render("7. ") + titleStyle.Render(titleText))
+	} else {
+		b.WriteString("  " + numberStyle.Render("7. ") + titleStyle.Render("Discussion"))
+	}
+	b.WriteString("\n\n")
+
+	if len(c.comments) == 0 {
+		b.WriteString(c.styles.Subtitle.Render("  No comments"))
+		return panelStyle.
+			Width(c.width).
+			Height(c.height).
+			Render(b.String())
+	}
+
+	b.WriteString(c.viewport.View())
+	canScroll := c.viewport.TotalLineCount() > c.viewport.VisibleLineCount()
+	if canScroll {
+		pct := int(c.viewport.ScrollPercent() * 100)
+		scrollHint := lipgloss.NewStyle().Foreground(styles.ColorMuted).
+			Render(fmt.Sprintf(" %d%% ", pct))
+		b.WriteString("\n" + scrollHint)
+	}
+
 	return panelStyle.
 		Width(c.width).
 		Height(c.height).
-		Render(c.viewport.View())
+		Render(b.String())
 }
 
 // SetSize updates the panel dimensions
@@ -129,10 +148,11 @@ func (c *CommentsPanel) SetSize(width, height int) {
 	c.width = width
 	c.height = height
 
-	// Width(W) → outer = W+2 (border additive); inner text = W - padding(2) = W-2.
-	// Height(H) → outer = H+2 (border additive); inner lines = H (no vertical padding).
 	c.viewport.Width = width - styles.PanelBorderOffset
-	c.viewport.Height = height
+	c.viewport.Height = height - 3
+	if c.viewport.Height < 1 {
+		c.viewport.Height = 1
+	}
 
 	if c.ready {
 		c.updateViewportContent()
@@ -176,23 +196,11 @@ func (c *CommentsPanel) updateViewportContent() {
 	}
 
 	var b strings.Builder
+	c.commentOffsets = make([]int, len(c.comments))
+	currentLine := 0
 
-	// Title with number (consistent with filter panel style)
-	numberStyle := c.styles.TextMuted
-	if c.focused {
-		numberStyle = c.styles.AccentBold
-	}
-	titleStyle := c.styles.FilterGroupTitle
-	if c.focused {
-		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
-	}
-	titlePrefix := numberStyle.Render("6. ")
-	titleText := fmt.Sprintf("Comments (%d)", len(c.comments))
-	b.WriteString(titlePrefix + titleStyle.Render(titleText))
-	b.WriteString("\n\n")
-
-	// Render each comment
 	for i, comment := range c.comments {
+		c.commentOffsets[i] = currentLine
 		isSelected := c.focused && i == c.cursor
 
 		// Build comment content
@@ -236,11 +244,34 @@ func (c *CommentsPanel) updateViewportContent() {
 		// Account for borders (2 chars) when setting width
 		boxStyle = boxStyle.Width(c.viewport.Width - 2)
 
-		b.WriteString(boxStyle.Render(commentContent.String()))
+		rendered := boxStyle.Render(commentContent.String())
+		b.WriteString(rendered)
 		b.WriteString("\n")
+		currentLine += strings.Count(rendered, "\n") + 1
 	}
 
 	c.viewport.SetContent(b.String())
+}
+
+func (c *CommentsPanel) scrollToSelected() {
+	if c.cursor < 0 || c.cursor >= len(c.commentOffsets) {
+		return
+	}
+	topLine := c.commentOffsets[c.cursor]
+
+	bottomLine := c.viewport.TotalLineCount() - 1
+	if c.cursor+1 < len(c.commentOffsets) {
+		bottomLine = c.commentOffsets[c.cursor+1] - 1
+	}
+
+	vpTop := c.viewport.YOffset
+	vpBottom := vpTop + c.viewport.Height - 1
+
+	if topLine < vpTop {
+		c.viewport.SetYOffset(topLine)
+	} else if bottomLine > vpBottom {
+		c.viewport.SetYOffset(bottomLine - c.viewport.Height + 1)
+	}
 }
 
 // wrapText wraps text to fit within the specified width
