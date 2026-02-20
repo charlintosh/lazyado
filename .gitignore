@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+lazyado
+lazyado-debug
 
 # Test binary
 *.test

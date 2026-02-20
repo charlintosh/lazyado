@@ -6,7 +6,7 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
-## [v0.1.4] - 2026-02-20
+## [v0.1.5] - 2026-02-20
 
 ### Added
 
@@ -14,6 +14,10 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 - feat: update dependencies and enhance WorkItemsPanel styling with improved color scheme and item counter (6fca0f5)
 - feat: enhance comments and details panels with improved rendering and scrolling (75a747a)
 - feat: enhance error handling in QuickSearchModal and API response parsing (444313d)
+
+### Fixed
+
+- fix: re-release as v0.1.5 — v0.1.4 was cached by the Go module proxy with stale content due to tag reuse
 
 ## [v0.1.3] - 2026-02-19
 
