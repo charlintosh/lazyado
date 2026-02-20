@@ -4,7 +4,7 @@
 ![Go Report Card](https://goreportcard.com/badge/github.com/charlintosh/lazyado)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 ![Repo Size](https://img.shields.io/github/repo-size/charlintosh/lazyado)
-![version](https://img.shields.io/badge/version-0.1.3-purple)
+![version](https://img.shields.io/badge/version-0.1.4-purple)
 
 A terminal user interface (TUI) for Azure DevOps Boards.
 

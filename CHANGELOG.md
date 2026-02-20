@@ -6,6 +6,15 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v0.1.4] - 2026-02-20
+
+### Added
+
+- feat: add harmonica dependency and implement animated splash screen with loading effects (c9e1bf4)
+- feat: update dependencies and enhance WorkItemsPanel styling with improved color scheme and item counter (6fca0f5)
+- feat: enhance comments and details panels with improved rendering and scrolling (75a747a)
+- feat: enhance error handling in QuickSearchModal and API response parsing (444313d)
+
 ## [v0.1.3] - 2026-02-19
 
 ### Added
