@@ -29,6 +29,11 @@ type DetailView struct {
 	width    int
 	height   int
 	ready    bool
+
+	commentCursor        int
+	commentFocused       bool
+	commentOffsets       []int
+	discussionBaseOffset int
 }
 
 // NewDetailView creates a new detail view.
@@ -50,13 +55,65 @@ func (d DetailView) Update(msg tea.Msg) (DetailView, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, d.keys.Back), key.Matches(msg, d.keys.Quit):
+		case key.Matches(msg, d.keys.Back):
+			if d.commentFocused {
+				d.commentFocused = false
+				d.updateViewportContent()
+				return d, nil
+			}
+			return d, func() tea.Msg { return CloseDetailViewMsg{} }
+		case key.Matches(msg, d.keys.Quit):
 			return d, func() tea.Msg { return CloseDetailViewMsg{} }
 		case key.Matches(msg, d.keys.AddComment):
 			if d.item != nil {
 				return d, func() tea.Msg { return OpenCommentModalMsg{Item: *d.item} }
 			}
+		case key.Matches(msg, d.keys.NextPanel):
+			if len(d.comments) > 0 {
+				d.commentFocused = !d.commentFocused
+				d.updateViewportContent()
+				if d.commentFocused {
+					d.scrollToComment()
+				}
+				return d, nil
+			}
 		default:
+			if d.commentFocused && len(d.comments) > 0 {
+				oldCursor := d.commentCursor
+				switch {
+				case key.Matches(msg, d.keys.Up):
+					if d.commentCursor > 0 {
+						d.commentCursor--
+					}
+				case key.Matches(msg, d.keys.Down):
+					if d.commentCursor < len(d.comments)-1 {
+						d.commentCursor++
+					}
+				case key.Matches(msg, d.keys.Top):
+					d.commentCursor = 0
+				case key.Matches(msg, d.keys.Bottom):
+					d.commentCursor = len(d.comments) - 1
+				case key.Matches(msg, d.keys.EditComment):
+					if d.commentCursor < len(d.comments) {
+						comment := d.comments[d.commentCursor]
+						return d, func() tea.Msg {
+							return EditCommentMsg{Comment: comment}
+						}
+					}
+				case key.Matches(msg, d.keys.DeleteComment):
+					if d.commentCursor < len(d.comments) {
+						comment := d.comments[d.commentCursor]
+						return d, func() tea.Msg {
+							return DeleteCommentMsg{Comment: comment}
+						}
+					}
+				}
+				if d.commentCursor != oldCursor {
+					d.updateViewportContent()
+					d.scrollToComment()
+				}
+				return d, nil
+			}
 			// Delegate all other key events to the viewport (j/k, up/down, page, …).
 			d.viewport, cmd = d.viewport.Update(msg)
 		}
@@ -134,9 +191,13 @@ func (d *DetailView) renderHeader() string {
 }
 
 func (d *DetailView) renderStatusBar() string {
+	hint := "Esc Back  c Add comment  Tab Focus comments  j/k Scroll"
+	if d.commentFocused {
+		hint = "Esc Unfocus  e Edit  d Delete  j/k Navigate  c Add comment"
+	}
 	return d.styles.StatusBar.
 		Width(d.width).
-		Render("Esc Back  c Add comment  j/k Scroll")
+		Render(hint)
 }
 
 // SetSize updates the component dimensions and refreshes the viewport.
@@ -149,6 +210,8 @@ func (d *DetailView) SetSize(width, height int) {
 // SetItem sets the work item and rebuilds the viewport content.
 func (d *DetailView) SetItem(item *models.WorkItem) {
 	d.item = item
+	d.commentFocused = false
+	d.commentCursor = 0
 	d.viewport.GotoTop()
 	d.updateViewportContent()
 }
@@ -156,6 +219,7 @@ func (d *DetailView) SetItem(item *models.WorkItem) {
 // SetComments sets the comments list and rebuilds the viewport content.
 func (d *DetailView) SetComments(comments []models.Comment) {
 	d.comments = comments
+	d.commentCursor = 0
 	d.updateViewportContent()
 }
 
@@ -221,44 +285,77 @@ func (d *DetailView) renderMainContent(width int) string {
 		wrapWidth = styles.DetailWrapMinWidth
 	}
 
-	sections := []string{
+	preSections := []string{
 		sectionStyle.Render(titleSt.Render("DESCRIPTION") + "\n" + d.buildDescriptionBody(wrapWidth)),
 	}
 
 	if d.item.AcceptanceCriteria != "" {
-		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+wordWrap(d.item.AcceptanceCriteria, wrapWidth),
+		preSections = append(preSections, sectionStyle.Render(
+			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth),
 		))
 	}
 
-	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
-	sections = append(sections, sectionStyle.Render(
-		titleSt.Render(discussionTitle)+"\n"+d.buildDiscussionBody(wrapWidth),
-	))
+	preContent := strings.Join(preSections, "\n")
+	// Offset to first line of the discussion body inside its rounded-border section:
+	// preContent lines + 1 (join \n) + 1 (top border) + 1 (title line) = +3
+	d.discussionBaseOffset = strings.Count(preContent, "\n") + 3
 
-	return strings.Join(sections, "\n")
+	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
+	discussionSection := sectionStyle.Render(
+		titleSt.Render(discussionTitle) + "\n" + d.buildDiscussionBody(wrapWidth),
+	)
+
+	return preContent + "\n" + discussionSection
 }
 
-// buildDescriptionBody returns the rendered description text (or a placeholder).
 func (d *DetailView) buildDescriptionBody(wrapWidth int) string {
 	if d.item.Description == "" {
 		return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Italic(true).Render("No description provided")
 	}
-	return wordWrap(d.item.Description, wrapWidth)
+	return renderHTMLContent(d.item.DescriptionHTML, d.item.Description, wrapWidth)
 }
 
 // buildDiscussionBody returns the rendered comment list (or a placeholder).
 func (d *DetailView) buildDiscussionBody(wrapWidth int) string {
 	if len(d.comments) == 0 {
+		d.commentOffsets = nil
 		return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Italic(true).Render("No comments yet")
 	}
-	var parts []string
-	for _, c := range d.comments {
-		author := d.styles.CommentAuthor.Render(c.CreatedBy)
-		date := d.styles.CommentDate.Render(formatCommentDate(c.CreatedDate))
-		parts = append(parts, author+"  "+date+"\n"+wordWrap(c.Text, wrapWidth))
+	selected := -1
+	if d.commentFocused {
+		selected = d.commentCursor
 	}
-	return strings.Join(parts, "\n\n")
+	content, offsets := RenderCommentList(d.comments, d.styles, CommentListConfig{
+		Width:      wrapWidth,
+		Selected:   selected,
+		ShowEdited: true,
+		ShowBoxes:  true,
+	})
+	d.commentOffsets = offsets
+	return strings.TrimRight(content, "\n")
+}
+
+// scrollToComment scrolls the viewport so the selected comment is visible.
+func (d *DetailView) scrollToComment() {
+	if d.commentCursor < 0 || d.commentCursor >= len(d.commentOffsets) {
+		return
+	}
+
+	topLine := d.discussionBaseOffset + d.commentOffsets[d.commentCursor]
+
+	bottomLine := d.viewport.TotalLineCount() - 1
+	if d.commentCursor+1 < len(d.commentOffsets) {
+		bottomLine = d.discussionBaseOffset + d.commentOffsets[d.commentCursor+1] - 1
+	}
+
+	vpTop := d.viewport.YOffset
+	vpBottom := vpTop + d.viewport.Height - 1
+
+	if topLine < vpTop {
+		d.viewport.SetYOffset(topLine)
+	} else if bottomLine > vpBottom {
+		d.viewport.SetYOffset(bottomLine - d.viewport.Height + 1)
+	}
 }
 
 // renderSidebar builds the scrollable right column.
@@ -387,16 +484,19 @@ func (d *DetailView) renderSingleColumn(width int) string {
 
 	if d.item.AcceptanceCriteria != "" {
 		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+wordWrap(d.item.AcceptanceCriteria, wrapWidth),
+			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth),
 		))
 	}
 
-	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
-	sections = append(sections, sectionStyle.Render(
-		titleSt.Render(discussionTitle)+"\n"+d.buildDiscussionBody(wrapWidth),
-	))
+	preContent := strings.Join(sections, "\n")
+	d.discussionBaseOffset = strings.Count(preContent, "\n") + 3
 
-	return strings.Join(sections, "\n")
+	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
+	discussionSection := sectionStyle.Render(
+		titleSt.Render(discussionTitle) + "\n" + d.buildDiscussionBody(wrapWidth),
+	)
+
+	return preContent + "\n" + discussionSection
 }
 
 // CloseDetailViewMsg is sent when the detail view should be closed.

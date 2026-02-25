@@ -16,6 +16,7 @@ Auto-invoke rules for agents
 
 - When editing UI components: invoke `bubbletea` first.
 - For general Go code, tests, and concurrency: invoke `go-uber-style` first.
+- When working with Azure DevOps HTML rich-text fields (descriptions, acceptance criteria, repro steps): invoke `html-to-markdown` first.
 - For detailed implementation patterns (WIQL, API, etc.): consult `docs/` (e.g., [docs/api-client.md](docs/api-client.md)).
 
 Where to add new guidance

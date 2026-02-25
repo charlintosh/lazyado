@@ -6,6 +6,25 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v0.1.6] - 2026-02-25
+
+### Added
+
+- feat: HTML→Markdown→glamour pipeline for rich-text fields (Description, Acceptance Criteria) using `html-to-markdown/v2` and `glamour`
+- feat: shared `RenderCommentList` component extracted from CommentsPanel — used by both CommentsPanel and DetailView
+- feat: comment focus mode in DetailView — press `Tab` to navigate, select, edit and delete comments inline
+- feat: `html-to-markdown` agent skill documenting the rich-text rendering pipeline
+
+### Fixed
+
+- fix: preserve whitespace between @mentions in comment rendering
+- fix: comment boxes now shown consistently in both CommentsPanel and DetailView
+
+### Changed
+
+- refactor: ~190 lines of duplicated comment rendering code removed from CommentsPanel in favour of shared `comment_list.go`
+- refactor: WorkItem model stores raw HTML (`DescriptionHTML`, `AcceptanceCriteriaHTML`) alongside plain-text fallback
+
 ## [v0.1.5] - 2026-02-20
 
 ### Added

@@ -3,9 +3,6 @@ package panels
 import (
 	"fmt"
 	"strings"
-	"time"
-
-	"golang.org/x/net/html"
 
 	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/keys"
@@ -189,68 +186,24 @@ func (c *CommentsPanel) updateViewportContent() {
 		return
 	}
 
-	// Make sure viewport has dimensions set
 	if c.viewport.Width <= 0 || c.viewport.Height <= 0 {
 		commentsLogger.Debugf("viewport_dimensions_not_set")
 		return
 	}
 
-	var b strings.Builder
-	c.commentOffsets = make([]int, len(c.comments))
-	currentLine := 0
-
-	for i, comment := range c.comments {
-		c.commentOffsets[i] = currentLine
-		isSelected := c.focused && i == c.cursor
-
-		// Build comment content
-		var commentContent strings.Builder
-
-		// Header: Author and date with visual hierarchy
-		author := c.styles.CommentAuthor.Render(comment.CreatedBy)
-		dateStr := formatCommentDate(comment.CreatedDate)
-		date := c.styles.CommentDate.Render(dateStr)
-		separator := c.styles.TextMuted.Render(" • ")
-
-		header := lipgloss.JoinHorizontal(lipgloss.Left, author, separator, date)
-		commentContent.WriteString(c.styles.CommentHeader.Render(header))
-		commentContent.WriteString("\n")
-
-		// Comment text with proper wrapping and styling for mentions/links
-		boxWidth := c.viewport.Width - 6 // Account for box borders and padding
-		if boxWidth < 20 {
-			boxWidth = 20
-		}
-		// Use renderedText if available (HTML format with mentions), otherwise plain text
-		sourceText := comment.Text
-		if comment.RenderedText != "" {
-			sourceText = comment.RenderedText
-		}
-		text := c.parseAndStyleHTML(sourceText, boxWidth)
-		commentContent.WriteString(text)
-
-		// Modified indicator if applicable
-		if !comment.ModifiedDate.IsZero() && !comment.ModifiedDate.Equal(comment.CreatedDate) {
-			commentContent.WriteString("\n")
-			modStr := fmt.Sprintf("✏ Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
-			commentContent.WriteString(c.styles.CommentEdited.Render(modStr))
-		}
-
-		// Wrap comment in styled box that takes full width
-		boxStyle := c.styles.CommentBox
-		if isSelected {
-			boxStyle = c.styles.CommentBoxSelected
-		}
-		// Account for borders (2 chars) when setting width
-		boxStyle = boxStyle.Width(c.viewport.Width - 2)
-
-		rendered := boxStyle.Render(commentContent.String())
-		b.WriteString(rendered)
-		b.WriteString("\n")
-		currentLine += strings.Count(rendered, "\n") + 1
+	selected := -1
+	if c.focused {
+		selected = c.cursor
 	}
 
-	c.viewport.SetContent(b.String())
+	content, offsets := RenderCommentList(c.comments, c.styles, CommentListConfig{
+		Width:      c.viewport.Width,
+		Selected:   selected,
+		ShowEdited: true,
+		ShowBoxes:  true,
+	})
+	c.commentOffsets = offsets
+	c.viewport.SetContent(content)
 }
 
 func (c *CommentsPanel) scrollToSelected() {
@@ -273,185 +226,6 @@ func (c *CommentsPanel) scrollToSelected() {
 		c.viewport.SetYOffset(bottomLine - c.viewport.Height + 1)
 	}
 }
-
-// wrapText wraps text to fit within the specified width
-func (c *CommentsPanel) wrapText(text string, width int) string {
-	if width <= 0 {
-		return text
-	}
-
-	var result strings.Builder
-	lines := strings.Split(text, "\n")
-
-	for lineIdx, line := range lines {
-		if lineIdx > 0 {
-			result.WriteString("\n")
-		}
-
-		// If line is empty, keep it
-		if len(line) == 0 {
-			continue
-		}
-
-		words := strings.Fields(line)
-		if len(words) == 0 {
-			continue
-		}
-
-		currentLine := words[0]
-		for _, word := range words[1:] {
-			if len(currentLine)+1+len(word) <= width {
-				currentLine += " " + word
-			} else {
-				result.WriteString(currentLine)
-				result.WriteString("\n")
-				currentLine = word
-			}
-		}
-		result.WriteString(currentLine)
-	}
-
-	return result.String()
-}
-
-// parseAndStyleHTML parses HTML comment text and applies styles for mentions and links
-func (c *CommentsPanel) parseAndStyleHTML(htmlText string, width int) string {
-	if width <= 0 || htmlText == "" {
-		return htmlText
-	}
-
-	// Parse HTML
-	doc, err := html.Parse(strings.NewReader(htmlText))
-	if err != nil {
-		// Fallback to plain text if parsing fails
-		return c.styles.CommentText.Render(htmlText)
-	}
-
-	// Extract styled segments from HTML
-	var segments []string
-	c.extractStyledSegments(doc, &segments)
-
-	// Join segments and wrap
-	result := strings.Join(segments, "")
-	return result
-}
-
-// extractStyledSegments recursively extracts text from HTML nodes and applies styling
-func (c *CommentsPanel) extractStyledSegments(n *html.Node, segments *[]string) {
-	if n.Type == html.TextNode {
-		text := n.Data
-		// Only skip completely empty text nodes
-		if text != "" && strings.TrimSpace(text) != "" {
-			// Preserve original spacing - don't collapse spaces here
-			*segments = append(*segments, c.styles.CommentText.Render(text))
-		}
-		return
-	}
-
-	if n.Type == html.ElementNode {
-		switch n.Data {
-		case "a":
-			// Check if it's a mention or regular link
-			isMention := false
-			for _, attr := range n.Attr {
-				if attr.Key == "data-vss-mention" {
-					isMention = true
-					break
-				}
-			}
-
-			// Extract link text (preserve the @ symbol!)
-			linkText := c.getNodeText(n)
-			if linkText != "" {
-				if isMention {
-					// Style as mention (cyan/bold)
-					*segments = append(*segments, c.styles.CommentMention.Render(linkText))
-				} else {
-					// Style as link (blue/underline)
-					*segments = append(*segments, c.styles.CommentLink.Render(linkText))
-				}
-			}
-			return
-
-		case "br":
-			*segments = append(*segments, "\n")
-			return
-
-		case "b", "strong":
-			// Bold text
-			boldText := c.getNodeText(n)
-			if boldText != "" {
-				boldStyle := c.styles.CommentText.Copy().Bold(true)
-				*segments = append(*segments, boldStyle.Render(boldText))
-			}
-			return
-
-		case "li":
-			*segments = append(*segments, "\n  • ")
-
-		case "ul", "ol":
-			*segments = append(*segments, "\n")
-
-		case "div", "p":
-			if len(*segments) > 0 {
-				*segments = append(*segments, "\n")
-			}
-		}
-	}
-
-	// Process children
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		c.extractStyledSegments(child, segments)
-	}
-}
-
-// getNodeText extracts all text content from a node and its children
-// Preserves all characters including @ symbols and spaces
-func (c *CommentsPanel) getNodeText(n *html.Node) string {
-	if n.Type == html.TextNode {
-		// Preserve all text content exactly as-is
-		return n.Data
-	}
-
-	var text strings.Builder
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		text.WriteString(c.getNodeText(child))
-	}
-	return text.String()
-}
-
-// formatCommentDate formats a comment date for display
-func formatCommentDate(t time.Time) string {
-	now := time.Now()
-	diff := now.Sub(t)
-
-	switch {
-	case diff < time.Minute:
-		return "just now"
-	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		if mins == 1 {
-			return "1 minute ago"
-		}
-		return fmt.Sprintf("%d minutes ago", mins)
-	case diff < 24*time.Hour:
-		hours := int(diff.Hours())
-		if hours == 1 {
-			return "1 hour ago"
-		}
-		return fmt.Sprintf("%d hours ago", hours)
-	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
-		if days == 1 {
-			return "yesterday"
-		}
-		return fmt.Sprintf("%d days ago", days)
-	default:
-		return t.Format("Jan 2, 2006")
-	}
-}
-
-// Message types
 
 // CommentsLoadedMsg is sent when comments are loaded
 type CommentsLoadedMsg struct {

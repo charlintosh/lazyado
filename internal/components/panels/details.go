@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
@@ -241,7 +242,7 @@ func (d *DetailsPanel) writeDescriptionSection(b *strings.Builder, wrapWidth int
 	b.WriteString("\n")
 	b.WriteString(d.styles.DetailSectionTitle.Render("─── Description ───"))
 	b.WriteString("\n")
-	b.WriteString(renderDetailMarkdown(d.item.Description, wrapWidth))
+	b.WriteString(renderHTMLContent(d.item.DescriptionHTML, d.item.Description, wrapWidth))
 	b.WriteString("\n")
 }
 
@@ -253,7 +254,7 @@ func (d *DetailsPanel) writeACSection(b *strings.Builder, wrapWidth int) {
 	b.WriteString("\n")
 	b.WriteString(d.styles.DetailSectionTitle.Render("─── Acceptance Criteria ───"))
 	b.WriteString("\n")
-	b.WriteString(renderDetailMarkdown(d.item.AcceptanceCriteria, wrapWidth))
+	b.WriteString(renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth))
 	b.WriteString("\n")
 }
 
@@ -309,6 +310,16 @@ func (d *DetailsPanel) GetAvailableActions() []string {
 }
 
 // renderDetailMarkdown renders markdown using glamour, falling back to wordWrap.
+func renderHTMLContent(htmlContent, fallback string, width int) string {
+	md := htmlContent
+	if md != "" {
+		md = components.HTMLToMarkdown(md)
+	} else {
+		md = fallback
+	}
+	return renderDetailMarkdown(md, width)
+}
+
 func renderDetailMarkdown(content string, width int) string {
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithStylePath("dark"),

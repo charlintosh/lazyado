@@ -49,27 +49,29 @@ const (
 
 // WorkItem represents an Azure DevOps work item
 type WorkItem struct {
-	ID                 int           `json:"id"`
-	Rev                int           `json:"rev"`
-	Title              string        `json:"title"`
-	State              WorkItemState `json:"state"`
-	Type               WorkItemType  `json:"type"`
-	AssignedTo         string        `json:"assignedTo"`
-	IterationPath      string        `json:"iterationPath"`
-	AreaPath           string        `json:"areaPath"`
-	Description        string        `json:"description"`
-	AcceptanceCriteria string        `json:"acceptanceCriteria"`
-	Tags               []string      `json:"tags"`
-	ParentID           int           `json:"parentId"`
-	ParentTitle        string        `json:"parentTitle"`
-	Priority           int           `json:"priority"`
-	Effort             float64       `json:"effort"`
-	CreatedDate        time.Time     `json:"createdDate"`
-	ChangedDate        time.Time     `json:"changedDate"`
-	URL                string        `json:"url"`
-	WebURL             string        `json:"webUrl"`
-	Children           []*WorkItem   `json:"-"` // Child work items (not from API)
-	IsExpanded         bool          `json:"-"` // For UI state
+	ID                     int           `json:"id"`
+	Rev                    int           `json:"rev"`
+	Title                  string        `json:"title"`
+	State                  WorkItemState `json:"state"`
+	Type                   WorkItemType  `json:"type"`
+	AssignedTo             string        `json:"assignedTo"`
+	IterationPath          string        `json:"iterationPath"`
+	AreaPath               string        `json:"areaPath"`
+	Description            string        `json:"description"`
+	DescriptionHTML        string        `json:"descriptionHTML,omitempty"`
+	AcceptanceCriteria     string        `json:"acceptanceCriteria"`
+	AcceptanceCriteriaHTML string        `json:"acceptanceCriteriaHTML,omitempty"`
+	Tags                   []string      `json:"tags"`
+	ParentID               int           `json:"parentId"`
+	ParentTitle            string        `json:"parentTitle"`
+	Priority               int           `json:"priority"`
+	Effort                 float64       `json:"effort"`
+	CreatedDate            time.Time     `json:"createdDate"`
+	ChangedDate            time.Time     `json:"changedDate"`
+	URL                    string        `json:"url"`
+	WebURL                 string        `json:"webUrl"`
+	Children               []*WorkItem   `json:"-"` // Child work items (not from API)
+	IsExpanded             bool          `json:"-"` // For UI state
 }
 
 // ShortType returns a short version of the work item type
