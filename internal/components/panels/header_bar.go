@@ -10,7 +10,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// HeaderBar renders the top bar with title on left and notification on right
+type AppTab int
+
+const (
+	TabBoards AppTab = iota
+	TabPullRequests
+)
+
+type TabChangedMsg struct {
+	Tab AppTab
+}
+
 type HeaderBar struct {
 	organization string
 	project      string
@@ -19,74 +29,96 @@ type HeaderBar struct {
 	styles       styles.Styles
 	width        int
 	spinner      spinner.Model
+	activeTab    AppTab
 }
 
-// NewHeaderBar creates a new header bar component
 func NewHeaderBar(styles styles.Styles) HeaderBar {
 	sp := spinner.New()
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF00FF")) // Vibrant magenta
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF00FF"))
 	sp.Spinner = spinner.Points
 
 	return HeaderBar{
-		styles:  styles,
-		spinner: sp,
+		styles:    styles,
+		spinner:   sp,
+		activeTab: TabBoards,
 	}
 }
 
-// SetOrganization sets the organization name
 func (h *HeaderBar) SetOrganization(org string) {
 	h.organization = org
 }
 
-// SetProject sets the project name
 func (h *HeaderBar) SetProject(project string) {
 	h.project = project
 }
 
-// SetLoading sets the loading state
 func (h *HeaderBar) SetLoading(loading bool) {
 	h.loading = loading
 }
 
-// SetNotification sets the notification component
 func (h *HeaderBar) SetNotification(notif *notification.Notification) {
 	h.notification = notif
 }
 
-// SetWidth sets the width of the header bar
 func (h *HeaderBar) SetWidth(width int) {
 	h.width = width
 }
 
-// Init returns the initial command for the header bar
+func (h *HeaderBar) SetActiveTab(tab AppTab) {
+	h.activeTab = tab
+}
+
+func (h HeaderBar) ActiveTab() AppTab {
+	return h.activeTab
+}
+
 func (h HeaderBar) Init() tea.Cmd {
 	return h.spinner.Tick
 }
 
-// Update handles messages for the header bar
 func (h HeaderBar) Update(msg tea.Msg) (HeaderBar, tea.Cmd) {
 	var cmd tea.Cmd
 	h.spinner, cmd = h.spinner.Update(msg)
 	return h, cmd
 }
 
-// View renders the header bar
 func (h HeaderBar) View() string {
 	var content string
 
-	// If notification is visible, show ONLY the notification (centered)
 	if h.notification != nil && h.notification.IsVisible() {
 		content = h.notification.View()
 	} else {
-		// Otherwise show title: "org/project boards" with optional loading spinner
-		titleText := fmt.Sprintf("%s/%s boards", h.organization, h.project)
-		if h.loading {
-			titleText += " " + h.spinner.View()
+		activeStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(styles.ColorText).
+			Background(styles.ColorPrimary).
+			Padding(0, 1)
+
+		inactiveStyle := lipgloss.NewStyle().
+			Foreground(styles.ColorTextMuted).
+			Padding(0, 1)
+
+		prefix := fmt.Sprintf("%s/%s", h.organization, h.project)
+		prefixRendered := h.styles.Title.Render(prefix)
+
+		boardsTab := inactiveStyle.Render("Boards")
+		prTab := inactiveStyle.Render("Pull Requests")
+		if h.activeTab == TabBoards {
+			boardsTab = activeStyle.Render("Boards")
+		} else {
+			prTab = activeStyle.Render("Pull Requests")
 		}
-		content = h.styles.Title.Render(titleText)
+
+		separator := lipgloss.NewStyle().Foreground(styles.ColorMuted).Render(" │ ")
+		tabs := boardsTab + separator + prTab
+
+		spinnerView := ""
+		if h.loading {
+			spinnerView = " " + h.spinner.View()
+		}
+		content = prefixRendered + "  " + tabs + spinnerView
 	}
 
-	// Center the content in the full width
 	return lipgloss.NewStyle().
 		Width(h.width).
 		Align(lipgloss.Center).

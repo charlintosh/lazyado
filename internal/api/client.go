@@ -188,6 +188,25 @@ func (c *Client) patch(endpoint string, body io.Reader) (*http.Response, error) 
 	return c.doRequestWithContentType("PATCH", url, body, "application/json-patch+json")
 }
 
+// put performs a PUT request
+func (c *Client) put(endpoint string, body io.Reader) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
+	if endpoint[0] != '/' {
+		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
+	}
+
+	separator := "?"
+	for _, ch := range url {
+		if ch == '?' {
+			separator = "&"
+			break
+		}
+	}
+	url = fmt.Sprintf("%s%sapi-version=%s", url, separator, apiVersion)
+
+	return c.doRequest("PUT", url, body)
+}
+
 // patchPreview performs a PATCH request with preview API version
 func (c *Client) patchPreview(endpoint string, body io.Reader) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)

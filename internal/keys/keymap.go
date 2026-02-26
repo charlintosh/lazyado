@@ -50,6 +50,14 @@ type KeyMap struct {
 
 	ModalLeft  key.Binding
 	ModalRight key.Binding
+
+	TabNext   key.Binding
+	TabPrev   key.Binding
+	PRApprove key.Binding
+	PRReject  key.Binding
+	PRWait    key.Binding
+	PRReset   key.Binding
+	PRFilter  key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -222,6 +230,34 @@ func DefaultKeyMap() KeyMap {
 		Panel7: key.NewBinding(
 			key.WithKeys("7"),
 			key.WithHelp("7", "panel 7"),
+		),
+		TabNext: key.NewBinding(
+			key.WithKeys("]"),
+			key.WithHelp("]", "next tab"),
+		),
+		TabPrev: key.NewBinding(
+			key.WithKeys("["),
+			key.WithHelp("[", "prev tab"),
+		),
+		PRApprove: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "approve PR"),
+		),
+		PRReject: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reject PR"),
+		),
+		PRWait: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "wait for author"),
+		),
+		PRReset: key.NewBinding(
+			key.WithKeys("0"),
+			key.WithHelp("0", "reset vote"),
+		),
+		PRFilter: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "cycle PR filter"),
 		),
 	}
 }

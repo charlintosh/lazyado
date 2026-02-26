@@ -114,6 +114,23 @@ func (h HelpPanel) View() string {
 				h.keys.Quit,
 			},
 		},
+		{
+			title: "Tabs",
+			bindings: []key.Binding{
+				h.keys.TabNext,
+				h.keys.TabPrev,
+			},
+		},
+		{
+			title: "Pull Requests",
+			bindings: []key.Binding{
+				h.keys.PRApprove,
+				h.keys.PRReject,
+				h.keys.PRWait,
+				h.keys.PRReset,
+				h.keys.PRFilter,
+			},
+		},
 	}
 
 	for i, section := range sections {

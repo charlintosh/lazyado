@@ -10,6 +10,7 @@ const (
 	FilterTypeState
 	FilterTypeAssigned
 	FilterTypeArea
+	FilterTypeRepository
 )
 
 // FilterOption represents a selectable filter option

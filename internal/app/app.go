@@ -41,6 +41,7 @@ type ViewMode int
 const (
 	ViewMain ViewMode = iota
 	ViewDetail
+	ViewPRDetail
 )
 
 // App is the main application model
@@ -69,6 +70,9 @@ type App struct {
 	notification     notification.Notification
 	headerBar        panels.HeaderBar
 
+	prListPanel   panels.PRListPanel
+	prDetailPanel panels.PRDetailPanel
+
 	// State
 	activePanel Panel
 	viewMode    ViewMode
@@ -92,6 +96,14 @@ type App struct {
 
 	// Active filter group for panel navigation
 	activeFilterGroup int
+
+	// Active tab (Boards vs Pull Requests)
+	activeTab panels.AppTab
+
+	// PR data
+	pullRequests []models.PullRequest
+	userProfile  *models.ConnectionProfile
+	prLoading    bool
 
 	// Dimensions
 	width  int
@@ -131,8 +143,11 @@ func NewApp(client *api.Client) App {
 		splashScreen:      screens.NewSplashScreen(styles),
 		notification:      notification.NewNotification(styles, keys),
 		headerBar:         panels.NewHeaderBar(styles),
+		prListPanel:       panels.NewPRListPanel(styles, keys),
+		prDetailPanel:     panels.NewPRDetailPanel(styles, keys),
 		activePanel:       PanelWorkItems,
 		viewMode:          ViewMain,
+		activeTab:         panels.TabBoards,
 		loading:           true,
 		client:            client,
 		styles:            styles,
@@ -358,6 +373,84 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
+		// Tab switching ([ and ]) — switch between Boards and Pull Requests
+		if key.Matches(msg, a.keys.TabNext) && a.viewMode == ViewMain {
+			if a.activeTab == panels.TabBoards {
+				a.activeTab = panels.TabPullRequests
+				a.headerBar.SetActiveTab(panels.TabPullRequests)
+				a.activePanel = PanelWorkItems
+				a.updateFocus()
+				if len(a.pullRequests) == 0 {
+					a.prLoading = true
+					return a, loadPullRequestsCmd(a.client)
+				}
+			} else {
+				a.activeTab = panels.TabBoards
+				a.headerBar.SetActiveTab(panels.TabBoards)
+				a.activePanel = PanelWorkItems
+				a.updateFocus()
+			}
+			return a, nil
+		}
+		if key.Matches(msg, a.keys.TabPrev) && a.viewMode == ViewMain {
+			if a.activeTab == panels.TabPullRequests {
+				a.activeTab = panels.TabBoards
+				a.headerBar.SetActiveTab(panels.TabBoards)
+				a.activePanel = PanelWorkItems
+				a.updateFocus()
+			} else {
+				a.activeTab = panels.TabPullRequests
+				a.headerBar.SetActiveTab(panels.TabPullRequests)
+				a.activePanel = PanelWorkItems
+				a.updateFocus()
+				if len(a.pullRequests) == 0 {
+					a.prLoading = true
+					return a, loadPullRequestsCmd(a.client)
+				}
+			}
+			return a, nil
+		}
+
+		// Handle PR detail view mode
+		if a.viewMode == ViewPRDetail {
+			// PR-specific keys in detail view
+			if key.Matches(msg, a.keys.Open) {
+				if pr := a.prDetailPanel.Item(); pr != nil {
+					webURL := a.client.PullRequestWebURL(pr.Repository.Name, pr.ID)
+					if err := browser.Open(webURL); err != nil {
+						a.err = err
+					}
+					return a, nil
+				}
+			}
+			if key.Matches(msg, a.keys.PRApprove) {
+				if pr := a.prDetailPanel.Item(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteApproved)
+				}
+			}
+			if key.Matches(msg, a.keys.PRReject) {
+				if pr := a.prDetailPanel.Item(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteRejected)
+				}
+			}
+			if key.Matches(msg, a.keys.PRWait) {
+				if pr := a.prDetailPanel.Item(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteWaitingForAuthor)
+				}
+			}
+			if key.Matches(msg, a.keys.PRReset) {
+				if pr := a.prDetailPanel.Item(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteNoVote)
+				}
+			}
+			newDetail, cmd := a.prDetailPanel.Update(msg)
+			a.prDetailPanel = newDetail
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			return a, tea.Batch(cmds...)
+		}
+
 		// Handle detail view mode
 		if a.viewMode == ViewDetail {
 			newDetailView, cmd := a.detailView.Update(msg)
@@ -369,6 +462,57 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Panel switching with numbers (lazygit style) using centralized KeyMap
+		// In PR tab, only the PR list panel is available
+		if a.activeTab == panels.TabPullRequests {
+			// PR tab key handling
+			if key.Matches(msg, a.keys.Refresh) {
+				a.prLoading = true
+				return a, loadPullRequestsCmd(a.client)
+			}
+
+			if key.Matches(msg, a.keys.PRFilter) {
+				a.prListPanel.CycleFilter()
+				if pr := a.prListPanel.SelectedItem(); pr != nil {
+					a.prDetailPanel.SetItem(pr)
+				}
+				return a, nil
+			}
+
+			if key.Matches(msg, a.keys.PRApprove) {
+				if pr := a.prListPanel.SelectedItem(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteApproved)
+				}
+			}
+			if key.Matches(msg, a.keys.PRReject) {
+				if pr := a.prListPanel.SelectedItem(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteRejected)
+				}
+			}
+			if key.Matches(msg, a.keys.PRWait) {
+				if pr := a.prListPanel.SelectedItem(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteWaitingForAuthor)
+				}
+			}
+			if key.Matches(msg, a.keys.PRReset) {
+				if pr := a.prListPanel.SelectedItem(); pr != nil {
+					return a, votePRCmd(a.client, pr, a.userProfile, models.PRVoteNoVote)
+				}
+			}
+
+			newPRList, cmd := a.prListPanel.Update(msg)
+			a.prListPanel = newPRList
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+
+			// Update selected PR details
+			if pr := a.prListPanel.SelectedItem(); pr != nil {
+				a.prDetailPanel.SetItem(pr)
+			}
+
+			return a, tea.Batch(cmds...)
+		}
+
 		switch {
 		case key.Matches(msg, a.keys.Panel1):
 			a.activePanel = PanelFilterSprint
@@ -623,10 +767,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case modals.SearchSelectedMsg:
-		// User selected an option from search
 		a.searchModal.SetVisible(false)
+		if a.activeTab == panels.TabPullRequests {
+			if msg.SelectedOption != nil {
+				a.prListPanel.SetRepoFilter(msg.SelectedOption.Value, msg.SelectedOption.Label)
+			} else {
+				a.prListPanel.SetRepoFilter("", "")
+			}
+			if pr := a.prListPanel.SelectedItem(); pr != nil {
+				a.prDetailPanel.SetItem(pr)
+			}
+			return a, nil
+		}
 		if group := a.filterPanel.FilterState().ActiveFilterGroup(); group != nil {
-			// Find and select the option in the original list
 			group.ClearSearchFilter()
 			if msg.SelectedOption != nil {
 				group.SelectByValue(msg.SelectedOption.Value)
@@ -635,8 +788,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
 
 	case modals.SearchCancelledMsg:
-		// User cancelled search
 		a.searchModal.SetVisible(false)
+		if a.activeTab == panels.TabPullRequests {
+			return a, nil
+		}
 		if group := a.filterPanel.FilterState().ActiveFilterGroup(); group != nil {
 			group.ClearSearchFilter()
 		}
@@ -873,6 +1028,61 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case modals.QuickSearchErrorMsg:
 		a.quickSearchModal.SetLoading(false)
 		a.quickSearchModal.SetError(msg.Err)
+
+	case prDataLoadedMsg:
+		a.prLoading = false
+		a.pullRequests = msg.pullRequests
+		a.userProfile = msg.profile
+		a.prListPanel.SetItems(msg.pullRequests)
+		if msg.profile != nil {
+			a.prListPanel.SetUserID(msg.profile.ID)
+		}
+		if len(msg.pullRequests) > 0 {
+			a.prDetailPanel.SetItem(&a.pullRequests[0])
+		}
+
+	case panels.OpenPRMsg:
+		webURL := a.client.PullRequestWebURL(msg.Item.Repository.Name, msg.Item.ID)
+		if err := browser.Open(webURL); err != nil {
+			a.err = err
+		}
+
+	case panels.OpenPRFilterMsg:
+		repos := a.prListPanel.Repositories()
+		options := make([]models.FilterOption, 0, len(repos)+1)
+		options = append(options, models.FilterOption{
+			Label:    "All Repositories",
+			Value:    "",
+			Selected: a.prListPanel.FilterMode() != panels.PRFilterByRepo,
+		})
+		for _, r := range repos {
+			options = append(options, models.FilterOption{
+				Label:    r.Name,
+				Value:    r.ID,
+				Selected: a.prListPanel.FilterMode() == panels.PRFilterByRepo && r.ID == a.prListPanel.SelectedRepoID(),
+			})
+		}
+		group := &models.FilterGroup{
+			Type:    models.FilterTypeRepository,
+			Title:   "Repository",
+			Options: options,
+		}
+		a.searchModal.SetFilterGroup(group)
+		a.searchModal.SetSize(a.width, a.height)
+		a.searchModal.SetVisible(true)
+
+	case panels.ViewPRMsg:
+		a.viewMode = ViewPRDetail
+		a.prDetailPanel.SetItem(&msg.Item)
+		a.updateSizes()
+
+	case panels.ClosePRDetailMsg:
+		a.viewMode = ViewMain
+
+	case prVotedMsg:
+		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, fmt.Sprintf("Vote: %s", msg.vote.Label())))
+		a.prLoading = true
+		return a, tea.Batch(append(cmds, loadPullRequestsCmd(a.client))...)
 	}
 
 	return a, tea.Batch(cmds...)
@@ -961,6 +1171,16 @@ func (a App) View() string {
 	// Render detail view if in detail mode
 	if a.viewMode == ViewDetail {
 		return a.detailView.View()
+	}
+
+	// Render PR detail view
+	if a.viewMode == ViewPRDetail {
+		return a.renderPRDetailView()
+	}
+
+	// Render PR tab
+	if a.activeTab == panels.TabPullRequests {
+		return a.renderPRView()
 	}
 
 	return a.renderMainView()
@@ -1056,8 +1276,88 @@ func (a *App) renderMainView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, headerBar, mainContent, statusBar)
 }
 
+func (a *App) renderPRView() string {
+	availableHeight := a.height - styles.AppHeaderFooterSize
+
+	a.headerBar.SetWidth(a.width)
+	a.headerBar.SetOrganization(a.client.Organization())
+	a.headerBar.SetProject(a.client.Project())
+	a.headerBar.SetLoading(a.prLoading)
+	a.headerBar.SetNotification(&a.notification)
+	headerBar := a.headerBar.View()
+
+	listWidth := a.width - styles.PanelBorderOffset
+	showDetail := a.width >= styles.CommentsShowWidth+styles.FilterMinWidth
+	detailWidth := 0
+
+	if showDetail {
+		listWidth = (a.width - styles.PanelBorderOffset*2) * 3 / 5
+		detailWidth = a.width - listWidth - styles.PanelBorderOffset*2
+	}
+
+	listHeight := availableHeight - styles.PanelBorderOffset
+	a.prListPanel.SetSize(listWidth, listHeight)
+	a.prListPanel.SetFocused(true)
+
+	var mainContent string
+	if showDetail {
+		a.prDetailPanel.SetSize(detailWidth, listHeight)
+		a.prDetailPanel.SetFocused(false)
+		mainContent = lipgloss.JoinHorizontal(lipgloss.Top, a.prListPanel.View(), a.prDetailPanel.View())
+	} else {
+		mainContent = a.prListPanel.View()
+	}
+
+	statusBar := a.renderPRStatusBar()
+	return lipgloss.JoinVertical(lipgloss.Left, headerBar, mainContent, statusBar)
+}
+
+func (a *App) renderPRDetailView() string {
+	a.headerBar.SetWidth(a.width)
+	a.headerBar.SetOrganization(a.client.Organization())
+	a.headerBar.SetProject(a.client.Project())
+	a.headerBar.SetLoading(false)
+	a.headerBar.SetNotification(&a.notification)
+	headerBar := a.headerBar.View()
+
+	contentHeight := a.height - styles.AppHeaderFooterSize - styles.PanelBorderOffset
+	contentWidth := a.width - styles.PanelBorderOffset
+
+	a.prDetailPanel.SetSize(contentWidth, contentHeight)
+	a.prDetailPanel.SetFocused(true)
+
+	statusBar := a.styles.StatusBar.Width(a.width).Render(
+		a.styles.HelpKey.Render("Esc") + a.styles.HelpDesc.Render(":back") + "  " +
+			a.styles.HelpKey.Render("enter") + a.styles.HelpDesc.Render(":open") + "  " +
+			a.styles.HelpKey.Render("a") + a.styles.HelpDesc.Render(":approve") + "  " +
+			a.styles.HelpKey.Render("r") + a.styles.HelpDesc.Render(":reject") + "  " +
+			a.styles.HelpKey.Render("w") + a.styles.HelpDesc.Render(":wait") + "  " +
+			a.styles.HelpKey.Render("0") + a.styles.HelpDesc.Render(":reset"),
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Left, headerBar, a.prDetailPanel.View(), statusBar)
+}
+
+func (a *App) renderPRStatusBar() string {
+	label := lipgloss.NewStyle().
+		Foreground(styles.ColorText).
+		Background(styles.ColorPrimary).
+		Bold(true).
+		Padding(0, 1).
+		Render("Pull Requests")
+
+	parts := []string{label}
+	parts = append(parts, a.prListPanel.GetAvailableActions()...)
+	parts = append(parts,
+		a.styles.HelpKey.Render("[")+a.styles.HelpDesc.Render("/")+a.styles.HelpKey.Render("]")+a.styles.HelpDesc.Render(":switch tab"),
+	)
+
+	text := strings.Join(parts, "  ")
+	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
+	return a.styles.StatusBar.Width(a.width).Render(text)
+}
+
 // renderMinimalView is shown when the terminal is too small to render the full layout.
-// It shows one panel at a time; the user switches with Tab/Shift+Tab or 1-6.
 func (a *App) renderMinimalView() string {
 	availableHeight := a.height - styles.AppHeaderFooterSize // header(1) + statusBar(1)
 
@@ -1271,6 +1571,8 @@ func (a *App) updateSizes() {
 	a.errorModal.SetSize(a.width, a.height)
 	a.infoModal.SetSize(a.width, a.height)
 	a.quickSearchModal.SetSize(a.width, a.height)
+	a.prListPanel.SetSize(a.width, a.height)
+	a.prDetailPanel.SetSize(a.width, a.height)
 	a.updateContentPanelSizes()
 	a.updateFocus()
 }
@@ -1389,6 +1691,15 @@ type commentCreatedMsg struct{}
 type commentUpdatedMsg struct{}
 
 type commentDeletedMsg struct{}
+
+type prDataLoadedMsg struct {
+	pullRequests []models.PullRequest
+	profile      *models.ConnectionProfile
+}
+
+type prVotedMsg struct {
+	vote models.PRVote
+}
 
 // Commands
 
@@ -1576,4 +1887,29 @@ func quickSearchWorkItemCmd(client *api.Client, itemID int) tea.Cmd {
 
 func tickCmd() tea.Cmd {
 	return spinner.Tick
+}
+
+func loadPullRequestsCmd(client *api.Client) tea.Cmd {
+	return func() tea.Msg {
+		profile, _ := client.GetConnectionProfile()
+
+		prs, err := client.GetAllPullRequests(models.PRStatusActive)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return prDataLoadedMsg{pullRequests: prs, profile: profile}
+	}
+}
+
+func votePRCmd(client *api.Client, pr *models.PullRequest, profile *models.ConnectionProfile, vote models.PRVote) tea.Cmd {
+	return func() tea.Msg {
+		if profile == nil {
+			return errMsg{err: fmt.Errorf("user profile not loaded; cannot vote")}
+		}
+		err := client.VotePullRequest(pr.Repository.ID, pr.ID, profile.ID, vote)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return prVotedMsg{vote: vote}
+	}
 }
