@@ -2,56 +2,109 @@ package styles
 
 import (
 	"image/color"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 )
 
 var (
-	ColorPrimary      = lipgloss.Color("#7C3AED")
-	ColorSecondary    = lipgloss.Color("#06B6D4")
-	ColorSuccess      = lipgloss.Color("#10B981")
-	ColorWarning      = lipgloss.Color("#F59E0B")
-	ColorError        = lipgloss.Color("#EF4444")
-	ColorMuted        = lipgloss.Color("#6B7280")
-	ColorBorder       = lipgloss.Color("#374151")
-	ColorHighlight    = lipgloss.Color("#1F2937")
-	ColorText         = lipgloss.Color("#F9FAFB")
-	ColorTextMuted    = lipgloss.Color("#9CA3AF")
-	ColorAccent       = lipgloss.Color("#60A5FA")
-	ColorTesting      = lipgloss.Color("#FBBF24")
-	ColorLight        = lipgloss.Color("#D1D5DB")
-	ColorOffWhite     = lipgloss.Color("#E5E7EB")
-	ColorPrimaryLight = lipgloss.Color("#A78BFA")
-	ColorBlue         = lipgloss.Color("#3B82F6")
-	ColorViolet       = lipgloss.Color("#8B5CF6")
-	ColorPink         = lipgloss.Color("#EC4899")
-	ColorOrange       = lipgloss.Color("#F97316")
-	ColorDarkBlue     = lipgloss.Color("#1E3A5F")
+	ColorPrimary      = lipgloss.Color("#479EF5")
+	ColorSecondary    = lipgloss.Color("#2AB0E0")
+	ColorSuccess      = lipgloss.Color("#6CCB5F")
+	ColorWarning      = lipgloss.Color("#F2CB1D")
+	ColorError        = lipgloss.Color("#E0475B")
+	ColorMuted        = lipgloss.Color("#8A8886")
+	ColorBorder       = lipgloss.Color("#605E5C")
+	ColorHighlight    = lipgloss.Color("#2B3A4A")
+	ColorText         = lipgloss.Color("#F3F2F1")
+	ColorTextMuted    = lipgloss.Color("#A19F9D")
+	ColorAccent       = lipgloss.Color("#6CB8F6")
+	ColorTesting      = lipgloss.Color("#F2CB1D")
+	ColorLight        = lipgloss.Color("#C8C6C4")
+	ColorOffWhite     = lipgloss.Color("#E1DFDD")
+	ColorPrimaryLight = lipgloss.Color("#A9D3FA")
+	ColorBlue         = lipgloss.Color("#479EF5")
+	ColorViolet       = lipgloss.Color("#A66BD3")
+	ColorPink         = lipgloss.Color("#E3008C")
+	ColorOrange       = lipgloss.Color("#FF8C1A")
+	ColorDarkBlue     = lipgloss.Color("#1F3A57")
+	ColorSurface      = lipgloss.Color("#252423")
+	ColorSurfaceAlt   = lipgloss.Color("#201F1E")
+	ColorChip         = lipgloss.Color("#323130")
+	ColorOnAccent     = lipgloss.Color("#1B1A19")
+	ColorTypePBI      = lipgloss.Color("#2AB0E0")
+	ColorTypeTask     = lipgloss.Color("#F2CB1D")
+	ColorTypeBug      = lipgloss.Color("#E0475B")
+	ColorTypeFeature  = lipgloss.Color("#A66BD3")
+	ColorTypeEpic     = lipgloss.Color("#FF8C1A")
 )
 
 var typeColors = map[string]color.Color{
-	"User Story":           ColorBlue,
-	"Product Backlog Item": ColorBlue,
-	"Story":                ColorBlue,
-	"PBI":                  ColorBlue,
-	"Task":                 ColorWarning,
-	"Bug":                  ColorError,
-	"Feature":              ColorViolet,
-	"Epic":                 ColorPink,
+	"User Story":           ColorTypePBI,
+	"Product Backlog Item": ColorTypePBI,
+	"Story":                ColorTypePBI,
+	"PBI":                  ColorTypePBI,
+	"Task":                 ColorTypeTask,
+	"Bug":                  ColorTypeBug,
+	"Feature":              ColorTypeFeature,
+	"Epic":                 ColorTypeEpic,
+	"Issue":                ColorTypeFeature,
+	"Impediment":           ColorTypeFeature,
 }
 
 var stateColors = map[string]color.Color{
-	"New":         ColorMuted,
+	"New":         ColorTextMuted,
+	"Proposed":    ColorTextMuted,
+	"To Do":       ColorTextMuted,
+	"Approved":    ColorLight,
 	"Active":      ColorBlue,
-	"Resolved":    ColorSuccess,
-	"Closed":      ColorMuted,
 	"Committed":   ColorBlue,
-	"To Do":       ColorOrange,
-	"In Progress": ColorViolet,
-	"Done":        ColorSuccess,
+	"In Progress": ColorBlue,
 	"Testing":     ColorTesting,
-	"Removed":     ColorError,
-	"Approved":    ColorText,
+	"Resolved":    ColorSuccess,
+	"Done":        ColorSuccess,
+	"Closed":      ColorSuccess,
+	"Removed":     ColorMuted,
+}
+
+var typeLabels = map[string]string{
+	"Product Backlog Item": "PRODUCT BACKLOG ITEM",
+	"User Story":           "USER STORY",
+}
+
+func TypeColor(workItemType string) color.Color {
+	if c, ok := typeColors[workItemType]; ok {
+		return c
+	}
+	return ColorTextMuted
+}
+
+func StateColor(state string) color.Color {
+	if c, ok := stateColors[state]; ok {
+		return c
+	}
+	return ColorTextMuted
+}
+
+func TypeLabel(workItemType string) string {
+	if l, ok := typeLabels[workItemType]; ok {
+		return l
+	}
+	return strings.ToUpper(workItemType)
+}
+
+func RegisterStateColor(state, hex string) {
+	if state == "" || len(hex) != 6 {
+		return
+	}
+	stateColors[state] = lipgloss.Color("#" + hex)
+}
+
+func RegisterTypeColor(workItemType, hex string) {
+	if workItemType == "" || len(hex) != 6 {
+		return
+	}
+	typeColors[workItemType] = lipgloss.Color("#" + hex)
 }
 
 type Styles struct {
@@ -128,12 +181,12 @@ func DefaultStyles() Styles {
 			Padding(0, 1),
 
 		PanelActive: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorPrimary).
 			Padding(0, 1),
 
 		PanelInactive: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1),
 
@@ -187,7 +240,7 @@ func DefaultStyles() Styles {
 			MarginBottom(1),
 
 		DetailSection: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1).
 			MarginBottom(1),
@@ -208,19 +261,19 @@ func DefaultStyles() Styles {
 			Foreground(ColorText),
 
 		DetailTag: lipgloss.NewStyle().
-			Foreground(ColorSecondary).
-			Background(ColorDarkBlue).
+			Foreground(ColorLight).
+			Background(ColorChip).
 			Padding(0, 1).
 			MarginRight(1),
 
 		CommentBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1).
 			MarginBottom(1),
 
 		CommentBoxSelected: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorPrimary).
 			Padding(0, 1).
 			MarginBottom(1),
@@ -232,7 +285,7 @@ func DefaultStyles() Styles {
 
 		CommentAuthor: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(ColorPrimaryLight),
+			Foreground(ColorText),
 
 		CommentDate: lipgloss.NewStyle().
 			Foreground(ColorTextMuted).
@@ -264,7 +317,7 @@ func DefaultStyles() Styles {
 			Foreground(ColorTextMuted),
 
 		HelpPanel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorBorder).
 			Padding(1, 2),
 
@@ -277,7 +330,7 @@ func DefaultStyles() Styles {
 			Padding(0, 1),
 
 		ModalBox: lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(ColorPrimary).
 			Padding(1, 2),
 
@@ -295,27 +348,19 @@ func DefaultStyles() Styles {
 			Foreground(ColorAccent),
 
 		Selected: lipgloss.NewStyle().
-			Background(ColorPrimary).
+			Background(ColorHighlight).
 			Foreground(ColorText).
 			Bold(true),
 
 		TypeBadge: func(t string) lipgloss.Style {
-			color := typeColors[t]
-			if color == nil {
-				color = ColorMuted
-			}
 			return lipgloss.NewStyle().
-				Foreground(color).
+				Foreground(TypeColor(t)).
 				Bold(true)
 		},
 
 		StateBadge: func(s string) lipgloss.Style {
-			color := stateColors[s]
-			if color == nil {
-				color = ColorMuted
-			}
 			return lipgloss.NewStyle().
-				Foreground(color)
+				Foreground(StateColor(s))
 		},
 	}
 }

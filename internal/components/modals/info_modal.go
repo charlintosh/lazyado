@@ -142,7 +142,7 @@ func (m InfoModal) View() string {
 
 	// Modal style
 	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth + styles.PanelBorderOffset).

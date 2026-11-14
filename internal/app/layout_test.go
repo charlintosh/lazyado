@@ -1,0 +1,138 @@
+package ui
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/components/panels"
+	"github.com/charlintosh/lazyado/internal/config"
+	"github.com/charlintosh/lazyado/internal/models"
+)
+
+func sampleWorkItems() []models.WorkItem {
+	now := time.Date(2026, 11, 13, 10, 0, 0, 0, time.UTC)
+	item := func(id int, typ models.WorkItemType, title, state, assignee string, parent int, effort float64, tags ...string) models.WorkItem {
+		return models.WorkItem{
+			ID:            id,
+			Title:         title,
+			Type:          typ,
+			State:         models.WorkItemState(state),
+			AssignedTo:    assignee,
+			IterationPath: "storefront\\Sprint 24",
+			AreaPath:      "storefront\\Checkout",
+			ParentID:      parent,
+			Effort:        effort,
+			Priority:      2,
+			Tags:          tags,
+			Description:   "Shoppers can complete a purchase with only an email address.",
+			CreatedDate:   now.AddDate(0, 0, -16),
+			ChangedDate:   now,
+		}
+	}
+	items := []models.WorkItem{
+		item(1043, models.WorkItemTypePBI, "Checkout: allow purchase without an account", "Committed", "Dana Reyes", 1012, 5, "checkout"),
+		item(1051, models.WorkItemTypeTask, "Add guest session token to cart API", "In Progress", "Marco Lima", 1043, 3),
+		item(1052, models.WorkItemTypeTask, "Email receipt for guest orders", "To Do", "", 1043, 2),
+		item(1050, models.WorkItemTypeTask, "Guest option on sign-in step", "Done", "Dana Reyes", 1043, 0),
+		item(1060, models.WorkItemTypeBug, "Address form drops apartment number", "Committed", "Sam Kowal", 1012, 2, "regression"),
+		item(1044, models.WorkItemTypePBI, "Saved payment methods", "Approved", "Priya Nair", 1012, 8),
+		item(1070, models.WorkItemTypePBI, "Typo tolerance in product search", "New", "", 1013, 3, "search"),
+		item(1031, models.WorkItemTypePBI, "Cart persists across devices", "Done", "Dana Reyes", 1012, 5),
+		item(1061, models.WorkItemTypeTask, "Preserve line 2 in address mapper", "Done", "Sam Kowal", 1060, 0),
+		item(1062, models.WorkItemTypeTask, "Regression test for address line 2", "To Do", "Sam Kowal", 1060, 2),
+	}
+	index := map[int]int{}
+	for i := range items {
+		index[items[i].ID] = i
+	}
+	for i := range items {
+		if p, ok := index[items[i].ParentID]; ok {
+			items[i].ParentTitle = items[p].Title
+			items[p].Children = append(items[p].Children, &items[i])
+		}
+	}
+	return items
+}
+
+func newTestApp(t *testing.T, width, height int) App {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	client := api.NewClient(&config.Config{Organization: "acme", Project: "storefront", Team: "Storefront Team"})
+	var m tea.Model = NewApp(client)
+	m, _ = m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+	m, _ = m.Update(dataLoadedMsg{
+		iterations: []models.Iteration{{Name: "Sprint 24", Path: "storefront\\Sprint 24", TimeFrame: "current"}},
+		areas:      []models.Area{{Name: "Checkout", Path: "storefront\\Checkout"}},
+	})
+	m, _ = m.Update(workItemsLoadedMsg{items: sampleWorkItems()})
+	return m.(App)
+}
+
+func assertFits(t *testing.T, out string, width, height int) {
+	t.Helper()
+	lines := strings.Split(out, "\n")
+	if len(lines) > height {
+		t.Errorf("rendered %d lines, terminal has %d", len(lines), height)
+	}
+	for i, l := range lines {
+		if w := lipgloss.Width(l); w > width {
+			t.Errorf("line %d is %d cells wide, terminal has %d: %q", i, w, width, l)
+		}
+	}
+	if dir := os.Getenv("LAYOUT_DUMP_DIR"); dir != "" {
+		name := fmt.Sprintf("%s_%dx%d.ans", strings.ReplaceAll(t.Name(), "/", "_"), width, height)
+		_ = os.WriteFile(filepath.Join(dir, name), []byte(out), 0o644)
+	}
+}
+
+func TestMainLayoutFitsTerminal(t *testing.T) {
+	sizes := [][2]int{{200, 50}, {160, 45}, {120, 32}, {90, 26}, {60, 20}, {40, 10}}
+	for _, sz := range sizes {
+		app := newTestApp(t, sz[0], sz[1])
+		assertFits(t, app.render(), sz[0], sz[1])
+	}
+}
+
+func TestHubLayoutsFitTerminal(t *testing.T) {
+	hubs := map[string]tea.KeyPressMsg{
+		"board":  {Code: 'B', Text: "B"},
+		"sprint": {Code: 'S', Text: "S"},
+	}
+	for name, k := range hubs {
+		t.Run(name, func(t *testing.T) {
+			for _, sz := range [][2]int{{180, 46}, {110, 30}, {70, 22}} {
+				var m tea.Model = newTestApp(t, sz[0], sz[1])
+				m, _ = m.Update(k)
+				assertFits(t, m.(App).render(), sz[0], sz[1])
+			}
+		})
+	}
+}
+
+func TestWorkItemFormFitsTerminal(t *testing.T) {
+	for _, sz := range [][2]int{{180, 46}, {100, 30}, {60, 20}} {
+		var m tea.Model = newTestApp(t, sz[0], sz[1])
+		app := m.(App)
+		item := app.selectedItem()
+		if item == nil {
+			t.Fatal("no selected item")
+		}
+		m, _ = m.Update(panels.ViewWorkItemMsg{Item: *item})
+		assertFits(t, m.(App).render(), sz[0], sz[1])
+	}
+}
+
+func TestFilterRailFitsTerminal(t *testing.T) {
+	for _, sz := range [][2]int{{160, 40}, {80, 24}} {
+		var m tea.Model = newTestApp(t, sz[0], sz[1])
+		m, _ = m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+		assertFits(t, m.(App).render(), sz[0], sz[1])
+	}
+}

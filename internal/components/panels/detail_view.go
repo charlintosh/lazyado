@@ -2,6 +2,7 @@ package panels
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -15,9 +16,7 @@ import (
 
 const dateFormat = "2006-01-02"
 
-// fixedHeaderLines is the number of lines the non-scrollable header occupies inside
-// the PanelActive content area: title (1) + subheader text (1) + bottom border (1).
-const fixedHeaderLines = 3
+const fixedHeaderLines = 6
 
 // DetailView is the fullscreen detail view component.
 type DetailView struct {
@@ -124,84 +123,94 @@ func (d DetailView) Update(msg tea.Msg) (DetailView, tea.Cmd) {
 	return d, cmd
 }
 
-// View renders the detail view.
 func (d DetailView) View() string {
 	if d.item == nil {
-		return ""
+		return FitBlock("", d.width, d.height)
 	}
-
-	header := d.renderHeader()
-
 	var body string
 	if d.ready {
 		body = d.viewport.View()
 	}
-
-	panelContent := lipgloss.JoinVertical(lipgloss.Left, header, body)
-
-	mainArea := d.styles.PanelActive.
-		Width(d.width - styles.PanelBorderOffset + styles.PanelBorderOffset).
-		Height(d.height - styles.PanelPaddedOffset + styles.PanelBorderOffset).
-		Render(panelContent)
-
-	return lipgloss.JoinVertical(lipgloss.Left, mainArea, d.renderStatusBar())
+	return FitBlock(d.renderHeader()+"\n"+body, d.width, d.height)
 }
 
-// renderHeader renders the fixed (non-scrollable) title and subheader rows.
 func (d *DetailView) renderHeader() string {
-	innerWidth := d.viewport.Width()
-	if innerWidth <= 0 {
-		innerWidth = d.width - styles.PanelPaddedOffset
+	item := d.item
+	width := d.width
+	bg := styles.ColorSurfaceAlt
+	on := func(fg color.Color) lipgloss.Style {
+		return lipgloss.NewStyle().Foreground(fg).Background(bg)
+	}
+	typeColor := styles.TypeColor(string(item.Type))
+	stripe := on(typeColor).Render("▌ ")
+
+	typeLine := on(typeColor).Bold(true).Render(fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
+	titleLine := on(styles.ColorText).Bold(true).Render(item.Title)
+
+	assigned := item.AssignedTo
+	assignedFg := styles.ColorText
+	if assigned == "" {
+		assigned = "Unassigned"
+		assignedFg = styles.ColorTextMuted
+	}
+	people := []string{
+		on(assignedFg).Render("◉ " + assigned),
+		on(styles.ColorLight).Render(fmt.Sprintf("❝ %d comments", len(d.comments))),
+	}
+	for _, t := range item.Tags {
+		people = append(people, Chip(t))
+	}
+	peopleLine := strings.Join(people, on(styles.ColorText).Render("   "))
+
+	label := on(styles.ColorTextMuted)
+	fields := []string{
+		label.Render("State ") + StateDot(string(item.State), bg),
+		label.Render("Area ") + on(styles.ColorText).Render(item.AreaPath),
+		label.Render("Iteration ") + on(styles.ColorText).Render(item.IterationPath),
+	}
+	fieldLine := strings.Join(fields, on(styles.ColorText).Render("    "))
+
+	var lines []string
+	for _, l := range []string{typeLine, titleLine, peopleLine, fieldLine} {
+		lines = append(lines, FillBlock(stripe+l, width, 1, bg))
 	}
 
-	typeStyle := d.styles.TypeBadge(string(d.item.Type))
-	stateStyle := d.styles.StateBadge(string(d.item.State))
-
-	idStr := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(
-		fmt.Sprintf("#%d", d.item.ID),
-	)
-	typeBadge := typeStyle.Render(d.item.ShortType())
-	stateBadge := stateStyle.Render(string(d.item.State))
-	titleText := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorText).Render(d.item.Title)
-
-	titleBar := lipgloss.NewStyle().
-		Width(innerWidth).
-		Render(idStr + "  " + typeBadge + "  " + stateBadge + "  " + titleText)
-
-	assignedTo := d.item.AssignedTo
-	if assignedTo == "" {
-		assignedTo = "Unassigned"
+	details := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(" Details ")
+	discussion := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(fmt.Sprintf(" Discussion %d ", len(d.comments)))
+	underline := lipgloss.NewStyle().Foreground(styles.ColorPrimary)
+	if d.commentFocused {
+		discussion = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(fmt.Sprintf(" Discussion %d ", len(d.comments)))
+	} else {
+		details = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(" Details ")
 	}
-	labelSt := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
-	valueSt := lipgloss.NewStyle().Foreground(styles.ColorText)
-
-	subHeaderText := strings.Join([]string{
-		labelSt.Render("Assigned:") + " " + valueSt.Render(assignedTo),
-		labelSt.Render("Sprint:") + " " + valueSt.Render(d.item.SprintName()),
-		labelSt.Render("Area:") + " " + valueSt.Render(d.item.AreaName()),
-	}, "    ")
-	subHeader := lipgloss.NewStyle().
-		Width(innerWidth + styles.PanelBorderOffset).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(styles.ColorBorder).
-		BorderBottom(true).
-		Render(subHeaderText)
-
-	return lipgloss.JoinVertical(lipgloss.Left, titleBar, subHeader)
+	tabs := details + "  " + discussion
+	detailsW := lipgloss.Width(details)
+	discussionW := lipgloss.Width(discussion)
+	var rule string
+	if d.commentFocused {
+		rule = lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", detailsW+2)) +
+			underline.Render(strings.Repeat("━", discussionW))
+	} else {
+		rule = underline.Render(strings.Repeat("━", detailsW)) +
+			lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", 2+discussionW))
+	}
+	rule += lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", max(width-detailsW-discussionW-2, 0)))
+	lines = append(lines, FitWidth(tabs, width), FitWidth(rule, width))
+	return strings.Join(lines, "\n")
 }
 
-func (d *DetailView) renderStatusBar() string {
-	hint := "Esc Back  c Add comment  Tab Focus comments  j/k Scroll"
+func (d *DetailView) GetAvailableActions() []string {
 	if d.commentFocused {
-		hint = "Esc Unfocus  e Edit  d Delete  j/k Navigate  c Add comment"
+		return Hints(styles.ColorSurface, d.keys.Up, d.keys.EditComment, d.keys.DeleteComment, d.keys.AddComment, d.keys.NextPanel, d.keys.Back)
 	}
-	return d.styles.StatusBar.
-		Width(d.width).
-		Render(hint)
+	return Hints(styles.ColorSurface, d.keys.Up, d.keys.NextPanel, d.keys.AddComment, d.keys.Back)
 }
 
 // SetSize updates the component dimensions and refreshes the viewport.
 func (d *DetailView) SetSize(width, height int) {
+	if d.width == width && d.height == height && d.ready {
+		return
+	}
 	d.width = width
 	d.height = height
 	d.refreshViewport()
@@ -225,32 +234,18 @@ func (d *DetailView) SetComments(comments []models.Comment) {
 
 // refreshViewport recalculates viewport dimensions from d.width / d.height.
 func (d *DetailView) refreshViewport() {
-	// In lipgloss, both Width(W) and Height(H) are pre-border; border adds +2 externally.
-	// PanelActive uses Width(d.width-2)  → outer = d.width;     inner_w = d.width-4  (- padding 2).
-	// PanelActive uses Height(d.height-4) → outer = d.height-2; inner_h = d.height-4 (no vert pad).
-	// Subtract the fixed header lines to get the viewport height.
-	vpWidth := d.width - styles.PanelPaddedOffset
-	if vpWidth < styles.DetailMinViewportWidth {
-		vpWidth = styles.DetailMinViewportWidth
-	}
-	vpHeight := d.height - styles.PanelPaddedOffset - fixedHeaderLines
-	if vpHeight < styles.DetailMinViewportHeight {
-		vpHeight = styles.DetailMinViewportHeight
-	}
-
+	vpWidth := max(d.width-1, styles.DetailMinViewportWidth)
+	vpHeight := max(d.height-fixedHeaderLines, styles.DetailMinViewportHeight)
 	d.viewport.SetWidth(vpWidth)
 	d.viewport.SetHeight(vpHeight)
 	d.updateViewportContent()
 }
 
-// updateViewportContent (re)builds the two-column layout and loads it into the viewport.
 func (d *DetailView) updateViewportContent() {
 	if d.item == nil || d.viewport.Width() <= 0 {
 		return
 	}
-
 	innerWidth := d.viewport.Width()
-
 	sidebarWidth := styles.DetailSidebarWidthDefault
 	switch {
 	case innerWidth > styles.DetailBreakpointLG:
@@ -258,54 +253,47 @@ func (d *DetailView) updateViewportContent() {
 	case innerWidth < styles.DetailBreakpointSM:
 		sidebarWidth = styles.DetailSidebarWidthSM
 	}
-
-	mainWidth := innerWidth - sidebarWidth
+	mainWidth := innerWidth - sidebarWidth - 1
 	if mainWidth < styles.MinBottomRowWidth {
 		d.viewport.SetContent(d.renderSingleColumn(innerWidth))
 	} else {
 		left := d.renderMainContent(mainWidth)
 		right := d.renderSidebar(sidebarWidth)
-		d.viewport.SetContent(lipgloss.JoinHorizontal(lipgloss.Top, left, right))
+		d.viewport.SetContent(lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right))
 	}
-
 	d.ready = true
 }
 
-// renderMainContent builds the scrollable left column.
-func (d *DetailView) renderMainContent(width int) string {
-	sectionStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(styles.ColorBorder).
-		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
+func formSection(title, body string, width int, focused bool) string {
+	contentWidth := max(width-styles.BoxPaddedSize, 1)
+	body = lipgloss.NewStyle().Width(contentWidth).Render(body)
+	return RenderTitledBox(title, body, width, lipgloss.Height(body)+styles.BoxBorderSize, focused)
+}
 
-	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
-	wrapWidth := width - styles.PanelPaddedOffset
-	if wrapWidth < styles.DetailWrapMinWidth {
-		wrapWidth = styles.DetailWrapMinWidth
-	}
-
-	preSections := []string{
-		sectionStyle.Render(titleSt.Render("DESCRIPTION") + "\n" + d.buildDescriptionBody(wrapWidth)),
-	}
-
+func (d *DetailView) mainSections(width int) (string, int) {
+	wrap := max(width-styles.BoxPaddedSize, styles.DetailWrapMinWidth)
+	pre := []string{formSection(BoxTitle("", "Description", false), d.buildDescriptionBody(wrap), width, false)}
 	if d.item.AcceptanceCriteria != "" {
-		preSections = append(preSections, sectionStyle.Render(
-			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth),
-		))
+		pre = append(pre, formSection(BoxTitle("", "Acceptance Criteria", false),
+			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrap), width, false))
 	}
+	preContent := strings.Join(pre, "\n")
+	return preContent, wrap
+}
 
-	preContent := strings.Join(preSections, "\n")
-	// Offset to first line of the discussion body inside its rounded-border section:
-	// preContent lines + 1 (join \n) + 1 (top border) + 1 (title line) = +3
-	d.discussionBaseOffset = strings.Count(preContent, "\n") + 3
+func (d *DetailView) discussionSection(preContent string, width, wrap int) string {
+	d.discussionBaseOffset = strings.Count(preContent, "\n") + 2
+	title := BoxTitle("", fmt.Sprintf("Discussion · %d", len(d.comments)), d.commentFocused)
+	hint := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).
+		Render("Add a comment… " + d.keys.AddComment.Help().Key)
+	body := d.buildDiscussionBody(wrap)
+	d.discussionBaseOffset++
+	return formSection(title, hint+"\n"+body, width, d.commentFocused)
+}
 
-	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
-	discussionSection := sectionStyle.Render(
-		titleSt.Render(discussionTitle) + "\n" + d.buildDiscussionBody(wrapWidth),
-	)
-
-	return preContent + "\n" + discussionSection
+func (d *DetailView) renderMainContent(width int) string {
+	preContent, wrap := d.mainSections(width)
+	return preContent + "\n" + d.discussionSection(preContent, width, wrap)
 }
 
 func (d *DetailView) buildDescriptionBody(wrapWidth int) string {
@@ -358,145 +346,52 @@ func (d *DetailView) scrollToComment() {
 	}
 }
 
-// renderSidebar builds the scrollable right column.
 func (d *DetailView) renderSidebar(width int) string {
-	sectionStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(styles.ColorBorder).
-		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
-
-	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
-	labelSt := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailLabelWidth)
-	valueSt := lipgloss.NewStyle().Foreground(styles.ColorText)
-
-	var sections []string
-
-	// PLANNING
-	priorityStr := "-"
-	if d.item.Priority > 0 {
-		priorityStr = fmt.Sprintf("%d", d.item.Priority)
-	}
-	effortStr := "-"
-	if d.item.Effort > 0 {
-		effortStr = fmt.Sprintf("%.1f pts", d.item.Effort)
-	}
-	sections = append(sections, sectionStyle.Render(strings.Join([]string{
-		titleSt.Render("PLANNING"),
-		labelSt.Render("Priority:") + valueSt.Render(priorityStr),
-		labelSt.Render("Effort:") + valueSt.Render(effortStr),
-	}, "\n")))
-
-	// DETAILS
-	sections = append(sections, sectionStyle.Render(strings.Join([]string{
-		titleSt.Render("DETAILS"),
-		labelSt.Render("Created:") + valueSt.Render(d.item.CreatedDate.Format(dateFormat)),
-		labelSt.Render("Updated:") + valueSt.Render(d.item.ChangedDate.Format(dateFormat)),
-	}, "\n")))
-
-	// TAGS
-	if len(d.item.Tags) > 0 {
-		var tagStrs []string
-		for _, tag := range d.item.Tags {
-			tagStrs = append(tagStrs, d.styles.DetailTag.Render(tag))
-		}
-		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("TAGS")+"\n"+strings.Join(tagStrs, " "),
-		))
-	}
-
-	// RELATED WORK
-	if d.item.ParentID > 0 {
-		parentRef := fmt.Sprintf("#%d", d.item.ParentID)
-		if d.item.ParentTitle != "" {
-			parentRef += " " + d.item.ParentTitle
-		}
-		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("RELATED WORK")+"\n"+
-				lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render("Parent: ")+
-				lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parentRef),
-		))
-	}
-
-	return strings.Join(sections, "\n")
+	return strings.Join(d.sidebarSections(width), "\n")
 }
 
-// renderSingleColumn is a narrow-terminal fallback — everything stacked vertically.
-func (d *DetailView) renderSingleColumn(width int) string {
-	sectionStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(styles.ColorBorder).
-		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
+func (d *DetailView) sidebarSections(width int) []string {
+	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFieldLabelW + 4)
+	value := lipgloss.NewStyle().Foreground(styles.ColorText)
+	row := func(l, v string) string { return label.Render(l) + value.Render(v) }
 
-	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
-	labelSt := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailLabelWidth)
-	valueSt := lipgloss.NewStyle().Foreground(styles.ColorText)
-	wrapWidth := width - styles.PanelPaddedOffset
-	if wrapWidth < styles.DetailWrapMinWidth {
-		wrapWidth = styles.DetailWrapMinWidth
+	planning := []string{
+		row("Priority", orDash(d.item.Priority > 0, fmt.Sprintf("%d", d.item.Priority))),
+		row("Effort", orDash(d.item.Effort > 0, formatEffort(d.item.Effort))),
+		row("Created", d.item.CreatedDate.Format(dateFormat)),
+		row("Updated", d.item.ChangedDate.Format(dateFormat)),
 	}
+	sections := []string{formSection(BoxTitle("", "Planning", false), strings.Join(planning, "\n"), width, false)}
 
-	var sections []string
+	branch := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("+ Create branch  " + d.keys.CreateBranch.Help().Key)
+	sections = append(sections, formSection(BoxTitle("", "Development", false), branch, width, false))
 
-	// Planning / details inline
-	priorityStr := "-"
-	if d.item.Priority > 0 {
-		priorityStr = fmt.Sprintf("%d", d.item.Priority)
-	}
-	effortStr := "-"
-	if d.item.Effort > 0 {
-		effortStr = fmt.Sprintf("%.1f pts", d.item.Effort)
-	}
-	sections = append(sections, sectionStyle.Render(
-		labelSt.Render("Priority:")+valueSt.Render(priorityStr)+"    "+
-			labelSt.Render("Effort:")+valueSt.Render(effortStr)+"    "+
-			labelSt.Render("Created:")+valueSt.Render(d.item.CreatedDate.Format(dateFormat))+"    "+
-			labelSt.Render("Updated:")+valueSt.Render(d.item.ChangedDate.Format(dateFormat)),
-	))
-
-	// Tags
-	if len(d.item.Tags) > 0 {
-		var tagStrs []string
-		for _, tag := range d.item.Tags {
-			tagStrs = append(tagStrs, d.styles.DetailTag.Render(tag))
-		}
-		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("TAGS")+"\n"+strings.Join(tagStrs, " "),
-		))
-	}
-
-	// Parent
+	var related []string
 	if d.item.ParentID > 0 {
-		parentRef := fmt.Sprintf("#%d", d.item.ParentID)
+		parent := fmt.Sprintf("%d", d.item.ParentID)
 		if d.item.ParentTitle != "" {
-			parentRef += " " + d.item.ParentTitle
+			parent += " " + d.item.ParentTitle
 		}
-		sections = append(sections, sectionStyle.Render(
-			lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render("Parent: ")+
-				lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parentRef),
-		))
+		related = append(related, SectionLabel("Parent"), lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent))
 	}
-
-	sections = append(sections, sectionStyle.Render(
-		titleSt.Render("DESCRIPTION")+"\n"+d.buildDescriptionBody(wrapWidth),
-	))
-
-	if d.item.AcceptanceCriteria != "" {
-		sections = append(sections, sectionStyle.Render(
-			titleSt.Render("ACCEPTANCE CRITERIA")+"\n"+renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth),
-		))
+	if children := renderChildList(d.item, max(width-styles.BoxPaddedSize, 1)); children != "" {
+		if len(related) > 0 {
+			related = append(related, "")
+		}
+		related = append(related, children)
 	}
+	if len(related) == 0 {
+		related = append(related, lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render("No related work"))
+	}
+	sections = append(sections, formSection(BoxTitle("", "Related Work", false), strings.Join(related, "\n"), width, false))
+	return sections
+}
 
-	preContent := strings.Join(sections, "\n")
-	d.discussionBaseOffset = strings.Count(preContent, "\n") + 3
-
-	discussionTitle := fmt.Sprintf("DISCUSSION (%d)", len(d.comments))
-	discussionSection := sectionStyle.Render(
-		titleSt.Render(discussionTitle) + "\n" + d.buildDiscussionBody(wrapWidth),
-	)
-
-	return preContent + "\n" + discussionSection
+func (d *DetailView) renderSingleColumn(width int) string {
+	side := strings.Join(d.sidebarSections(width), "\n")
+	preContent, wrap := d.mainSections(width)
+	preContent = side + "\n" + preContent
+	return preContent + "\n" + d.discussionSection(preContent, width, wrap)
 }
 
 // CloseDetailViewMsg is sent when the detail view should be closed.
@@ -505,4 +400,8 @@ type CloseDetailViewMsg struct{}
 // OpenCommentModalMsg is sent when the comment modal should be opened.
 type OpenCommentModalMsg struct {
 	Item models.WorkItem
+}
+
+func (d DetailView) Item() *models.WorkItem {
+	return d.item
 }

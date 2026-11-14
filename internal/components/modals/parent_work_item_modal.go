@@ -729,7 +729,7 @@ func (p ParentModal) View() string {
 		Width(modalWidth+styles.PanelBorderOffset).
 		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())
 

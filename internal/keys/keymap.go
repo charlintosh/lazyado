@@ -50,6 +50,14 @@ type KeyMap struct {
 
 	ModalLeft  key.Binding
 	ModalRight key.Binding
+
+	HubBacklog    key.Binding
+	HubBoard      key.Binding
+	HubSprint     key.Binding
+	MoveItemLeft  key.Binding
+	MoveItemRight key.Binding
+	HalfPageUp    key.Binding
+	HalfPageDown  key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -189,7 +197,7 @@ func DefaultKeyMap() KeyMap {
 		),
 		Panel1: key.NewBinding(
 			key.WithKeys("1"),
-			key.WithHelp("1", "panel 1"),
+			key.WithHelp("1", "iteration filter"),
 		),
 		SortByType: key.NewBinding(
 			key.WithKeys("2"),
@@ -197,7 +205,7 @@ func DefaultKeyMap() KeyMap {
 		),
 		Panel2: key.NewBinding(
 			key.WithKeys("2"),
-			key.WithHelp("2", "panel 2"),
+			key.WithHelp("2", "state filter"),
 		),
 		SortByState: key.NewBinding(
 			key.WithKeys("3"),
@@ -205,23 +213,51 @@ func DefaultKeyMap() KeyMap {
 		),
 		Panel3: key.NewBinding(
 			key.WithKeys("3"),
-			key.WithHelp("3", "panel 3"),
+			key.WithHelp("3", "assigned filter"),
 		),
 		Panel4: key.NewBinding(
 			key.WithKeys("4"),
-			key.WithHelp("4", "panel 4"),
+			key.WithHelp("4", "area filter"),
 		),
 		Panel5: key.NewBinding(
 			key.WithKeys("5"),
-			key.WithHelp("5", "panel 5"),
+			key.WithHelp("5", "main view"),
 		),
 		Panel6: key.NewBinding(
 			key.WithKeys("6"),
-			key.WithHelp("6", "panel 6"),
+			key.WithHelp("6", "details tab"),
 		),
 		Panel7: key.NewBinding(
 			key.WithKeys("7"),
-			key.WithHelp("7", "panel 7"),
+			key.WithHelp("7", "discussion tab"),
+		),
+		HubBacklog: key.NewBinding(
+			key.WithKeys("L"),
+			key.WithHelp("L", "backlog"),
+		),
+		HubBoard: key.NewBinding(
+			key.WithKeys("B"),
+			key.WithHelp("B", "board"),
+		),
+		HubSprint: key.NewBinding(
+			key.WithKeys("S"),
+			key.WithHelp("S", "sprint taskboard"),
+		),
+		MoveItemLeft: key.NewBinding(
+			key.WithKeys("<"),
+			key.WithHelp("<", "move left"),
+		),
+		MoveItemRight: key.NewBinding(
+			key.WithKeys(">"),
+			key.WithHelp(">", "move right"),
+		),
+		HalfPageUp: key.NewBinding(
+			key.WithKeys("ctrl+u", "pgup"),
+			key.WithHelp("Ctrl+u", "page up"),
+		),
+		HalfPageDown: key.NewBinding(
+			key.WithKeys("ctrl+d", "pgdown"),
+			key.WithHelp("Ctrl+d", "page down"),
 		),
 	}
 }

@@ -1,33 +1,53 @@
 package styles
 
-// ── Terminal size breakpoints ─────────────────────────────────────────────
-// Below MinTerminalWidth / MinTerminalHeight the app degrades to minimal view
-// (work-items only + resize hint). Analogous to Tailwind's "sm" breakpoint.
 const (
-	MinTerminalWidth  = 110
-	MinTerminalHeight = 25
+	TopBarHeight        = 1
+	StatusBarHeight     = 1
+	PageHeaderHeight    = 3
+	RailWidth           = 28
+	RailShowWidth       = 100
+	RightPaneShowWidth  = 140
+	RightPaneMinWidth   = 40
+	RightPaneMaxWidth   = 64
+	RightPaneWidthRatio = 0.32
+	ShellMinWidth       = 50
+	ShellMinHeight      = 14
+	BoxBorderSize       = 2
+	BoxPaddedSize       = 4
 )
 
-// FilterShowWidth is the minimum terminal width at which the filter panel is
-// displayed. Below this threshold the filter is hidden to leave the work-items
-// panel enough horizontal space (≥43 inner chars).
-const FilterShowWidth = 75
-
-// CommentsShowWidth is the minimum content-area width at which the comments
-// panel is rendered alongside the details panel.
-const CommentsShowWidth = 55
-
-// ── Filter panel dimensions ───────────────────────────────────────────────
 const (
-	FilterMinWidth = 18
-	FilterMaxWidth = 28
+	GridColGap         = 2
+	GridColID          = 6
+	GridColState       = 14
+	GridColAssigned    = 16
+	GridColEffort      = 6
+	GridColIteration   = 12
+	GridColTags        = 14
+	GridColTitleMin    = 24
+	GridHeaderLines    = 2
+	GridTreeIndent     = 2
+	RailFilterOptions  = 8
+	RailFieldMinWidth  = 12
+	DetailFieldLabelW  = 11
+	DetailProgressBarW = 20
+)
+
+const (
+	BoardCardHeight     = 4
+	BoardCardGap        = 1
+	BoardColumnMinWidth = 24
+	BoardColumnGap      = 1
+	BoardHeaderLines    = 2
+	TaskCardHeight      = 2
+	TaskLaneMinWidth    = 26
+	TaskLaneMaxWidth    = 44
+	TaskLaneWidthRatio  = 0.30
 )
 
 // ── Panel height minimums ─────────────────────────────────────────────────
 const (
-	MinWorkItemsHeight = 8
-	MinBottomRowHeight = 7
-	MinBottomRowWidth  = 40
+	MinBottomRowWidth = 40
 )
 
 // ── Modal width tiers ─────────────────────────────────────────────────────
@@ -124,7 +144,6 @@ const (
 	DetailSidebarWidthLG      = 44
 	DetailBreakpointSM        = 100 // innerWidth < this → narrow sidebar
 	DetailBreakpointLG        = 160 // innerWidth > this → wide sidebar
-	DetailLabelWidth          = 10  // field label column in sidebar
 	DetailMinViewportWidth    = 20
 	DetailMinViewportHeight   = 5
 	DetailWrapMinWidth        = 10 // minimum text-wrap width in sections
@@ -138,40 +157,14 @@ const (
 	PanelPaddedOffset = 4
 )
 
-// ── Work items panel ──────────────────────────────────────────────────────
-const (
-	WorkItemsHeaderHeight  = 7  // rows consumed by title/blank/header/separator/borders
-	WorkItemsContentOffset = 6  // horizontal space: border(2) + outer-pad(2) + inner-pad(2)
-	WorkItemsMinFlexWidth  = 20 // minimum width for flex columns
-	WorkItemsMinContent    = 10 // minimum separator/content width
-)
-
 // ── Filter panel ─────────────────────────────────────────────────────────
 const (
-	FilterGroupVisibleOptions = 6  // max visible options per filter group
-	FilterSepMaxWidth         = 15 // max separator line length
-	FilterSepPadOffset        = 4  // horizontal indent: f.width - FilterSepPadOffset
-	FilterMinViewportWidth    = 10 // minimum viewport width guard
-)
-
-// ── App layout ────────────────────────────────────────────────────────────
-const (
-	AppHeaderFooterSize   = 2    // header(1) + statusBar(1)
-	FilterPanelWidthRatio = 0.20 // filter panel = 20% of screen width
-	WorkItemsHeightRatio  = 0.55 // work items = 55% of content height
+	FilterGroupVisibleOptions = 6 // max visible options per filter group
 )
 
 // ── Help panel ────────────────────────────────────────────────────────────
 const (
 	HelpKeyColumnWidth = 12
-	HelpPanelWidth     = 40
-	HelpPanelHeight    = 25
-)
-
-// ── Details panel metadata columns ───────────────────────────────────────
-const (
-	DetailMetaLabelWidth = 10 // label column width in metadata rows
-	DetailMetaValueWidth = 12 // value column width in metadata rows
 )
 
 // ── Assignee list in modals ───────────────────────────────────────────────

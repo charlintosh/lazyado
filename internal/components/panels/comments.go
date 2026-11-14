@@ -2,7 +2,6 @@ package panels
 
 import (
 	"fmt"
-	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
@@ -91,66 +90,31 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 	return c, cmd
 }
 
-// View renders the comments panel
 func (c CommentsPanel) View() string {
-	panelStyle := c.styles.PanelInactive
-	if c.focused {
-		panelStyle = c.styles.PanelActive
-	}
-
-	var b strings.Builder
-
-	numberStyle := c.styles.TextMuted
-	if c.focused {
-		numberStyle = c.styles.AccentBold
-	}
-	titleStyle := c.styles.FilterGroupTitle
-	if c.focused {
-		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
-	}
-
-	if len(c.comments) > 0 {
-		titleText := fmt.Sprintf("Discussion (%d)", len(c.comments))
-		b.WriteString("  " + numberStyle.Render("7. ") + titleStyle.Render(titleText))
-	} else {
-		b.WriteString("  " + numberStyle.Render("7. ") + titleStyle.Render("Discussion"))
-	}
-	b.WriteString("\n\n")
-
 	if len(c.comments) == 0 {
-		b.WriteString(c.styles.Subtitle.Render("  No comments"))
-		return panelStyle.
-			Width(c.width + styles.PanelBorderOffset).
-			Height(c.height + styles.PanelBorderOffset).
-			Render(b.String())
+		hint := c.styles.TextMuted.Render("No comments yet. Press " + c.keys.AddComment.Help().Key + " to start the discussion.")
+		return FitBlock(hint, c.width, c.height)
 	}
-
-	b.WriteString(c.viewport.View())
-	canScroll := c.viewport.TotalLineCount() > c.viewport.VisibleLineCount()
-	if canScroll {
+	body := c.viewport.View()
+	if c.viewport.TotalLineCount() > c.viewport.VisibleLineCount() {
 		pct := int(c.viewport.ScrollPercent() * 100)
-		scrollHint := lipgloss.NewStyle().Foreground(styles.ColorMuted).
-			Render(fmt.Sprintf(" %d%% ", pct))
-		b.WriteString("\n" + scrollHint)
+		body += "\n" + lipgloss.NewStyle().Foreground(styles.ColorMuted).Render(fmt.Sprintf("%d%%", pct))
 	}
-
-	return panelStyle.
-		Width(c.width + styles.PanelBorderOffset).
-		Height(c.height + styles.PanelBorderOffset).
-		Render(b.String())
+	return FitBlock(body, c.width, c.height)
 }
 
-// SetSize updates the panel dimensions
+func (c CommentsPanel) Count() int {
+	return len(c.comments)
+}
+
 func (c *CommentsPanel) SetSize(width, height int) {
+	if c.width == width && c.height == height {
+		return
+	}
 	c.width = width
 	c.height = height
-
-	c.viewport.SetWidth(width - styles.PanelBorderOffset)
-	c.viewport.SetHeight(height - 3)
-	if c.viewport.Height() < 1 {
-		c.viewport.SetHeight(1)
-	}
-
+	c.viewport.SetWidth(max(width, 1))
+	c.viewport.SetHeight(max(height-1, 1))
 	if c.ready {
 		c.updateViewportContent()
 	}
@@ -261,25 +225,7 @@ func (c *CommentsPanel) SelectedComment() *models.Comment {
 // GetAvailableActions returns a list of available actions for the comments panel
 func (c *CommentsPanel) GetAvailableActions() []string {
 	if len(c.comments) == 0 {
-		return []string{}
+		return Hints(styles.ColorSurface, c.keys.AddComment)
 	}
-
-	keyStyle := lipgloss.NewStyle().
-		Foreground(styles.ColorPrimary).
-		Bold(true)
-	descStyle := lipgloss.NewStyle().
-		Foreground(styles.ColorTextMuted)
-
-	// Use KeyMap help strings to keep labels centralized and consistent
-	addHelp := c.keys.AddComment.Help()
-	editHelp := c.keys.EditComment.Help()
-	deleteHelp := c.keys.DeleteComment.Help()
-
-	actions := []string{
-		keyStyle.Render(addHelp.Key) + descStyle.Render(" - "+addHelp.Desc),
-		keyStyle.Render(editHelp.Key) + descStyle.Render(" - "+editHelp.Desc),
-		keyStyle.Render(deleteHelp.Key) + descStyle.Render(" - "+deleteHelp.Desc),
-	}
-
-	return actions
+	return Hints(styles.ColorSurface, c.keys.Up, c.keys.AddComment, c.keys.EditComment, c.keys.DeleteComment)
 }

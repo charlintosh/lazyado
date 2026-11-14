@@ -197,7 +197,7 @@ func (m QuickSearchModal) View() string {
 	modalHeight := styles.ModalHeightLG
 
 	panel := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth + styles.PanelBorderOffset).

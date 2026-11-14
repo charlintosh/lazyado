@@ -192,7 +192,7 @@ func (m CommentModal) View() string {
 
 	// Comment area with border
 	commentView := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV).
 		Width(m.commentArea.Width() + styles.PanelPaddedOffset + styles.PanelBorderOffset).
@@ -240,7 +240,7 @@ func (m CommentModal) View() string {
 
 	// Center modal
 	modalStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(styles.ModalWidthXL + styles.PanelBorderOffset)
@@ -514,7 +514,7 @@ func (m *CommentModal) renderSuggestions() string {
 	}
 
 	suggestionsBox := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(0, 1).
 		Render(strings.Join(items, "\n"))

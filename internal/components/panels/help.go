@@ -32,147 +32,65 @@ func (h HelpPanel) View() string {
 	if !h.visible {
 		return ""
 	}
-
-	var b strings.Builder
-
-	title := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(styles.ColorText).
-		MarginBottom(1).
-		Render("Keyboard Shortcuts")
-
-	b.WriteString(title)
-	b.WriteString("\n\n")
-
-	// Group shortcuts by category
-	sections := []struct {
-		title      string
-		bindings   []key.Binding
-		customKeys []struct {
-			keys string
-			help string
-		}
-	}{
-		{
-			title: "Navigation",
-			bindings: []key.Binding{
-				h.keys.Up,
-				h.keys.Down,
-				h.keys.Left,
-				h.keys.Right,
-				h.keys.Top,
-				h.keys.Bottom,
-				h.keys.NextPanel,
-				h.keys.PrevPanel,
-				h.keys.Panel1,
-				h.keys.Panel2,
-				h.keys.Panel3,
-				h.keys.Panel4,
-				h.keys.Panel5,
-				h.keys.Panel6,
-				h.keys.Panel7,
-			},
-		},
-		{
-			title: "Work Item Actions",
-			bindings: []key.Binding{
-				h.keys.Open,
-				h.keys.View,
-				h.keys.ChangeState,
-				h.keys.Assign,
-				h.keys.AddComment,
-				h.keys.CreateParent,
-				h.keys.CreateTask,
-				h.keys.EditTask,
-				h.keys.DeleteTask,
-				h.keys.CreateBranch,
-			},
-		},
-		{
-			title: "Comment Actions",
-			bindings: []key.Binding{
-				h.keys.EditComment,
-				h.keys.DeleteComment,
-			},
-		},
-		{
-			title: "Modals",
-			bindings: []key.Binding{
-				h.keys.Confirm,
-				h.keys.Save,
-			},
-		},
-		{
-			title: "General",
-			bindings: []key.Binding{
-				h.keys.Select,
-				h.keys.Search,
-				h.keys.Refresh,
-				h.keys.Help,
-				h.keys.Back,
-				h.keys.DismissNotification,
-				h.keys.Quit,
-			},
-		},
+	type section struct {
+		title    string
+		bindings []key.Binding
 	}
-
-	for i, section := range sections {
-		// Section title
-		sectionTitle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(styles.ColorPrimary).
-			Render(section.title)
-		b.WriteString(sectionTitle)
-		b.WriteString("\n")
-
-		// Key bindings
-		for _, binding := range section.bindings {
-			keyStyle := h.styles.HelpKey.Width(styles.HelpKeyColumnWidth)
-			descStyle := h.styles.HelpDesc
-
-			help := binding.Help()
-			line := keyStyle.Render(help.Key) + descStyle.Render(help.Desc)
-			b.WriteString(line)
-			b.WriteString("\n")
-		}
-
-		// Additional custom keys were removed in favor of centralized KeyMap bindings.
-
-		// Add spacing between sections
-		if i < len(sections)-1 {
-			b.WriteString("\n")
-		}
+	left := []section{
+		{"Boards hubs", []key.Binding{h.keys.HubBacklog, h.keys.HubBoard, h.keys.HubSprint}},
+		{"Navigation", []key.Binding{
+			h.keys.Up, h.keys.Down, h.keys.Left, h.keys.Right, h.keys.Top, h.keys.Bottom,
+			h.keys.HalfPageUp, h.keys.HalfPageDown, h.keys.NextPanel, h.keys.PrevPanel,
+		}},
+		{"Panels", []key.Binding{
+			h.keys.Panel1, h.keys.Panel2, h.keys.Panel3, h.keys.Panel4,
+			h.keys.Panel5, h.keys.Panel6, h.keys.Panel7,
+		}},
 	}
-
-	// Footer: render using KeyMap help labels for consistency
-	b.WriteString("\n")
-	helpKey := h.keys.Help.Help().Key
-	backKey := h.keys.Back.Help().Key
-	footer := lipgloss.NewStyle().
-		Foreground(styles.ColorMuted).
-		Italic(true).
-		Render(fmt.Sprintf("Press %s or %s to close", helpKey, backKey))
-	b.WriteString(footer)
-
-	content := b.String()
-
-	// Center the help panel
-	helpWidth := styles.HelpPanelWidth
-	helpHeight := styles.HelpPanelHeight
-
-	panel := h.styles.HelpPanel.
-		Width(helpWidth + styles.PanelBorderOffset).
-		Height(helpHeight + styles.PanelBorderOffset).
-		Render(content)
-
-	// Create overlay positioning
-	return lipgloss.Place(
-		h.width,
-		h.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		panel,
+	right := []section{
+		{"Work items", []key.Binding{
+			h.keys.View, h.keys.Open, h.keys.ChangeState, h.keys.Assign, h.keys.AddComment,
+			h.keys.CreateParent, h.keys.CreateTask, h.keys.EditTask, h.keys.DeleteTask,
+			h.keys.CreateBranch, h.keys.Info,
+		}},
+		{"Board & taskboard", []key.Binding{h.keys.MoveItemLeft, h.keys.MoveItemRight}},
+		{"Discussion", []key.Binding{h.keys.EditComment, h.keys.DeleteComment}},
+		{"General", []key.Binding{
+			h.keys.Search, h.keys.QuickSearch, h.keys.Refresh, h.keys.Save, h.keys.Confirm,
+			h.keys.Help, h.keys.Back, h.keys.DismissNotification, h.keys.Quit,
+		}},
+	}
+	render := func(secs []section) string {
+		var b strings.Builder
+		for i, sec := range secs {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(styles.ColorPrimary).Render(sec.title))
+			b.WriteString("\n")
+			for _, binding := range sec.bindings {
+				hb := binding.Help()
+				b.WriteString(h.styles.HelpKey.Width(styles.HelpKeyColumnWidth).Render(hb.Key))
+				b.WriteString(h.styles.HelpDesc.Render(hb.Desc))
+				b.WriteString("\n")
+			}
+		}
+		return strings.TrimRight(b.String(), "\n")
+	}
+	colWidth := styles.HelpKeyColumnWidth + 26
+	body := lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Width(colWidth).Render(render(left)),
+		"  ",
+		lipgloss.NewStyle().Width(colWidth).Render(render(right)),
 	)
+	footer := lipgloss.NewStyle().Foreground(styles.ColorMuted).Italic(true).
+		Render(fmt.Sprintf("Press %s or %s to close", h.keys.Help.Help().Key, h.keys.Back.Help().Key))
+	body += "\n\n" + footer
+
+	width := min(lipgloss.Width(body)+styles.BoxPaddedSize, h.width)
+	height := min(lipgloss.Height(body)+styles.BoxBorderSize, h.height)
+	panel := RenderTitledBox(BoxTitle("", "Keyboard shortcuts", true), body, width, height, true)
+	return lipgloss.Place(h.width, h.height, lipgloss.Center, lipgloss.Center, panel)
 }
 
 // SetVisible sets whether the help panel is visible

@@ -485,7 +485,7 @@ func (m PBIModal) View() string {
 	content := lipgloss.NewStyle().
 		Width(modalWidth+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())
 

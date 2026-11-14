@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
@@ -19,7 +20,6 @@ import (
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charlintosh/lazyado/pkg/browser"
 	"github.com/charlintosh/lazyado/pkg/git"
-	"github.com/muesli/reflow/truncate"
 )
 
 // Panel represents the active panel
@@ -48,6 +48,8 @@ type App struct {
 	// Components
 	filterPanel      panels.FilterPanel
 	workItemsPanel   panels.WorkItemsPanel
+	boardPanel       panels.BoardPanel
+	taskboardPanel   panels.TaskboardPanel
 	detailsPanel     panels.DetailsPanel
 	commentsPanel    panels.CommentsPanel
 	commentModal     modals.CommentModal
@@ -71,6 +73,8 @@ type App struct {
 
 	// State
 	activePanel Panel
+	rightTab    Panel
+	hub         panels.Hub
 	viewMode    ViewMode
 	loading     bool
 	err         error
@@ -111,6 +115,8 @@ func NewApp(client *api.Client) App {
 	return App{
 		filterPanel:       panels.NewFilterPanel(filterState, styles, keys),
 		workItemsPanel:    panels.NewWorkItemsPanel(styles, keys),
+		boardPanel:        panels.NewBoardPanel(styles, keys),
+		taskboardPanel:    panels.NewTaskboardPanel(styles, keys),
 		detailsPanel:      panels.NewDetailsPanel(styles, keys),
 		commentsPanel:     panels.NewCommentsPanel(styles, keys),
 		commentModal:      modals.NewCommentModal(styles, keys),
@@ -130,8 +136,10 @@ func NewApp(client *api.Client) App {
 		quickSearchModal:  modals.NewQuickSearchModal(styles, keys),
 		splashScreen:      screens.NewSplashScreen(styles),
 		notification:      notification.NewNotification(styles, keys),
-		headerBar:         panels.NewHeaderBar(styles),
+		headerBar:         panels.NewHeaderBar(styles, keys),
 		activePanel:       PanelWorkItems,
+		rightTab:          PanelDetails,
+		hub:               panels.HubBacklog,
 		viewMode:          ViewMain,
 		loading:           true,
 		client:            client,
@@ -188,6 +196,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		switch a.activePanel {
+		case PanelWorkItems:
+			if cmd := a.updateMainPanel(msg); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		case PanelDetails:
 			newDetails, cmd := a.detailsPanel.Update(msg)
 			a.detailsPanel = newDetails
@@ -367,6 +379,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(cmds...)
 		}
 
+		if hub, ok := a.hubForKey(msg); ok {
+			a.switchHub(hub)
+			return a, a.updateSelectedItem()
+		}
+
 		// Panel switching with numbers (lazygit style) using centralized KeyMap
 		switch {
 		case key.Matches(msg, a.keys.Panel1):
@@ -395,6 +412,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activePanel = PanelComments
 			a.updateFocus()
 		}
+		a.applyLayout()
 
 		// Panel switching with Tab
 		if key.Matches(msg, a.keys.NextPanel) {
@@ -421,7 +439,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Open state change modal (only when work items panel is active)
 		if key.Matches(msg, a.keys.ChangeState) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.stateModal.SetItem(item)
 				a.stateModal.SetSize(a.width, a.height)
 				a.stateModal.SetVisible(true)
@@ -431,7 +449,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Open branch modal (only when work items panel is active)
 		if key.Matches(msg, a.keys.CreateBranch) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.branchModal.SetItem(item)
 				a.branchModal.SetSize(a.width, a.height)
 				a.branchModal.SetVisible(true)
@@ -441,7 +459,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Open assign modal (only when work items panel is active)
 		if key.Matches(msg, a.keys.Assign) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.assignModal.SetItem(item)
 				a.assignModal.SetMembers(a.teamMembers)
 				a.assignModal.SetSize(a.width, a.height)
@@ -452,7 +470,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Open comment modal (when work items or comments panel is active)
 		if key.Matches(msg, a.keys.AddComment) && (a.activePanel == PanelWorkItems || a.activePanel == PanelComments) {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.commentModal.SetItem(item)
 				a.commentModal.SetMembers(a.teamMembers)
 				a.commentModal.SetSize(a.width, a.height)
@@ -463,7 +481,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Create new task (only when work items panel is active)
 		if key.Matches(msg, a.keys.CreateTask) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				// Only allow creating child tasks on parent types (PBI, User Story, Feature, Epic)
 				if item.IsParentType() {
 					a.taskModal.SetParent(item)
@@ -499,7 +517,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Edit task/PBI (only when work items panel is active)
 		if key.Matches(msg, a.keys.EditTask) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				// Use different modals based on item type
 				if item.HasAdvancedFields() {
 					// For PBIs, Bugs, Stories - use the pbiModal for editing
@@ -519,7 +537,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Delete task (only when work items panel is active)
 		if key.Matches(msg, a.keys.DeleteTask) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.deleteModal.SetItem(item)
 				a.deleteModal.SetSize(a.width, a.height)
 				a.deleteModal.SetVisible(true)
@@ -529,7 +547,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Open info modal (only when work items panel is active)
 		if key.Matches(msg, a.keys.Info) && a.activePanel == PanelWorkItems {
-			if item := a.workItemsPanel.SelectedItem(); item != nil {
+			if item := a.selectedItem(); item != nil {
 				a.infoModal.SetItem(item)
 				a.infoModal.SetSize(a.width, a.height)
 				a.infoModal.SetVisible(true)
@@ -546,9 +564,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		case PanelWorkItems:
-			newWorkItems, cmd := a.workItemsPanel.Update(msg)
-			a.workItemsPanel = newWorkItems
-			if cmd != nil {
+			if cmd := a.updateMainPanel(msg); cmd != nil {
 				cmds = append(cmds, cmd)
 			}
 			if selectedCmd := a.updateSelectedItem(); selectedCmd != nil {
@@ -574,6 +590,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.statesByType = msg.statesByType
 		a.teamMembers = msg.teamMembers
 		a.stateModal.SetStatesByType(a.statesByType)
+		registerWorkflowColors(a.statesByType)
 		filterState := models.NewFilterState(a.iterations, a.areas, a.statesByType)
 
 		// Apply saved filter selections
@@ -589,6 +606,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.loading = false
 		a.workItems = msg.items
 		a.workItemsPanel.SetItems(msg.items)
+		a.boardPanel.SetItems(msg.items, a.statesByType)
+		a.taskboardPanel.SetItems(msg.items, a.statesByType)
+		a.applyLayout()
 		a.initialLoadDone = true
 		if cmd := a.updateSelectedItem(); cmd != nil {
 			return a, cmd
@@ -676,6 +696,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.bugParentModal.SetVisible(false)
 		a.infoModal.SetVisible(false)
 		a.quickSearchModal.SetVisible(false)
+
+	case panels.MoveWorkItemMsg:
+		a.loading = true
+		return a, updateWorkItemStateCmd(a.client, msg.Item.ID, msg.NewState, a.filterPanel.FilterState())
 
 	case modals.StateChangeRequestMsg:
 		a.stateModal.SetVisible(false)
@@ -794,13 +818,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.loading = false
 		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment added"))
 		// Reload comments to show the new one
-		if item := a.workItemsPanel.SelectedItem(); item != nil {
+		if item := a.selectedItem(); item != nil {
 			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
 		}
 		return a, tea.Batch(cmds...)
 
 	case panels.EditCommentMsg:
-		if item := a.workItemsPanel.SelectedItem(); item != nil {
+		if item := a.selectedItem(); item != nil {
 			a.commentModal.SetComment(&msg.Comment, item.ID)
 			a.commentModal.SetMembers(a.teamMembers)
 			a.commentModal.SetSize(a.width, a.height)
@@ -815,13 +839,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case commentUpdatedMsg:
 		a.loading = false
 		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment updated"))
-		if item := a.workItemsPanel.SelectedItem(); item != nil {
+		if item := a.selectedItem(); item != nil {
 			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
 		}
 		return a, tea.Batch(cmds...)
 
 	case panels.DeleteCommentMsg:
-		if item := a.workItemsPanel.SelectedItem(); item != nil {
+		if item := a.selectedItem(); item != nil {
 			a.deleteModal.SetCommentItem(&msg.Comment, item.ID)
 			a.deleteModal.SetSize(a.width, a.height)
 			a.deleteModal.SetVisible(true)
@@ -835,7 +859,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case commentDeletedMsg:
 		a.loading = false
 		cmds = append(cmds, a.notification.Show(notification.NotificationSuccess, "Comment deleted"))
-		if item := a.workItemsPanel.SelectedItem(); item != nil {
+		if item := a.selectedItem(); item != nil {
 			cmds = append(cmds, loadCommentsCmd(a.client, item.ID))
 		}
 		return a, tea.Batch(cmds...)
@@ -957,247 +981,376 @@ func (a App) render() string {
 		return a.quickSearchModal.View()
 	}
 
-	// Render help overlay if visible
-	if a.helpPanel.IsVisible() {
-		_ = a.renderMainView()
-		help := a.helpPanel.View()
-		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, help)
+	if a.width < styles.ShellMinWidth || a.height < styles.ShellMinHeight {
+		return a.renderTooSmall()
 	}
 
-	// Render detail view if in detail mode
+	if a.helpPanel.IsVisible() {
+		return a.helpPanel.View()
+	}
+
 	if a.viewMode == ViewDetail {
-		return a.detailView.View()
+		return a.renderDetailView()
 	}
 
 	return a.renderMainView()
 }
 
+type shellLayout struct {
+	bodyHeight int
+	showRail   bool
+	railWidth  int
+	mainWidth  int
+	showPane   bool
+	paneWidth  int
+}
+
+func (a *App) layout() shellLayout {
+	l := shellLayout{bodyHeight: max(a.height-styles.TopBarHeight-styles.StatusBarHeight, 0)}
+	l.showRail = a.width >= styles.RailShowWidth
+	if l.showRail {
+		l.railWidth = styles.RailWidth
+	}
+	rest := a.width - l.railWidth
+	l.showPane = a.hub == panels.HubBacklog && a.width >= styles.RightPaneShowWidth
+	if l.showPane {
+		pw := int(float64(a.width) * styles.RightPaneWidthRatio)
+		l.paneWidth = max(min(pw, styles.RightPaneMaxWidth), styles.RightPaneMinWidth)
+		rest -= l.paneWidth
+	}
+	l.mainWidth = max(rest, 0)
+	return l
+}
+
+func (a *App) isFilterPanel() bool {
+	return a.activePanel == PanelFilterSprint || a.activePanel == PanelFilterState ||
+		a.activePanel == PanelFilterAssigned || a.activePanel == PanelFilterArea
+}
+
+func (a *App) isPanePanel() bool {
+	return a.activePanel == PanelDetails || a.activePanel == PanelComments
+}
+
+func (a *App) applyLayout() {
+	if a.width == 0 || a.height == 0 {
+		return
+	}
+	l := a.layout()
+	mainHeight := max(l.bodyHeight-styles.PageHeaderHeight, 0)
+
+	railWidth := l.railWidth
+	if !l.showRail {
+		railWidth = a.width
+	}
+	a.filterPanel.SetSize(railWidth, l.bodyHeight)
+	a.filterPanel.SetHub(a.hub)
+
+	cw, ch := panels.BoxContentSize(l.mainWidth, mainHeight)
+	a.workItemsPanel.SetSize(cw, ch)
+	a.boardPanel.SetSize(cw, ch)
+	a.taskboardPanel.SetSize(cw, ch)
+
+	pw, ph := panels.BoxContentSize(l.paneWidth, l.bodyHeight)
+	if !l.showPane {
+		pw, ph = cw, ch
+	}
+	a.detailsPanel.SetSize(pw, ph)
+	a.commentsPanel.SetSize(pw, ph)
+	a.detailView.SetSize(a.width, l.bodyHeight)
+}
+
+func (a *App) renderTooSmall() string {
+	msg := a.styles.TextMuted.Render(fmt.Sprintf("Terminal too small (%d×%d).\nResize to at least %d×%d.",
+		a.width, a.height, styles.ShellMinWidth, styles.ShellMinHeight))
+	return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, msg)
+}
+
+func (a *App) renderHeaderBar(crumbs ...string) string {
+	a.headerBar.SetWidth(a.width)
+	a.headerBar.SetOrganization(a.client.Organization())
+	a.headerBar.SetProject(a.client.Project())
+	a.headerBar.SetCrumbs(crumbs...)
+	a.headerBar.SetLoading(a.loading)
+	a.headerBar.SetNotification(&a.notification)
+	return a.headerBar.View()
+}
+
 func (a *App) renderMainView() string {
-	if a.width < styles.MinTerminalWidth || a.height < styles.MinTerminalHeight {
-		return a.renderMinimalView()
-	}
+	a.applyLayout()
+	l := a.layout()
+	header := a.renderHeaderBar("Boards", a.hub.Name())
 
-	// Lipgloss border rule: Width(W) → outer = W+2; Height(H) → outer = H+2.
-	// All SetSize calls receive content dimensions; borders are added externally.
-
-	availableHeight := a.height - styles.AppHeaderFooterSize // header(1) + statusBar(1)
-
-	// ── Filter panel (left column) ───────────────────────────────────
-	// Hide the filter panel on narrow terminals to reclaim space.
-	showFilter := a.width >= styles.FilterShowWidth
-	filterWidth := 0
-	contentWidth := a.width - styles.PanelBorderOffset // single-panel default: outer = a.width
-	if showFilter {
-		filterWidth = int(float64(a.width) * styles.FilterPanelWidthRatio)
-		if filterWidth < styles.FilterMinWidth {
-			filterWidth = styles.FilterMinWidth
+	var body string
+	switch {
+	case a.isFilterPanel() && !l.showRail:
+		body = a.filterPanel.View()
+	default:
+		var cols []string
+		if l.showRail {
+			cols = append(cols, a.filterPanel.View())
 		}
-		if filterWidth > styles.FilterMaxWidth {
-			filterWidth = styles.FilterMaxWidth
+		cols = append(cols, a.renderMainColumn(l))
+		if l.showPane {
+			cols = append(cols, a.renderPane(l.paneWidth, l.bodyHeight))
 		}
-		// Two side-by-side panels: (filterWidth+2) + (contentWidth+2) = a.width
-		contentWidth = a.width - filterWidth - styles.PanelBorderOffset*2
+		body = lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	}
-	// Filter outer height = availableHeight  →  Height(availableHeight-2)
-	filterContentHeight := availableHeight - styles.PanelBorderOffset
+	body = panels.FitBlock(body, a.width, l.bodyHeight)
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, a.renderStatusBar())
+}
 
-	// ── Bottom row (details / comments) ─────────────────────────────
-	// Right side may have 1 or 2 stacked rows; each row adds +2 to total outer height.
-	// 2-row case: (workItemsHeight+2) + (bottomRowHeight+2) = availableHeight
-	//              workItemsHeight + bottomRowHeight = availableHeight - 4
-	rightContentHeight := availableHeight - styles.PanelBorderOffset*2
-
-	rawWorkItemsH := int(float64(rightContentHeight) * styles.WorkItemsHeightRatio)
-	if rawWorkItemsH < styles.MinWorkItemsHeight {
-		rawWorkItemsH = styles.MinWorkItemsHeight
-	}
-	rawBottomH := rightContentHeight - rawWorkItemsH
-
-	// Only show the bottom row when it would have a usable inner area (≥7 lines)
-	// and the content area is wide enough.
-	showBottomRow := rawBottomH >= styles.MinBottomRowHeight && contentWidth >= styles.MinBottomRowWidth
-
-	workItemsHeight := availableHeight - styles.PanelBorderOffset // single-row: outer = availableHeight
-	bottomRowHeight := 0
-	if showBottomRow {
-		workItemsHeight = rawWorkItemsH
-		bottomRowHeight = rawBottomH
-	}
-
-	// Show comments alongside details when there is enough horizontal space.
-	// At contentWidth=55 each panel gets ~26 inner chars — tight but readable.
-	showComments := showBottomRow && contentWidth >= styles.CommentsShowWidth
-	detailsWidth := 0
-	commentsWidth := 0
-	if showComments {
-		// Two panels: detailsWidth + commentsWidth = contentWidth - PanelBorderOffset
-		detailsWidth = (contentWidth - styles.PanelBorderOffset) / 2
-		commentsWidth = contentWidth - styles.PanelBorderOffset - detailsWidth
-	} else if showBottomRow {
-		// Details takes the full bottom row width
-		detailsWidth = contentWidth - styles.PanelBorderOffset
-	}
-
-	// ── Header bar ───────────────────────────────────────────────────
-	a.headerBar.SetWidth(a.width)
-	a.headerBar.SetOrganization(a.client.Organization())
-	a.headerBar.SetProject(a.client.Project())
-	a.headerBar.SetLoading(a.loading)
-	a.headerBar.SetNotification(&a.notification)
-	headerBar := a.headerBar.View()
-
-	// ── Assemble and return ───────────────────────────────────────────
-	a.workItemsPanel.SetSize(contentWidth, workItemsHeight)
-	rightSide := a.renderRightSide(showBottomRow, showComments, detailsWidth, commentsWidth, bottomRowHeight)
-
-	var mainContent string
-	if showFilter {
-		a.filterPanel.SetSize(filterWidth, filterContentHeight)
-		mainContent = lipgloss.JoinHorizontal(lipgloss.Top, a.filterPanel.View(), rightSide)
+func (a *App) renderMainColumn(l shellLayout) string {
+	mainHeight := max(l.bodyHeight-styles.PageHeaderHeight, 0)
+	var box string
+	if a.isPanePanel() && !l.showPane {
+		box = a.renderPane(l.mainWidth, mainHeight)
 	} else {
-		mainContent = rightSide
+		focused := a.activePanel == PanelWorkItems
+		title, content := a.mainPanelView()
+		box = panels.RenderTitledBox(panels.BoxTitle("5", title, focused), content, l.mainWidth, mainHeight, focused)
 	}
-
-	statusBar := a.renderStatusBar()
-	return lipgloss.JoinVertical(lipgloss.Left, headerBar, mainContent, statusBar)
+	header := panels.FitBlock(a.renderPageHeader(l.mainWidth), l.mainWidth, styles.PageHeaderHeight)
+	return lipgloss.JoinVertical(lipgloss.Left, header, box)
 }
 
-// renderMinimalView is shown when the terminal is too small to render the full layout.
-// It shows one panel at a time; the user switches with Tab/Shift+Tab or 1-6.
-func (a *App) renderMinimalView() string {
-	availableHeight := a.height - styles.AppHeaderFooterSize // header(1) + statusBar(1)
-
-	a.headerBar.SetWidth(a.width)
-	a.headerBar.SetOrganization(a.client.Organization())
-	a.headerBar.SetProject(a.client.Project())
-	a.headerBar.SetLoading(a.loading)
-	a.headerBar.SetNotification(&a.notification)
-	headerBar := a.headerBar.View()
-
-	// A single panel fills the available area.
-	// Border adds +2 outer; pass content dimensions.
-	panelWidth := a.width - styles.PanelBorderOffset
-	panelHeight := availableHeight - styles.PanelBorderOffset
-
-	var panelView string
-	switch a.activePanel {
-	case PanelFilterSprint, PanelFilterState, PanelFilterAssigned, PanelFilterArea:
-		a.filterPanel.SetSize(panelWidth, panelHeight)
-		panelView = a.filterPanel.View()
-	case PanelWorkItems:
-		a.workItemsPanel.SetSize(panelWidth, panelHeight)
-		panelView = a.workItemsPanel.View()
-	case PanelDetails:
-		a.detailsPanel.SetSize(panelWidth, panelHeight)
-		panelView = a.detailsPanel.View()
-	case PanelComments:
-		a.commentsPanel.SetSize(panelWidth, panelHeight)
-		panelView = a.commentsPanel.View()
+func (a *App) mainPanelView() (string, string) {
+	switch a.hub {
+	case panels.HubBoard:
+		return a.boardPanel.Title(), a.boardPanel.View()
+	case panels.HubSprint:
+		return a.taskboardPanel.Title(), a.taskboardPanel.View()
+	default:
+		return a.workItemsPanel.Title(), a.workItemsPanel.View()
 	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, headerBar, panelView, a.renderMinimalStatusBar())
 }
 
-// renderMinimalStatusBar shows the active panel name and keyboard navigation hint.
-func (a *App) renderMinimalStatusBar() string {
-	var panelName string
-	switch a.activePanel {
-	case PanelFilterSprint:
-		panelName = "Sprint Filter"
-	case PanelFilterState:
-		panelName = "State Filter"
-	case PanelFilterAssigned:
-		panelName = "Assigned Filter"
-	case PanelFilterArea:
-		panelName = "Area Filter"
-	case PanelWorkItems:
-		panelName = "Work Items"
-	case PanelDetails:
-		panelName = "Details"
-	case PanelComments:
-		panelName = "Comments"
+func (a *App) renderPageHeader(width int) string {
+	team := a.client.Team()
+	if team == "" {
+		team = a.client.Project()
 	}
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(" " + team)
+	sep := lipgloss.NewStyle().Foreground(styles.ColorMuted).Render("  ›  ")
+	view := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Underline(true)
+	muted := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
 
-	label := lipgloss.NewStyle().
-		Foreground(styles.ColorText).
-		Background(styles.ColorPrimary).
-		Bold(true).
-		Padding(0, 1).
-		Render(panelName)
-
-	hint := a.styles.TextMuted.Render("Tab/Shift+Tab · 1-7: switch panel")
-	text := label + "  " + hint
-	// StatusBar has Padding(0,1) → truncate to width-2 so it never wraps.
-	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
-	return a.styles.StatusBar.Width(a.width).Render(text)
+	var line1 string
+	var tools []string
+	switch a.hub {
+	case panels.HubBoard:
+		line1 = title + sep + view.Render("Board")
+		tools = []string{
+			panels.ToolbarItem("+", "New item", a.keys.CreateParent),
+			panels.ToolbarItem("☰", "View as Backlog", a.keys.HubBacklog),
+			panels.ToolbarItem("⇄", "Move card", a.keys.MoveItemRight),
+			panels.ToolbarItem("◷", "Taskboard", a.keys.HubSprint),
+			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+		}
+	case panels.HubSprint:
+		line1 = title + sep + view.Render(a.sprintName()) + muted.Render(a.sprintDates())
+		tools = []string{
+			panels.ToolbarItem("+", "New task", a.keys.CreateTask),
+			panels.ToolbarItem("⇄", "Move task", a.keys.MoveItemRight),
+			panels.ToolbarItem("⊞", "Board", a.keys.HubBoard),
+			panels.ToolbarItem("⫶", "Iteration", a.keys.Panel1),
+			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+		}
+	default:
+		line1 = title + sep + view.Render("Backlog")
+		tools = []string{
+			panels.ToolbarItem("+", "New Work Item", a.keys.CreateParent),
+			panels.ToolbarItem("⊞", "View as Board", a.keys.HubBoard),
+			panels.ToolbarItem("◷", "Taskboard", a.keys.HubSprint),
+			panels.ToolbarItem("▸", "Expand", a.keys.Right),
+			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+		}
+	}
+	toolbar := " " + strings.Join(tools, "    ")
+	return panels.FitWidth(line1, width) + "\n" + panels.FitWidth(toolbar, width)
 }
 
-// renderRightSide builds the right-column view (work items + optional bottom row).
-func (a *App) renderRightSide(showBottomRow, showComments bool, detailsWidth, commentsWidth, bottomRowHeight int) string {
-	workItemsView := a.workItemsPanel.View()
-	if !showBottomRow {
-		return workItemsView
+func (a *App) currentIteration() *models.Iteration {
+	selected := ""
+	if fs := a.filterPanel.FilterState(); fs != nil {
+		selected = fs.GetSelectedSprint()
 	}
-
-	a.detailsPanel.SetSize(detailsWidth, bottomRowHeight)
-	detailsView := a.detailsPanel.View()
-
-	if showComments {
-		a.commentsPanel.SetSize(commentsWidth, bottomRowHeight)
-		bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, detailsView, a.commentsPanel.View())
-		return lipgloss.JoinVertical(lipgloss.Left, workItemsView, bottomRow)
+	var current *models.Iteration
+	for i := range a.iterations {
+		it := &a.iterations[i]
+		if it.Path == selected {
+			return it
+		}
+		if it.IsCurrent() {
+			current = it
+		}
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, workItemsView, detailsView)
+	return current
+}
+
+func (a *App) sprintName() string {
+	if it := a.currentIteration(); it != nil {
+		return it.Name
+	}
+	return "All iterations"
+}
+
+func (a *App) sprintDates() string {
+	it := a.currentIteration()
+	if it == nil || it.StartDate.IsZero() || it.FinishDate.IsZero() {
+		return ""
+	}
+	out := "   " + it.StartDate.Format("Jan 2") + " – " + it.FinishDate.Format("Jan 2")
+	if days := workingDaysLeft(time.Now(), it.FinishDate); days > 0 {
+		out += fmt.Sprintf(" · %d working days left", days)
+	}
+	return out
+}
+
+func workingDaysLeft(from, to time.Time) int {
+	days := 0
+	for d := from.Truncate(24 * time.Hour); !d.After(to); d = d.AddDate(0, 0, 1) {
+		if d.Weekday() != time.Saturday && d.Weekday() != time.Sunday {
+			days++
+		}
+	}
+	return days
+}
+
+func (a *App) renderPane(width, height int) string {
+	detailsFocused := a.activePanel == PanelDetails
+	commentsFocused := a.activePanel == PanelComments
+	discussion := "Discussion"
+	if n := a.commentsPanel.Count(); n > 0 {
+		discussion = fmt.Sprintf("Discussion %d", n)
+	}
+	detailsTitle := panels.BoxTitle("6", "Details", detailsFocused)
+	commentsTitle := panels.BoxTitle("7", discussion, commentsFocused)
+	if a.rightTab == PanelDetails && !detailsFocused {
+		detailsTitle = panels.BoxTitle("6", "Details", false) + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("•")
+	}
+	if a.rightTab == PanelComments && !commentsFocused {
+		commentsTitle = panels.BoxTitle("7", discussion, false) + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("•")
+	}
+	title := detailsTitle + lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(" │ ") + commentsTitle
+	content := a.detailsPanel.View()
+	if a.rightTab == PanelComments {
+		content = a.commentsPanel.View()
+	}
+	return panels.RenderTitledBox(title, content, width, height, detailsFocused || commentsFocused)
+}
+
+func (a *App) renderDetailView() string {
+	a.applyLayout()
+	l := a.layout()
+	id := ""
+	if item := a.detailItem(); item != nil {
+		id = fmt.Sprintf("%d", item.ID)
+	}
+	header := a.renderHeaderBar("Boards", a.hub.Name(), id)
+	body := panels.FitBlock(a.detailView.View(), a.width, l.bodyHeight)
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, a.renderStatusBar())
+}
+
+func (a *App) detailItem() *models.WorkItem {
+	return a.detailView.Item()
+}
+
+func (a *App) modeLabel() string {
+	switch {
+	case a.viewMode == ViewDetail:
+		return "WORK ITEM"
+	case a.isFilterPanel():
+		return "FILTERS"
+	case a.activePanel == PanelDetails:
+		return "DETAILS"
+	case a.activePanel == PanelComments:
+		return "DISCUSSION"
+	default:
+		return a.hub.Mode()
+	}
 }
 
 func (a *App) renderStatusBar() string {
-	parts := a.statusBarParts()
-	text := strings.Join(parts, "  ")
-	// Truncate to terminal width (ANSI-aware) so the bar is always exactly 1 line.
-	// lipgloss Height(1) only sets a minimum; content still wraps beyond the width,
-	// which pushes the header bar off the top of the alt-screen.
-	// StatusBar has Padding(0,1) which adds 2 outer chars; truncate to width-2
-	// so the rendered box is exactly a.width wide and never wraps.
-	text = truncate.StringWithTail(text, uint(a.width-styles.PanelBorderOffset), "…")
-	return a.styles.StatusBar.Width(a.width).Render(text)
+	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(styles.ColorPrimary).Bold(true).
+		Render(" " + a.modeLabel() + " ")
+	left := append([]string{pill}, a.statusHints()...)
+	right := panels.Hints(styles.ColorSurface, a.keys.Help, a.keys.Quit)
+	return panels.JoinBar(left, right, a.width, styles.ColorSurface)
 }
 
-func (a *App) statusBarParts() []string {
-	var parts []string
-
-	// Panel indicator
-	panelName := "Filter"
-	switch a.activePanel {
-	case PanelWorkItems:
-		panelName = "Work Items"
-	case PanelDetails:
-		panelName = "Details"
-	case PanelComments:
-		panelName = "Comments"
+func (a *App) statusHints() []string {
+	if a.viewMode == ViewDetail {
+		return a.detailView.GetAvailableActions()
 	}
-
-	panelLabel := lipgloss.NewStyle().
-		Foreground(styles.ColorText).
-		Background(styles.ColorPrimary).
-		Bold(true).
-		Padding(0, 1).
-		Render("Panel")
-	parts = append(parts, panelLabel+": "+panelName)
-
-	// Panel-specific actions/help
 	switch a.activePanel {
 	case PanelWorkItems:
-		parts = append(parts, a.workItemsPanel.GetAvailableActions()...)
+		switch a.hub {
+		case panels.HubBoard:
+			return a.boardPanel.GetAvailableActions()
+		case panels.HubSprint:
+			return a.taskboardPanel.GetAvailableActions()
+		default:
+			return a.workItemsPanel.GetAvailableActions()
+		}
 	case PanelDetails:
-		parts = append(parts, a.detailsPanel.GetAvailableActions()...)
+		return a.detailsPanel.GetAvailableActions()
 	case PanelComments:
-		parts = append(parts, a.commentsPanel.GetAvailableActions()...)
+		return a.commentsPanel.GetAvailableActions()
 	default:
-		// Generic short help when not on work items/comments
-		parts = append(parts, panels.ShortHelp(a.keys, a.styles))
+		return a.filterPanel.GetAvailableActions()
 	}
+}
 
-	return parts
+func (a *App) selectedItem() *models.WorkItem {
+	switch a.hub {
+	case panels.HubBoard:
+		return a.boardPanel.SelectedItem()
+	case panels.HubSprint:
+		return a.taskboardPanel.SelectedItem()
+	default:
+		return a.workItemsPanel.SelectedItem()
+	}
+}
+
+func (a *App) updateMainPanel(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	switch a.hub {
+	case panels.HubBoard:
+		a.boardPanel, cmd = a.boardPanel.Update(msg)
+	case panels.HubSprint:
+		a.taskboardPanel, cmd = a.taskboardPanel.Update(msg)
+	default:
+		a.workItemsPanel, cmd = a.workItemsPanel.Update(msg)
+	}
+	return cmd
+}
+
+func (a *App) hubForKey(msg tea.KeyPressMsg) (panels.Hub, bool) {
+	switch {
+	case key.Matches(msg, a.keys.HubBacklog):
+		return panels.HubBacklog, true
+	case key.Matches(msg, a.keys.HubBoard):
+		return panels.HubBoard, true
+	case key.Matches(msg, a.keys.HubSprint):
+		return panels.HubSprint, true
+	}
+	return a.hub, false
+}
+
+func (a *App) switchHub(hub panels.Hub) {
+	a.hub = hub
+	a.activePanel = PanelWorkItems
+	a.updateFocus()
+	a.applyLayout()
+}
+
+func registerWorkflowColors(statesByType map[string][]models.WorkItemStateInfo) {
+	models.RegisterStateCategories(statesByType)
+	for _, states := range statesByType {
+		for _, st := range states {
+			styles.RegisterStateColor(st.Name, st.Color)
+		}
+	}
 }
 
 func (a *App) nextPanel() {
@@ -1251,20 +1404,24 @@ func (a *App) prevPanel() {
 }
 
 func (a *App) updateFocus() {
-	isFilterPanel := a.activePanel == PanelFilterSprint || a.activePanel == PanelFilterState ||
-		a.activePanel == PanelFilterAssigned || a.activePanel == PanelFilterArea
-	a.filterPanel.SetFocused(isFilterPanel)
-	if isFilterPanel {
+	isFilter := a.isFilterPanel()
+	a.filterPanel.SetFocused(isFilter)
+	if isFilter {
 		a.filterPanel.SetActiveGroup(a.activeFilterGroup)
 	}
-	a.workItemsPanel.SetFocused(a.activePanel == PanelWorkItems)
+	main := a.activePanel == PanelWorkItems
+	a.workItemsPanel.SetFocused(main && a.hub == panels.HubBacklog)
+	a.boardPanel.SetFocused(main && a.hub == panels.HubBoard)
+	a.taskboardPanel.SetFocused(main && a.hub == panels.HubSprint)
 	a.detailsPanel.SetFocused(a.activePanel == PanelDetails)
 	a.commentsPanel.SetFocused(a.activePanel == PanelComments)
+	if a.isPanePanel() {
+		a.rightTab = a.activePanel
+	}
 }
 
 func (a *App) updateSizes() {
 	a.helpPanel.SetSize(a.width, a.height)
-	a.detailView.SetSize(a.width, a.height)
 	a.notification.SetSize(a.width, a.height)
 	a.headerBar.SetWidth(a.width)
 	a.taskModal.SetSize(a.width, a.height)
@@ -1273,67 +1430,15 @@ func (a *App) updateSizes() {
 	a.commentModal.SetSize(a.width, a.height)
 	a.parentSelection.SetSize(a.width, a.height)
 	a.bugParentModal.SetSize(a.width, a.height)
-	a.commentModal.SetSize(a.width, a.height)
 	a.errorModal.SetSize(a.width, a.height)
 	a.infoModal.SetSize(a.width, a.height)
 	a.quickSearchModal.SetSize(a.width, a.height)
-	a.updateContentPanelSizes()
 	a.updateFocus()
-}
-
-func (a *App) updateContentPanelSizes() {
-	if a.width == 0 || a.height == 0 {
-		return
-	}
-
-	availableHeight := a.height - styles.AppHeaderFooterSize
-
-	if a.width < styles.MinTerminalWidth || a.height < styles.MinTerminalHeight {
-		panelWidth := a.width - styles.PanelBorderOffset
-		panelHeight := availableHeight - styles.PanelBorderOffset
-		a.detailsPanel.SetSize(panelWidth, panelHeight)
-		a.commentsPanel.SetSize(panelWidth, panelHeight)
-		return
-	}
-
-	contentWidth := a.width - styles.PanelBorderOffset
-	if a.width >= styles.FilterShowWidth {
-		filterWidth := int(float64(a.width) * styles.FilterPanelWidthRatio)
-		if filterWidth < styles.FilterMinWidth {
-			filterWidth = styles.FilterMinWidth
-		}
-		if filterWidth > styles.FilterMaxWidth {
-			filterWidth = styles.FilterMaxWidth
-		}
-		contentWidth = a.width - filterWidth - styles.PanelBorderOffset*2
-	}
-
-	rightContentHeight := availableHeight - styles.PanelBorderOffset*2
-	rawWorkItemsH := int(float64(rightContentHeight) * styles.WorkItemsHeightRatio)
-	if rawWorkItemsH < styles.MinWorkItemsHeight {
-		rawWorkItemsH = styles.MinWorkItemsHeight
-	}
-	rawBottomH := rightContentHeight - rawWorkItemsH
-	showBottomRow := rawBottomH >= styles.MinBottomRowHeight && contentWidth >= styles.MinBottomRowWidth
-
-	if !showBottomRow {
-		return
-	}
-
-	showComments := contentWidth >= styles.CommentsShowWidth
-	if showComments {
-		detailsWidth := (contentWidth - styles.PanelBorderOffset) / 2
-		commentsWidth := contentWidth - styles.PanelBorderOffset - detailsWidth
-		a.detailsPanel.SetSize(detailsWidth, rawBottomH)
-		a.commentsPanel.SetSize(commentsWidth, rawBottomH)
-	} else {
-		detailsWidth := contentWidth - styles.PanelBorderOffset
-		a.detailsPanel.SetSize(detailsWidth, rawBottomH)
-	}
+	a.applyLayout()
 }
 
 func (a *App) updateSelectedItem() tea.Cmd {
-	item := a.workItemsPanel.SelectedItem()
+	item := a.selectedItem()
 	a.detailsPanel.SetItem(item)
 
 	if item != nil && item.ID != a.lastCommentsItemID {

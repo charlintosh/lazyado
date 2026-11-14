@@ -13,9 +13,9 @@ import (
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/x/ansi"
 )
 
-// DetailsPanel shows details for a selected work item
 type DetailsPanel struct {
 	item     *models.WorkItem
 	viewport viewport.Model
@@ -36,49 +36,19 @@ func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 	}
 }
 
-// View renders the details panel
 func (d DetailsPanel) View() string {
-	panelStyle := d.styles.PanelInactive
-	if d.focused {
-		panelStyle = d.styles.PanelActive
-	}
-
-	var b strings.Builder
-
-	numberStyle := d.styles.TextMuted
-	if d.focused {
-		numberStyle = d.styles.AccentBold
-	}
-	titleStyle := d.styles.FilterGroupTitle
-	if d.focused {
-		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
-	}
-	b.WriteString("  " + numberStyle.Render("6. ") + titleStyle.Render("Details"))
-	b.WriteString("\n\n")
-
 	if d.item == nil {
-		b.WriteString(d.styles.Subtitle.Render("Select a work item to view details"))
-		return panelStyle.
-			Width(d.width + styles.PanelBorderOffset).
-			Height(d.height + styles.PanelBorderOffset).
-			Render(b.String())
+		return FitBlock(d.styles.TextMuted.Render("Select a work item to preview it here."), d.width, d.height)
 	}
-
-	if d.ready {
-		b.WriteString(d.viewport.View())
-		canScroll := d.viewport.TotalLineCount() > d.viewport.VisibleLineCount()
-		if canScroll {
-			pct := int(d.viewport.ScrollPercent() * 100)
-			scrollHint := lipgloss.NewStyle().Foreground(styles.ColorMuted).
-				Render(fmt.Sprintf(" %d%% ", pct))
-			b.WriteString("\n" + scrollHint)
-		}
+	if !d.ready {
+		return FitBlock("", d.width, d.height)
 	}
-
-	return panelStyle.
-		Width(d.width + styles.PanelBorderOffset).
-		Height(d.height + styles.PanelBorderOffset).
-		Render(b.String())
+	body := d.viewport.View()
+	if d.viewport.TotalLineCount() > d.viewport.VisibleLineCount() {
+		pct := int(d.viewport.ScrollPercent() * 100)
+		body += "\n" + lipgloss.NewStyle().Foreground(styles.ColorMuted).Render(fmt.Sprintf("%d%%", pct))
+	}
+	return FitBlock(body, d.width, d.height)
 }
 
 // SetItem sets the work item to display
@@ -92,9 +62,7 @@ func (d DetailsPanel) Update(msg tea.Msg) (DetailsPanel, tea.Cmd) {
 	if !d.focused || !d.ready {
 		return d, nil
 	}
-
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch {
 		case key.Matches(msg, d.keys.Top):
 			d.viewport.GotoTop()
@@ -104,7 +72,6 @@ func (d DetailsPanel) Update(msg tea.Msg) (DetailsPanel, tea.Cmd) {
 			return d, nil
 		}
 	}
-
 	var cmd tea.Cmd
 	d.viewport, cmd = d.viewport.Update(msg)
 	return d, cmd
@@ -114,199 +81,132 @@ func (d *DetailsPanel) SetFocused(focused bool) {
 	d.focused = focused
 }
 
-// SetSize sets the size of the details panel and rebuilds viewport content.
 func (d *DetailsPanel) SetSize(width, height int) {
 	if d.width == width && d.height == height && d.ready {
 		return
 	}
 	d.width = width
 	d.height = height
-	vpWidth := d.width - styles.PanelBorderOffset
-	if vpWidth < styles.FilterMinViewportWidth {
-		vpWidth = styles.FilterMinViewportWidth
-	}
-	d.viewport.SetWidth(vpWidth)
-	d.viewport.SetHeight(d.height - 3)
-	if d.viewport.Height() < 1 {
-		d.viewport.SetHeight(1)
-	}
+	d.viewport.SetWidth(max(width, 1))
+	d.viewport.SetHeight(max(height-1, 1))
 	if d.item != nil {
 		d.updateViewportContent()
 	}
 }
 
-// updateViewportContent builds the full content string and loads it into the viewport.
 func (d *DetailsPanel) updateViewportContent() {
 	if d.item == nil || d.viewport.Width() <= 0 {
 		return
 	}
-	wrapWidth := d.viewport.Width() - 2
-	if wrapWidth < 10 {
-		wrapWidth = 10
-	}
-	d.viewport.SetContent(d.buildContent(wrapWidth))
+	d.viewport.SetContent(d.buildContent(max(d.viewport.Width(), styles.DetailWrapMinWidth)))
 	d.ready = true
 }
 
-// buildContent assembles all sections into a single string for the viewport.
-func (d *DetailsPanel) buildContent(wrapWidth int) string {
-	var b strings.Builder
-	d.writeHeader(&b, wrapWidth)
-	d.writeMetadata(&b)
-	d.writeDescriptionSection(&b, wrapWidth)
-	d.writeACSection(&b, wrapWidth)
-	d.writeTagsSection(&b)
-	return b.String()
+func (d *DetailsPanel) buildContent(width int) string {
+	var sections []string
+	sections = append(sections, renderFormHeader(d.item, width))
+	sections = append(sections, renderFieldGrid(d.item, width))
+	if d.item.Description != "" {
+		sections = append(sections, SectionLabel("Description")+"\n"+
+			renderHTMLContent(d.item.DescriptionHTML, d.item.Description, width))
+	}
+	if d.item.AcceptanceCriteria != "" {
+		sections = append(sections, SectionLabel("Acceptance Criteria")+"\n"+
+			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, width))
+	}
+	if children := renderChildList(d.item, width); children != "" {
+		sections = append(sections, children)
+	}
+	return strings.Join(sections, "\n\n")
 }
 
-// writeHeader writes the item title line.
-func (d *DetailsPanel) writeHeader(b *strings.Builder, wrapWidth int) {
-	title := fmt.Sprintf("#%d %s", d.item.ID, d.item.Title)
-	if wrapWidth > 3 && len(title) > wrapWidth {
-		title = title[:wrapWidth-3] + "..."
+func renderFormHeader(item *models.WorkItem, width int) string {
+	typeColor := styles.TypeColor(string(item.Type))
+	stripe := lipgloss.NewStyle().Foreground(typeColor).Render("▌")
+	label := lipgloss.NewStyle().Foreground(typeColor).Bold(true).
+		Render(fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Width(max(width-2, 1)).Render(item.Title)
+	lines := []string{stripe + " " + label}
+	for _, l := range strings.Split(title, "\n") {
+		lines = append(lines, stripe+" "+l)
 	}
-	b.WriteString(d.styles.DetailTitle.Render(title))
-	b.WriteString("\n\n")
+	return strings.Join(lines, "\n")
 }
 
-// writeMetadata writes type/state/assigned/sprint/area/priority/effort/parent rows.
-func (d *DetailsPanel) writeMetadata(b *strings.Builder) {
-	labelWidth := styles.DetailMetaLabelWidth
-	valueWidth := styles.DetailMetaValueWidth
+func renderFieldGrid(item *models.WorkItem, width int) string {
+	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFieldLabelW)
+	value := lipgloss.NewStyle().Foreground(styles.ColorText)
+	muted := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
+	valueWidth := max(width-styles.DetailFieldLabelW, 1)
 
-	typeStyle := d.styles.TypeBadge(string(d.item.Type))
-	stateStyle := d.styles.StateBadge(string(d.item.State))
-
-	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Type:"))
-	b.WriteString(typeStyle.Width(valueWidth).Render(d.item.ShortType()))
-	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("State:"))
-	b.WriteString(stateStyle.Render(string(d.item.State)))
-	b.WriteString("\n")
-
-	assignedTo := d.item.AssignedTo
-	if assignedTo == "" {
-		assignedTo = "Unassigned"
+	assigned := value.Render(item.AssignedTo)
+	if item.AssignedTo == "" {
+		assigned = muted.Render("Unassigned")
 	}
-	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Assigned:"))
-	b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(truncateStr(assignedTo, valueWidth)))
-	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Sprint:"))
-	b.WriteString(d.styles.DetailValue.Render(d.item.SprintName()))
-	b.WriteString("\n")
-
-	b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Area:"))
-	b.WriteString(d.styles.DetailValue.Render(d.item.AreaName()))
-	b.WriteString("\n")
-
-	d.writePriorityEffort(b, labelWidth, valueWidth)
-	d.writeParent(b)
+	rows := [][2]string{
+		{"State", StateDot(string(item.State), nil)},
+		{"Assigned", assigned},
+		{"Iteration", value.Render(item.IterationPath)},
+		{"Area", value.Render(item.AreaPath)},
+	}
+	if item.IsParentType() {
+		rows = append(rows,
+			[2]string{"Priority", value.Render(orDash(item.Priority > 0, fmt.Sprintf("%d", item.Priority)))},
+			[2]string{"Effort", value.Render(orDash(item.Effort > 0, formatEffort(item.Effort)))},
+		)
+	}
+	if item.ParentID > 0 {
+		parent := fmt.Sprintf("%d", item.ParentID)
+		if item.ParentTitle != "" {
+			parent += " " + item.ParentTitle
+		}
+		rows = append(rows, [2]string{"Parent", lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent)})
+	}
+	if len(item.Tags) > 0 {
+		var chips []string
+		for _, t := range item.Tags {
+			chips = append(chips, Chip(t))
+		}
+		rows = append(rows, [2]string{"Tags", strings.Join(chips, " ")})
+	}
+	lines := make([]string, 0, len(rows))
+	for _, r := range rows {
+		lines = append(lines, label.Render(r[0])+FitWidth(r[1], valueWidth))
+	}
+	return strings.Join(lines, "\n")
 }
 
-// writePriorityEffort writes priority/effort rows only for parent work item types.
-func (d *DetailsPanel) writePriorityEffort(b *strings.Builder, labelWidth, valueWidth int) {
-	if !d.item.IsParentType() {
-		return
+func renderChildList(item *models.WorkItem, width int) string {
+	if len(item.Children) == 0 {
+		return ""
 	}
-	if d.item.Priority <= 0 && d.item.Effort <= 0 {
-		return
+	done, total := DoneCount(item.Children)
+	lines := []string{
+		SectionLabel(fmt.Sprintf("Child items  %d / %d done", done, total)),
+		ProgressBar(done, total, min(width, styles.DetailProgressBarW)),
 	}
-	if d.item.Priority > 0 {
-		b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Priority:"))
-		b.WriteString(d.styles.DetailValue.Width(valueWidth).Render(fmt.Sprintf("%d", d.item.Priority)))
+	for _, c := range item.Children {
+		row := TypeGlyph(string(c.Type), nil) + " " +
+			lipgloss.NewStyle().Foreground(styles.ColorLight).Render(fmt.Sprintf("%d ", c.ID)) +
+			c.Title
+		dot := lipgloss.NewStyle().Foreground(styles.StateColor(string(c.State))).Render(" ●")
+		lines = append(lines, FitWidth(row, max(width-2, 1))+dot)
 	}
-	if d.item.Effort > 0 {
-		b.WriteString(d.styles.DetailLabel.Width(labelWidth).Render("Effort:"))
-		b.WriteString(d.styles.DetailValue.Render(fmt.Sprintf("%.1f", d.item.Effort)))
-	}
-	b.WriteString("\n")
+	return strings.Join(lines, "\n")
 }
 
-// writeParent writes the parent reference line when one exists.
-func (d *DetailsPanel) writeParent(b *strings.Builder) {
-	if d.item.ParentID <= 0 {
-		return
+func orDash(ok bool, s string) string {
+	if ok {
+		return s
 	}
-	parentLabel := fmt.Sprintf("Parent: #%d", d.item.ParentID)
-	if d.item.ParentTitle != "" {
-		parentLabel += " " + d.item.ParentTitle
-	}
-	b.WriteString("\n")
-	b.WriteString(d.styles.Subtitle.Render(parentLabel))
-	b.WriteString("\n")
+	return "—"
 }
 
-// writeDescriptionSection writes the description block when present.
-func (d *DetailsPanel) writeDescriptionSection(b *strings.Builder, wrapWidth int) {
-	if d.item.Description == "" {
-		return
-	}
-	b.WriteString("\n")
-	b.WriteString(d.styles.DetailSectionTitle.Render("─── Description ───"))
-	b.WriteString("\n")
-	b.WriteString(renderHTMLContent(d.item.DescriptionHTML, d.item.Description, wrapWidth))
-	b.WriteString("\n")
-}
-
-// writeACSection writes the acceptance criteria block when present.
-func (d *DetailsPanel) writeACSection(b *strings.Builder, wrapWidth int) {
-	if d.item.AcceptanceCriteria == "" {
-		return
-	}
-	b.WriteString("\n")
-	b.WriteString(d.styles.DetailSectionTitle.Render("─── Acceptance Criteria ───"))
-	b.WriteString("\n")
-	b.WriteString(renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrapWidth))
-	b.WriteString("\n")
-}
-
-// writeTagsSection writes the tags block when tags exist.
-func (d *DetailsPanel) writeTagsSection(b *strings.Builder) {
-	if len(d.item.Tags) == 0 {
-		return
-	}
-	b.WriteString("\n")
-	b.WriteString(d.styles.DetailSectionTitle.Render("─── Tags ───"))
-	b.WriteString("\n")
-	var tagStrings []string
-	for _, tag := range d.item.Tags {
-		tagStrings = append(tagStrings, d.styles.DetailTag.Render(tag))
-	}
-	b.WriteString(strings.Join(tagStrings, " "))
-}
-
-// GetAvailableActions returns a list of available actions for the current item
 func (d *DetailsPanel) GetAvailableActions() []string {
 	if d.item == nil {
-		return []string{}
+		return nil
 	}
-
-	keyStyle := d.styles.AccentBold
-	descStyle := d.styles.TextMuted
-
-	actions := []string{
-		keyStyle.Render("v") + descStyle.Render(" - View fullscreen details"),
-		keyStyle.Render("s") + descStyle.Render(" - Change state"),
-		keyStyle.Render("a") + descStyle.Render(" - Assign to user"),
-		keyStyle.Render("n") + descStyle.Render(" - Create parent item"),
-		keyStyle.Render("e") + descStyle.Render(" - Edit item"),
-		keyStyle.Render("d") + descStyle.Render(" - Delete item"),
-		keyStyle.Render("c") + descStyle.Render(" - Add comment"),
-	}
-
-	if d.item.IsParentType() {
-		actions = append(actions[:5], append([]string{
-			keyStyle.Render("t") + descStyle.Render(" - Create child task"),
-		}, actions[5:]...)...)
-	}
-
-	if d.item.HasChildren() {
-		if d.item.IsExpanded {
-			actions = append(actions, keyStyle.Render("←/h")+descStyle.Render(" - Collapse children"))
-		} else {
-			actions = append(actions, keyStyle.Render("→/l")+descStyle.Render(" - Expand children"))
-		}
-	}
-
-	return actions
+	return Hints(styles.ColorSurface, d.keys.View, d.keys.ChangeState, d.keys.Assign, d.keys.EditTask, d.keys.AddComment)
 }
 
 // renderDetailMarkdown renders markdown using glamour, falling back to wordWrap.
@@ -332,7 +232,7 @@ func renderDetailMarkdown(content string, width int) string {
 	if renderErr != nil {
 		return wordWrap(content, width)
 	}
-	return strings.TrimSpace(rendered)
+	return dedent(rendered)
 }
 
 // truncateStr truncates a string to maxLen runes, appending "..." if needed.
@@ -365,4 +265,32 @@ func wordWrap(text string, width int) string {
 	}
 
 	return result.String()
+}
+
+func dedent(s string) string {
+	lines := strings.Split(s, "\n")
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[0])) == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	indent := -1
+	for _, l := range lines {
+		plain := ansi.Strip(l)
+		if strings.TrimSpace(plain) == "" {
+			continue
+		}
+		n := len(plain) - len(strings.TrimLeft(plain, " "))
+		if indent < 0 || n < indent {
+			indent = n
+		}
+	}
+	for i, l := range lines {
+		if indent > 0 {
+			l = ansi.Cut(l, indent, ansi.StringWidth(l))
+		}
+		lines[i] = strings.TrimRight(l, " ")
+	}
+	return strings.Join(lines, "\n")
 }

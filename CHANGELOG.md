@@ -6,6 +6,23 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- chore: migrate to Bubble Tea v2.1, Bubbles v2.2, Lip Gloss v2.1 and Glamour v2 (`charm.land/*` modules)
+- feat: Azure DevOps style layout — top bar with breadcrumb and sync status, Boards navigation rail with filters as dropdowns, page header with team title and toolbar, framed panes with titles set in the border, and a status bar with a mode pill and contextual hints
+- feat: backlog grid with ADO columns (ID, Title tree, State dot, Assigned To, Effort, Iteration, Tags) that drop responsively on narrow terminals
+- feat: Details / Discussion preview pane beside the backlog on wide terminals
+- feat: work item form redesigned after the Azure DevOps form (type stripe, State/Area/Iteration row, Description, Acceptance Criteria, Discussion, Planning, Development, Related Work)
+- style: dark palette based on Azure DevOps; work item type colors and live state colors from the Azure DevOps process metadata
+- style: square borders in all panes and modals
+
+### Added
+
+- feat: Kanban board hub (`B`) with one column per workflow state and `<` / `>` to move cards
+- feat: sprint taskboard hub (`S`) with one lane per backlog item and task state columns
+- feat: `Ctrl+u` / `Ctrl+d` half-page scrolling in the backlog grid
+- test: layout tests that render every hub at several terminal sizes and assert nothing overflows
+
 ## [v0.1.6] - 2026-02-25
 
 ### Added

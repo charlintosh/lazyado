@@ -104,9 +104,9 @@ func (n Notification) View() string {
 	// Simple text with background color, no borders
 	notifStyle := lipgloss.NewStyle().
 		Background(bgColor).
-		Foreground(styles.ColorText).
+		Foreground(styles.ColorOnAccent).
 		Bold(true).
-		Padding(0, 2)
+		Padding(0, 1)
 
 	return notifStyle.Render(n.message)
 }

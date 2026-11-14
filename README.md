@@ -10,6 +10,8 @@ A terminal user interface (TUI) for Azure DevOps Boards.
 
 ## Features
 
+- **Azure DevOps layout** — Top bar with `org / project / Boards / hub` breadcrumb, a Boards navigation rail with the filters as dropdowns, and a status bar with the active mode and contextual keys — laid out like the Azure DevOps web UI.
+- **Three Boards hubs** — Backlog grid (`L`), Kanban board (`B`) and sprint taskboard (`S`); move cards between workflow columns with `<` / `>`.
 - **Work items** — Browse, search and filter by sprint, state, assigned, area, tags; sort by ID / Type / State.
 - **Quick search** — Instantly jump to any work item by ID using Ctrl+F.
 - **Hierarchical view** — PBIs / Bugs with expandable child tasks.
@@ -18,7 +20,7 @@ A terminal user interface (TUI) for Azure DevOps Boards.
 - **Comments** — Add, edit, delete comments (supports @mentions).
 - **Work item info** — Quickly copy work item ID or URL to clipboard via info modal.
 - **Integration helpers** — Create a git branch from a work item (branch-name helper).
-- **Detail view** — Fullscreen view showing metadata, description, acceptance criteria, tags and comments.
+- **Work item form** — Fullscreen form modelled on the Azure DevOps work item form: type stripe, title, State/Area/Iteration row, Description, Acceptance Criteria and Discussion on the left; Planning, Development and Related Work on the right.
 - **Keyboard-driven UX** — Modals for search/assign/branch/change-state/parent-selection; Vim-like navigation (j/k/g/G); panel switching and contextual help.
 - **Cross-platform** — Works on Linux, macOS and Windows.
 
@@ -94,13 +96,16 @@ These shortcuts reflect the canonical `internal/keys/keymap.go` bindings used by
 
 | Key            | Description              |
 | -------------- | ------------------------ |
-| `1`            | Panel 1 / Sort by ID     |
-| `2`            | Panel 2 / Sort by Type   |
-| `3`            | Panel 3 / Sort by State  |
-| `4`            | Panel 4                  |
-| `5`            | Panel 5                  |
-| `6`            | Panel 6                  |
-| `7`            | Panel 7                  |
+| `1`            | Iteration filter         |
+| `2`            | State filter             |
+| `3`            | Assigned-to filter       |
+| `4`            | Area filter              |
+| `5`            | Main view (grid / board) |
+| `6`            | Details tab              |
+| `7`            | Discussion tab           |
+| `L`            | Backlogs hub             |
+| `B`            | Boards hub (Kanban)      |
+| `S`            | Sprints hub (taskboard)  |
 | `Tab`          | Switch to next panel     |
 | `Shift+Tab`    | Switch to previous panel |
 | `?`            | Show/hide help           |
@@ -119,6 +124,17 @@ Note: keys `1`, `2`, `3` are also used for sorting in some contexts (see Sort se
 | `l` / `→` | Right / expand   |
 | `g`       | Go to first item |
 | `G`       | Go to last item  |
+| `Ctrl+u`  | Half page up     |
+| `Ctrl+d`  | Half page down   |
+
+#### Board & taskboard
+
+| Key       | Description                                    |
+| --------- | ---------------------------------------------- |
+| `h` / `l` | Previous / next column (board) or card (lane)  |
+| `j` / `k` | Next / previous card (board) or lane (sprint)  |
+| `<`       | Move the card to the previous workflow state   |
+| `>`       | Move the card to the next workflow state       |
 
 #### Actions
 
@@ -182,15 +198,18 @@ If a key has multiple meanings, the active context determines the action (panel 
 | `Ctrl+S`        | Submit comment               |
 | `Esc`           | Cancel / Close suggestions   |
 
-### Detail View
+### Work Item Form (`v`)
 
-| Key         | Description                    |
-| ----------- | ------------------------------ |
-| `Esc` / `q` | Back to main view              |
-| `c`         | Add comment                    |
-| `j` / `k`   | Scroll (description, comments) |
+| Key         | Description                         |
+| ----------- | ----------------------------------- |
+| `Esc` / `q` | Back to the hub                     |
+| `Tab`       | Switch between Details / Discussion |
+| `c`         | Add comment                         |
+| `j` / `k`   | Scroll, or move between comments    |
 
-The detail view displays:
+Keybinding change note: the Boards hubs (`L`, `B`, `S`), card moves (`<`, `>`) and half-page scrolling (`Ctrl+u`, `Ctrl+d`) were added with the Azure DevOps layout; panels `1`–`7` keep their numbers but are now labelled by what they show. Affected files: `internal/keys/keymap.go`, `internal/components/panels/help.go`, `internal/app/app.go`, `internal/components/panels/board.go`, `internal/components/panels/taskboard.go`.
+
+The work item form displays:
 
 - Work item metadata (type, state, ID, dates, etc.)
 - Parent item (if any)
