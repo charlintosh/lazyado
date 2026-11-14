@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // HelpPanel displays keyboard shortcuts
@@ -161,8 +161,8 @@ func (h HelpPanel) View() string {
 	helpHeight := styles.HelpPanelHeight
 
 	panel := h.styles.HelpPanel.
-		Width(helpWidth).
-		Height(helpHeight).
+		Width(helpWidth + styles.PanelBorderOffset).
+		Height(helpHeight + styles.PanelBorderOffset).
 		Render(content)
 
 	// Create overlay positioning

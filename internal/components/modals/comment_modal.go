@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var commentModalLogger = debug.Scope("comment_modal")
@@ -68,7 +68,7 @@ func (m CommentModal) Update(msg tea.Msg) (CommentModal, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Handle suggestions navigation
 		if m.showingSuggestions {
 			switch {
@@ -195,7 +195,7 @@ func (m CommentModal) View() string {
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV).
-		Width(m.commentArea.Width() + styles.PanelPaddedOffset).
+		Width(m.commentArea.Width() + styles.PanelPaddedOffset + styles.PanelBorderOffset).
 		Render(m.commentArea.View())
 
 	// Show suggestions if active
@@ -243,7 +243,7 @@ func (m CommentModal) View() string {
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Width(styles.ModalWidthXL)
+		Width(styles.ModalWidthXL + styles.PanelBorderOffset)
 
 	modal := modalStyle.Render(content)
 

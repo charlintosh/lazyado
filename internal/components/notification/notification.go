@@ -1,14 +1,16 @@
 package notification
 
 import (
+	"image/color"
+
 	"fmt"
 	"time"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -66,7 +68,7 @@ func (n Notification) Update(msg tea.Msg) (Notification, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Dismiss with ESC, Back key, or comma
 		if key.Matches(msg, n.keys.Back) || key.Matches(msg, n.keys.DismissNotification) {
 			n.visible = false
@@ -87,7 +89,7 @@ func (n Notification) View() string {
 	}
 
 	// Choose background color based on notification type
-	var bgColor lipgloss.Color
+	var bgColor color.Color
 	switch n.notifType {
 	case NotificationSuccess:
 		bgColor = styles.ColorSuccess

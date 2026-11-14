@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // TaskModal is a modal for creating/editing tasks
@@ -36,7 +36,7 @@ func NewTaskModal(st styles.Styles, keys keys.KeyMap) TaskModal {
 	ti.Placeholder = "Enter task title..."
 	ti.Focus()
 	ti.CharLimit = styles.TitleCharLimit
-	ti.Width = styles.TextareaWidthMD
+	ti.SetWidth(styles.TextareaWidthMD)
 
 	ta := textarea.New()
 	ta.Placeholder = "Enter description (optional)..."
@@ -68,7 +68,7 @@ func (m TaskModal) Update(msg tea.Msg) (TaskModal, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Back):
 			m.visible = false
@@ -197,8 +197,8 @@ func (m TaskModal) View() string {
 	contentStr := b.String()
 	modalHeight = lipgloss.Height(contentStr) + styles.PanelBorderOffset*2
 	content := lipgloss.NewStyle().
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth+styles.PanelBorderOffset).
+		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).

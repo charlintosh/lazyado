@@ -1,10 +1,10 @@
 package modals
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // BugParentModal is a thin wrapper around ParentModal preconfigured for Bugs

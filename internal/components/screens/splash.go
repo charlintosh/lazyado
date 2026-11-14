@@ -1,15 +1,17 @@
 package screens
 
 import (
+	"image/color"
+
 	"math"
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/harmonica"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -22,7 +24,7 @@ const (
 
 var titleChars = []string{"l", "a", "z", "y", "a", "d", "o"}
 
-var barGradient = []lipgloss.Color{
+var barGradient = []color.Color{
 	styles.ColorDarkBlue,
 	styles.ColorPrimary,
 	styles.ColorViolet,

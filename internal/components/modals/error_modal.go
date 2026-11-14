@@ -3,11 +3,11 @@ package modals
 import (
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // ErrorModal displays API errors in a copyable modal
@@ -40,7 +40,7 @@ func (m ErrorModal) Update(msg tea.Msg) (ErrorModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Select) || key.Matches(msg, m.keys.Quit) {
 			m.visible = false
 			return m, func() tea.Msg { return ModalClosedMsg{} }
@@ -88,8 +88,8 @@ func (m ErrorModal) View() string {
 
 	// Style the modal
 	content := lipgloss.NewStyle().
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth+styles.PanelBorderOffset).
+		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).

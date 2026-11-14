@@ -5,14 +5,14 @@ import (
 	"regexp"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // BranchModal is a modal for creating a branch linked to a work item
@@ -32,7 +32,7 @@ func NewBranchModal(st styles.Styles, keys keys.KeyMap) BranchModal {
 	ti := textinput.New()
 	ti.Placeholder = "feature/123-task-name"
 	ti.CharLimit = styles.InputCharLimitLG
-	ti.Width = styles.TextInputWidthLG
+	ti.SetWidth(styles.TextInputWidthLG)
 
 	return BranchModal{
 		textInput: ti,
@@ -55,13 +55,13 @@ func (m BranchModal) Update(msg tea.Msg) (BranchModal, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Back):
 			m.visible = false
 			m.err = nil
 			return m, func() tea.Msg { return ModalClosedMsg{} }
-		case msg.Type == tea.KeyEnter:
+		case msg.String() == "enter":
 			branchName := strings.TrimSpace(m.textInput.Value())
 			if branchName == "" {
 				m.err = fmt.Errorf("branch name cannot be empty")

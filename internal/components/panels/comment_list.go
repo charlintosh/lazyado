@@ -7,9 +7,9 @@ import (
 
 	"golang.org/x/net/html"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type CommentListConfig struct {

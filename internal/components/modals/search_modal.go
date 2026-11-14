@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // searchMaxVisibleResults aliases styles.ModalListVisibleItems for local readability.
@@ -35,8 +35,10 @@ func NewSearchModal(st styles.Styles, keys keys.KeyMap) SearchModal {
 	ti.Placeholder = "Type to search..."
 	ti.CharLimit = styles.InputCharLimitMD
 	ti.Prompt = "🔍 "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
-	ti.TextStyle = lipgloss.NewStyle().Foreground(styles.ColorText)
+	tiStyles := ti.Styles()
+	tiStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
+	tiStyles.Focused.Text = lipgloss.NewStyle().Foreground(styles.ColorText)
+	ti.SetStyles(tiStyles)
 
 	return SearchModal{
 		styles:      st,
@@ -52,12 +54,12 @@ func (s SearchModal) Update(msg tea.Msg) (SearchModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEsc:
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc":
 			// Cancel search
 			return s, func() tea.Msg { return SearchCancelledMsg{} }
-		case tea.KeyEnter:
+		case "enter":
 			// Select current item
 			if s.filterGroup != nil && len(s.filterGroup.Options) > 0 {
 				return s, func() tea.Msg {
@@ -66,12 +68,12 @@ func (s SearchModal) Update(msg tea.Msg) (SearchModal, tea.Cmd) {
 					}
 				}
 			}
-		case tea.KeyUp:
+		case "up":
 			if s.cursor > 0 {
 				s.cursor--
 				s.adjustOffset()
 			}
-		case tea.KeyDown:
+		case "down":
 			if s.filterGroup != nil && s.cursor < len(s.filterGroup.Options)-1 {
 				s.cursor++
 				s.adjustOffset()
@@ -215,8 +217,8 @@ func (s SearchModal) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth + styles.PanelBorderOffset).
+		Height(modalHeight + styles.PanelBorderOffset).
 		Render(content)
 
 	// Center the modal

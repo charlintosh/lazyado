@@ -5,14 +5,14 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type workItemType int
@@ -105,7 +105,7 @@ func NewParentModal(st styles.Styles, keys keys.KeyMap) ParentModal {
 	ti := textinput.New()
 	ti.Placeholder = placeholderText["title"]
 	ti.CharLimit = styles.TitleCharLimit
-	ti.Width = styles.TextareaWidthLG
+	ti.SetWidth(styles.TextareaWidthLG)
 
 	ta := textarea.New()
 	ta.Placeholder = placeholderText["description"]
@@ -124,32 +124,32 @@ func NewParentModal(st styles.Styles, keys keys.KeyMap) ParentModal {
 	ei := textinput.New()
 	ei.Placeholder = placeholderText["effort"]
 	ei.CharLimit = styles.InputCharLimitSM
-	ei.Width = styles.TextInputWidthSM
+	ei.SetWidth(styles.TextInputWidthSM)
 
 	pi := textinput.New()
 	pi.Placeholder = placeholderText["priority"]
 	pi.CharLimit = styles.InputCharLimitSM
-	pi.Width = styles.TextInputWidthSM
+	pi.SetWidth(styles.TextInputWidthSM)
 
 	tagi := textinput.New()
 	tagi.Placeholder = placeholderText["tags"]
 	tagi.CharLimit = styles.TagsCharLimit
-	tagi.Width = styles.TextareaWidthLG
+	tagi.SetWidth(styles.TextareaWidthLG)
 
 	areai := textinput.New()
 	areai.Placeholder = placeholderText["area"]
 	areai.CharLimit = styles.TagsCharLimit
-	areai.Width = styles.TextareaWidthLG
+	areai.SetWidth(styles.TextareaWidthLG)
 
 	assi := textinput.New()
 	assi.Placeholder = placeholderText["assignee"]
 	assi.CharLimit = styles.InputCharLimitLG
-	assi.Width = styles.TextareaWidthLG
+	assi.SetWidth(styles.TextareaWidthLG)
 
 	dci := textinput.New()
 	dci.Placeholder = placeholderText["defectCause"]
 	dci.CharLimit = styles.TagsCharLimit
-	dci.Width = styles.TextareaWidthLG
+	dci.SetWidth(styles.TextareaWidthLG)
 
 	return ParentModal{
 		titleInput:             ti,
@@ -188,7 +188,7 @@ func (p ParentModal) Update(msg tea.Msg) (ParentModal, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, p.keys.Back):
 			p.visible = false
@@ -726,8 +726,8 @@ func (p ParentModal) View() string {
 
 	// Style the modal
 	content := lipgloss.NewStyle().
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth+styles.PanelBorderOffset).
+		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).

@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // DetailsPanel shows details for a selected work item
@@ -30,7 +30,7 @@ type DetailsPanel struct {
 // NewDetailsPanel creates a new details panel
 func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 	return DetailsPanel{
-		viewport: viewport.New(0, 0),
+		viewport: viewport.New(),
 		styles:   st,
 		keys:     k,
 	}
@@ -59,8 +59,8 @@ func (d DetailsPanel) View() string {
 	if d.item == nil {
 		b.WriteString(d.styles.Subtitle.Render("Select a work item to view details"))
 		return panelStyle.
-			Width(d.width).
-			Height(d.height).
+			Width(d.width + styles.PanelBorderOffset).
+			Height(d.height + styles.PanelBorderOffset).
 			Render(b.String())
 	}
 
@@ -76,8 +76,8 @@ func (d DetailsPanel) View() string {
 	}
 
 	return panelStyle.
-		Width(d.width).
-		Height(d.height).
+		Width(d.width + styles.PanelBorderOffset).
+		Height(d.height + styles.PanelBorderOffset).
 		Render(b.String())
 }
 
@@ -94,7 +94,7 @@ func (d DetailsPanel) Update(msg tea.Msg) (DetailsPanel, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, d.keys.Top):
 			d.viewport.GotoTop()
@@ -125,10 +125,10 @@ func (d *DetailsPanel) SetSize(width, height int) {
 	if vpWidth < styles.FilterMinViewportWidth {
 		vpWidth = styles.FilterMinViewportWidth
 	}
-	d.viewport.Width = vpWidth
-	d.viewport.Height = d.height - 3
-	if d.viewport.Height < 1 {
-		d.viewport.Height = 1
+	d.viewport.SetWidth(vpWidth)
+	d.viewport.SetHeight(d.height - 3)
+	if d.viewport.Height() < 1 {
+		d.viewport.SetHeight(1)
 	}
 	if d.item != nil {
 		d.updateViewportContent()
@@ -137,10 +137,10 @@ func (d *DetailsPanel) SetSize(width, height int) {
 
 // updateViewportContent builds the full content string and loads it into the viewport.
 func (d *DetailsPanel) updateViewportContent() {
-	if d.item == nil || d.viewport.Width <= 0 {
+	if d.item == nil || d.viewport.Width() <= 0 {
 		return
 	}
-	wrapWidth := d.viewport.Width - 2
+	wrapWidth := d.viewport.Width() - 2
 	if wrapWidth < 10 {
 		wrapWidth = 10
 	}

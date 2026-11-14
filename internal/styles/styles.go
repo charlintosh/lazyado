@@ -1,6 +1,10 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 var (
 	ColorPrimary      = lipgloss.Color("#7C3AED")
@@ -25,7 +29,7 @@ var (
 	ColorDarkBlue     = lipgloss.Color("#1E3A5F")
 )
 
-var typeColors = map[string]lipgloss.Color{
+var typeColors = map[string]color.Color{
 	"User Story":           ColorBlue,
 	"Product Backlog Item": ColorBlue,
 	"Story":                ColorBlue,
@@ -36,7 +40,7 @@ var typeColors = map[string]lipgloss.Color{
 	"Epic":                 ColorPink,
 }
 
-var stateColors = map[string]lipgloss.Color{
+var stateColors = map[string]color.Color{
 	"New":         ColorMuted,
 	"Active":      ColorBlue,
 	"Resolved":    ColorSuccess,
@@ -297,7 +301,7 @@ func DefaultStyles() Styles {
 
 		TypeBadge: func(t string) lipgloss.Style {
 			color := typeColors[t]
-			if color == "" {
+			if color == nil {
 				color = ColorMuted
 			}
 			return lipgloss.NewStyle().
@@ -307,7 +311,7 @@ func DefaultStyles() Styles {
 
 		StateBadge: func(s string) lipgloss.Style {
 			color := stateColors[s]
-			if color == "" {
+			if color == nil {
 				color = ColorMuted
 			}
 			return lipgloss.NewStyle().

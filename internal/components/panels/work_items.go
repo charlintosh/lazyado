@@ -5,13 +5,13 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type SortField int
@@ -142,7 +142,7 @@ func (w WorkItemsPanel) Update(msg tea.Msg) (WorkItemsPanel, tea.Cmd) {
 		return w, nil
 	}
 
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		if updated, cmd, handled := w.handleKeyMsg(msg); handled {
 			return updated, cmd
 		}
@@ -154,7 +154,7 @@ func (w WorkItemsPanel) Update(msg tea.Msg) (WorkItemsPanel, tea.Cmd) {
 	return w, cmd
 }
 
-func (w WorkItemsPanel) handleKeyMsg(msg tea.KeyMsg) (WorkItemsPanel, tea.Cmd, bool) {
+func (w WorkItemsPanel) handleKeyMsg(msg tea.KeyPressMsg) (WorkItemsPanel, tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, w.keys.Left):
 		w.collapseCurrentItem()
@@ -229,13 +229,13 @@ func (w WorkItemsPanel) View() string {
 	content := b.String()
 	if w.focused {
 		return w.styles.PanelActive.
-			Width(w.width).
-			Height(w.height).
+			Width(w.width + styles.PanelBorderOffset).
+			Height(w.height + styles.PanelBorderOffset).
 			Render(content)
 	}
 	return w.styles.PanelInactive.
-		Width(w.width).
-		Height(w.height).
+		Width(w.width + styles.PanelBorderOffset).
+		Height(w.height + styles.PanelBorderOffset).
 		Render(content)
 }
 

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/api"
-	"github.com/charlintosh/lazyado/internal/config"
 	ui "github.com/charlintosh/lazyado/internal/app"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charlintosh/lazyado/internal/config"
 )
 
 var ErrConfigCreated = errors.New("default config created; please edit ~/.config/lazyado/config.yaml")
@@ -29,11 +29,7 @@ func Execute() error {
 
 	app := ui.NewApp(client)
 
-	p := tea.NewProgram(
-		app,
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	p := tea.NewProgram(app)
 
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running application: %w", err)

@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var commentsLogger = debug.Scope("comments")
@@ -32,7 +32,7 @@ type CommentsPanel struct {
 
 // NewCommentsPanel creates a new comments panel
 func NewCommentsPanel(styles styles.Styles, keys keys.KeyMap) CommentsPanel {
-	vp := viewport.New(0, 0)
+	vp := viewport.New()
 	return CommentsPanel{
 		viewport: vp,
 		styles:   styles,
@@ -51,7 +51,7 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 
 	if c.focused && len(c.comments) > 0 {
 		switch msg := msg.(type) {
-		case tea.KeyMsg:
+		case tea.KeyPressMsg:
 			oldCursor := c.cursor
 			switch {
 			case key.Matches(msg, c.keys.Up):
@@ -120,8 +120,8 @@ func (c CommentsPanel) View() string {
 	if len(c.comments) == 0 {
 		b.WriteString(c.styles.Subtitle.Render("  No comments"))
 		return panelStyle.
-			Width(c.width).
-			Height(c.height).
+			Width(c.width + styles.PanelBorderOffset).
+			Height(c.height + styles.PanelBorderOffset).
 			Render(b.String())
 	}
 
@@ -135,8 +135,8 @@ func (c CommentsPanel) View() string {
 	}
 
 	return panelStyle.
-		Width(c.width).
-		Height(c.height).
+		Width(c.width + styles.PanelBorderOffset).
+		Height(c.height + styles.PanelBorderOffset).
 		Render(b.String())
 }
 
@@ -145,10 +145,10 @@ func (c *CommentsPanel) SetSize(width, height int) {
 	c.width = width
 	c.height = height
 
-	c.viewport.Width = width - styles.PanelBorderOffset
-	c.viewport.Height = height - 3
-	if c.viewport.Height < 1 {
-		c.viewport.Height = 1
+	c.viewport.SetWidth(width - styles.PanelBorderOffset)
+	c.viewport.SetHeight(height - 3)
+	if c.viewport.Height() < 1 {
+		c.viewport.SetHeight(1)
 	}
 
 	if c.ready {
@@ -159,7 +159,7 @@ func (c *CommentsPanel) SetSize(width, height int) {
 // SetComments updates the comments list
 func (c *CommentsPanel) SetComments(comments []models.Comment) {
 	commentsLogger.Debugf("set_comments_count=%d", len(comments))
-	commentsLogger.Debugf("viewport_dimensions width=%d height=%d", c.viewport.Width, c.viewport.Height)
+	commentsLogger.Debugf("viewport_dimensions width=%d height=%d", c.viewport.Width(), c.viewport.Height())
 	c.comments = comments
 	c.ready = true
 	c.cursor = 0
@@ -178,7 +178,7 @@ func (c *CommentsPanel) ClearComments() {
 // updateViewportContent renders the comments into the viewport
 func (c *CommentsPanel) updateViewportContent() {
 	commentsLogger.Debugf("update_viewport comments=%d width=%d height=%d",
-		len(c.comments), c.viewport.Width, c.viewport.Height)
+		len(c.comments), c.viewport.Width(), c.viewport.Height())
 
 	if len(c.comments) == 0 {
 		commentsLogger.Debugf("no_comments_to_display")
@@ -186,7 +186,7 @@ func (c *CommentsPanel) updateViewportContent() {
 		return
 	}
 
-	if c.viewport.Width <= 0 || c.viewport.Height <= 0 {
+	if c.viewport.Width() <= 0 || c.viewport.Height() <= 0 {
 		commentsLogger.Debugf("viewport_dimensions_not_set")
 		return
 	}
@@ -197,7 +197,7 @@ func (c *CommentsPanel) updateViewportContent() {
 	}
 
 	content, offsets := RenderCommentList(c.comments, c.styles, CommentListConfig{
-		Width:      c.viewport.Width,
+		Width:      c.viewport.Width(),
 		Selected:   selected,
 		ShowEdited: true,
 		ShowBoxes:  true,
@@ -217,13 +217,13 @@ func (c *CommentsPanel) scrollToSelected() {
 		bottomLine = c.commentOffsets[c.cursor+1] - 1
 	}
 
-	vpTop := c.viewport.YOffset
-	vpBottom := vpTop + c.viewport.Height - 1
+	vpTop := c.viewport.YOffset()
+	vpBottom := vpTop + c.viewport.Height() - 1
 
 	if topLine < vpTop {
 		c.viewport.SetYOffset(topLine)
 	} else if bottomLine > vpBottom {
-		c.viewport.SetYOffset(bottomLine - c.viewport.Height + 1)
+		c.viewport.SetYOffset(bottomLine - c.viewport.Height() + 1)
 	}
 }
 

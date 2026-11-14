@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var defaultStates = []string{"New", "Active", "Resolved", "Closed"}
@@ -54,7 +54,7 @@ func (m StateModal) Update(msg tea.Msg) (StateModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Up):
 			if m.cursor > 0 {
@@ -145,8 +145,8 @@ func (m StateModal) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Width(modalWidth).
-		Height(modalHeight)
+		Width(modalWidth + styles.PanelBorderOffset).
+		Height(modalHeight + styles.PanelBorderOffset)
 
 	modal := modalStyle.Render(b.String())
 

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const dateFormat = "2006-01-02"
@@ -39,7 +39,7 @@ type DetailView struct {
 // NewDetailView creates a new detail view.
 func NewDetailView(st styles.Styles, ks keys.KeyMap) DetailView {
 	return DetailView{
-		viewport: viewport.New(0, 0),
+		viewport: viewport.New(),
 		styles:   st,
 		keys:     ks,
 	}
@@ -53,7 +53,7 @@ func (d DetailView) Update(msg tea.Msg) (DetailView, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, d.keys.Back):
 			if d.commentFocused {
@@ -140,8 +140,8 @@ func (d DetailView) View() string {
 	panelContent := lipgloss.JoinVertical(lipgloss.Left, header, body)
 
 	mainArea := d.styles.PanelActive.
-		Width(d.width - styles.PanelBorderOffset).
-		Height(d.height - styles.PanelPaddedOffset).
+		Width(d.width - styles.PanelBorderOffset + styles.PanelBorderOffset).
+		Height(d.height - styles.PanelPaddedOffset + styles.PanelBorderOffset).
 		Render(panelContent)
 
 	return lipgloss.JoinVertical(lipgloss.Left, mainArea, d.renderStatusBar())
@@ -149,7 +149,7 @@ func (d DetailView) View() string {
 
 // renderHeader renders the fixed (non-scrollable) title and subheader rows.
 func (d *DetailView) renderHeader() string {
-	innerWidth := d.viewport.Width
+	innerWidth := d.viewport.Width()
 	if innerWidth <= 0 {
 		innerWidth = d.width - styles.PanelPaddedOffset
 	}
@@ -181,7 +181,7 @@ func (d *DetailView) renderHeader() string {
 		labelSt.Render("Area:") + " " + valueSt.Render(d.item.AreaName()),
 	}, "    ")
 	subHeader := lipgloss.NewStyle().
-		Width(innerWidth).
+		Width(innerWidth + styles.PanelBorderOffset).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.ColorBorder).
 		BorderBottom(true).
@@ -238,18 +238,18 @@ func (d *DetailView) refreshViewport() {
 		vpHeight = styles.DetailMinViewportHeight
 	}
 
-	d.viewport.Width = vpWidth
-	d.viewport.Height = vpHeight
+	d.viewport.SetWidth(vpWidth)
+	d.viewport.SetHeight(vpHeight)
 	d.updateViewportContent()
 }
 
 // updateViewportContent (re)builds the two-column layout and loads it into the viewport.
 func (d *DetailView) updateViewportContent() {
-	if d.item == nil || d.viewport.Width <= 0 {
+	if d.item == nil || d.viewport.Width() <= 0 {
 		return
 	}
 
-	innerWidth := d.viewport.Width
+	innerWidth := d.viewport.Width()
 
 	sidebarWidth := styles.DetailSidebarWidthDefault
 	switch {
@@ -277,7 +277,7 @@ func (d *DetailView) renderMainContent(width int) string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorBorder).
 		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset)
+		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
 
 	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
 	wrapWidth := width - styles.PanelPaddedOffset
@@ -348,13 +348,13 @@ func (d *DetailView) scrollToComment() {
 		bottomLine = d.discussionBaseOffset + d.commentOffsets[d.commentCursor+1] - 1
 	}
 
-	vpTop := d.viewport.YOffset
-	vpBottom := vpTop + d.viewport.Height - 1
+	vpTop := d.viewport.YOffset()
+	vpBottom := vpTop + d.viewport.Height() - 1
 
 	if topLine < vpTop {
 		d.viewport.SetYOffset(topLine)
 	} else if bottomLine > vpBottom {
-		d.viewport.SetYOffset(bottomLine - d.viewport.Height + 1)
+		d.viewport.SetYOffset(bottomLine - d.viewport.Height() + 1)
 	}
 }
 
@@ -364,7 +364,7 @@ func (d *DetailView) renderSidebar(width int) string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorBorder).
 		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset)
+		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
 
 	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
 	labelSt := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailLabelWidth)
@@ -427,7 +427,7 @@ func (d *DetailView) renderSingleColumn(width int) string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorBorder).
 		Padding(0, 1).
-		Width(width - styles.PanelBorderOffset)
+		Width(width - styles.PanelBorderOffset + styles.PanelBorderOffset)
 
 	titleSt := lipgloss.NewStyle().Bold(true).Foreground(styles.ColorTextMuted)
 	labelSt := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailLabelWidth)

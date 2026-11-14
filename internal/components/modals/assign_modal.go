@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // AssignModal is a modal for assigning work items to users
@@ -34,7 +34,7 @@ func NewAssignModal(st styles.Styles, keys keys.KeyMap) AssignModal {
 	ti := textinput.New()
 	ti.Placeholder = "Type to filter..."
 	ti.CharLimit = styles.InputCharLimitMD
-	ti.Width = styles.TextInputWidthMD
+	ti.SetWidth(styles.TextInputWidthMD)
 
 	return AssignModal{
 		styles:      st,
@@ -55,7 +55,7 @@ func (m AssignModal) Update(msg tea.Msg) (AssignModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Handle filter input
 		if m.filterEnabled {
 			switch {

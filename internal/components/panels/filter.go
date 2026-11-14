@@ -3,13 +3,13 @@ package panels
 import (
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // maxVisibleOptions aliases styles.FilterGroupVisibleOptions for local readability.
@@ -29,7 +29,7 @@ type FilterPanel struct {
 // NewFilterPanel creates a new filter panel
 func NewFilterPanel(filterState *models.FilterState, styles styles.Styles, keys keys.KeyMap) FilterPanel {
 	return FilterPanel{
-		viewport:    viewport.New(0, 0),
+		viewport:    viewport.New(),
 		filterState: filterState,
 		styles:      styles,
 		keys:        keys,
@@ -46,14 +46,14 @@ func (f FilterPanel) Update(msg tea.Msg) (FilterPanel, tea.Cmd) {
 	if !f.focused {
 		return f, nil
 	}
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		return f.handleKey(msg)
 	}
 	return f, nil
 }
 
 // handleKey processes keyboard input for the filter panel.
-func (f FilterPanel) handleKey(msg tea.KeyMsg) (FilterPanel, tea.Cmd) {
+func (f FilterPanel) handleKey(msg tea.KeyPressMsg) (FilterPanel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, f.keys.Search):
 		return f, func() tea.Msg { return OpenSearchMsg{} }
@@ -106,8 +106,8 @@ func (f FilterPanel) View() string {
 		panelStyle = f.styles.PanelActive
 	}
 	return panelStyle.
-		Width(f.width).
-		Height(f.height).
+		Width(f.width + styles.PanelBorderOffset).
+		Height(f.height + styles.PanelBorderOffset).
 		Render(f.viewport.View())
 }
 
@@ -119,8 +119,8 @@ func (f *FilterPanel) SetSize(width, height int) {
 	if vpWidth < styles.FilterMinViewportWidth {
 		vpWidth = styles.FilterMinViewportWidth
 	}
-	f.viewport.Width = vpWidth
-	f.viewport.Height = f.height
+	f.viewport.SetWidth(vpWidth)
+	f.viewport.SetHeight(f.height)
 	f.rebuildViewport()
 }
 
@@ -150,7 +150,7 @@ func (f *FilterPanel) SetActiveGroup(index int) {
 
 // rebuildViewport builds the full content string and auto-scrolls to the active cursor.
 func (f *FilterPanel) rebuildViewport() {
-	if f.viewport.Width <= 0 {
+	if f.viewport.Width() <= 0 {
 		return
 	}
 	f.viewport.SetContent(f.buildContent())
@@ -242,14 +242,14 @@ func (f *FilterPanel) renderOption(group *models.FilterGroup, j int, isActive bo
 
 // scrollToActive adjusts the viewport Y offset so the active cursor line stays visible.
 func (f *FilterPanel) scrollToActive() {
-	if f.viewport.Height <= 0 {
+	if f.viewport.Height() <= 0 {
 		return
 	}
 	y := f.computeActiveLineY()
-	if y < f.viewport.YOffset {
+	if y < f.viewport.YOffset() {
 		f.viewport.SetYOffset(y)
-	} else if y >= f.viewport.YOffset+f.viewport.Height {
-		f.viewport.SetYOffset(y - f.viewport.Height + 1)
+	} else if y >= f.viewport.YOffset()+f.viewport.Height() {
+		f.viewport.SetYOffset(y - f.viewport.Height() + 1)
 	}
 }
 

@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/api"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/notification"
@@ -15,10 +19,6 @@ import (
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charlintosh/lazyado/pkg/browser"
 	"github.com/charlintosh/lazyado/pkg/git"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/truncate"
 )
 
@@ -145,7 +145,6 @@ func NewApp(client *api.Client) App {
 func (a App) Init() tea.Cmd {
 	return tea.Batch(
 		loadDataCmd(a.client),
-		tickCmd(),
 		a.headerBar.Init(),
 		screens.AnimateCmd(),
 		a.splashScreen.Tick(),
@@ -203,7 +202,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Update notification first (captures ESC to dismiss)
 		if a.notification.IsVisible() {
 			newNotif, cmd := a.notification.Update(msg)
@@ -879,7 +878,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the application
-func (a App) View() string {
+func (a App) View() tea.View {
+	v := tea.NewView(a.render())
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (a App) render() string {
 	if a.width == 0 || a.height == 0 {
 		return "Loading..."
 	}
@@ -1572,8 +1578,4 @@ func quickSearchWorkItemCmd(client *api.Client, itemID int) tea.Cmd {
 		}
 		return modals.QuickSearchSuccessMsg{Item: item}
 	}
-}
-
-func tickCmd() tea.Cmd {
-	return spinner.Tick
 }

@@ -1,18 +1,20 @@
 package modals
 
 import (
+	"image/color"
+
 	"fmt"
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // PBIModal is a unified modal for creating and editing PBIs
@@ -50,7 +52,7 @@ func NewPBIModal(st styles.Styles, keys keys.KeyMap) PBIModal {
 	ti.Placeholder = "Enter title..."
 	ti.Focus()
 	ti.CharLimit = styles.TitleCharLimit
-	ti.Width = styles.TextareaWidthMD
+	ti.SetWidth(styles.TextareaWidthMD)
 
 	da := textarea.New()
 	da.Placeholder = "Enter description (optional)..."
@@ -69,27 +71,27 @@ func NewPBIModal(st styles.Styles, keys keys.KeyMap) PBIModal {
 	pi := textinput.New()
 	pi.Placeholder = "1-4"
 	pi.CharLimit = styles.PriorityCharLimit
-	pi.Width = styles.SmallInputWidth
+	pi.SetWidth(styles.SmallInputWidth)
 
 	ei := textinput.New()
 	ei.Placeholder = "0-999"
 	ei.CharLimit = styles.EffortCharLimit
-	ei.Width = styles.SmallInputWidth
+	ei.SetWidth(styles.SmallInputWidth)
 
 	tagi := textinput.New()
 	tagi.Placeholder = "tag1; tag2; tag3"
 	tagi.CharLimit = styles.TagsCharLimit
-	tagi.Width = styles.TextareaWidthMD
+	tagi.SetWidth(styles.TextareaWidthMD)
 
 	assi := textinput.New()
 	assi.Placeholder = "Type to search assignee..."
 	assi.CharLimit = styles.InputCharLimitLG
-	assi.Width = styles.TextareaWidthMD
+	assi.SetWidth(styles.TextareaWidthMD)
 
 	areai := textinput.New()
 	areai.Placeholder = "Area path"
 	areai.CharLimit = styles.TitleCharLimit
-	areai.Width = styles.TextareaWidthMD
+	areai.SetWidth(styles.TextareaWidthMD)
 
 	return PBIModal{
 		titleInput:             ti,
@@ -120,7 +122,7 @@ func (m PBIModal) Update(msg tea.Msg) (PBIModal, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Back):
 			m.visible = false
@@ -481,7 +483,7 @@ func (m PBIModal) View() string {
 	b.WriteString(m.styles.ModalInstructions.Render(instr))
 
 	content := lipgloss.NewStyle().
-		Width(modalWidth).
+		Width(modalWidth+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
@@ -496,14 +498,14 @@ func (m PBIModal) View() string {
 	)
 }
 
-func (m PBIModal) renderFieldLabel(label string, focused bool, focusColor lipgloss.Color) string {
+func (m PBIModal) renderFieldLabel(label string, focused bool, focusColor color.Color) string {
 	if focused {
 		return lipgloss.NewStyle().Foreground(focusColor).Render(label) + "\n"
 	}
 	return label + "\n"
 }
 
-func (m PBIModal) renderField(label, value string, focused bool, focusColor lipgloss.Color) string {
+func (m PBIModal) renderField(label, value string, focused bool, focusColor color.Color) string {
 	var b strings.Builder
 	if focused {
 		label = lipgloss.NewStyle().Foreground(focusColor).Render(label)

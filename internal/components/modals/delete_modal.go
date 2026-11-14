@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // DeleteModal is a modal for confirming work item deletion
@@ -44,7 +44,7 @@ func (m DeleteModal) Update(msg tea.Msg) (DeleteModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if key.Matches(msg, m.keys.Confirm) {
 			if m.item != nil {
 				return m, func() tea.Msg {
@@ -123,8 +123,8 @@ func (m DeleteModal) View() string {
 
 	// Style the modal
 	content := lipgloss.NewStyle().
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth+styles.PanelBorderOffset).
+		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).

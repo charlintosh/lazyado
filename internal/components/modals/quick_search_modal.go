@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // QuickSearchModal is a modal for quickly searching work items by ID
@@ -33,8 +33,10 @@ func NewQuickSearchModal(st styles.Styles, k keys.KeyMap) QuickSearchModal {
 	ti.Placeholder = "Enter work item ID..."
 	ti.CharLimit = styles.InputCharLimitSM
 	ti.Prompt = "🔍 "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
-	ti.TextStyle = lipgloss.NewStyle().Foreground(styles.ColorText)
+	tiStyles := ti.Styles()
+	tiStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
+	tiStyles.Focused.Text = lipgloss.NewStyle().Foreground(styles.ColorText)
+	ti.SetStyles(tiStyles)
 	ti.Validate = func(s string) error {
 		// Only allow numeric input
 		for _, r := range s {
@@ -69,10 +71,10 @@ func (m QuickSearchModal) Update(msg tea.Msg) (QuickSearchModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// If loading, ignore input except Esc
 		if m.loading {
-			if msg.Type == tea.KeyEsc {
+			if msg.String() == "esc" {
 				m.visible = false
 				m.loading = false
 				return m, func() tea.Msg { return ModalClosedMsg{} }
@@ -80,15 +82,15 @@ func (m QuickSearchModal) Update(msg tea.Msg) (QuickSearchModal, tea.Cmd) {
 			return m, nil
 		}
 
-		switch msg.Type {
-		case tea.KeyEsc:
+		switch msg.String() {
+		case "esc":
 			// Cancel search
 			m.visible = false
 			m.errorMessage = ""
 			m.searchInput.SetValue("")
 			return m, func() tea.Msg { return ModalClosedMsg{} }
 
-		case tea.KeyEnter:
+		case "enter":
 			// Validate and submit search
 			value := strings.TrimSpace(m.searchInput.Value())
 			if value == "" {
@@ -198,8 +200,8 @@ func (m QuickSearchModal) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Width(modalWidth).
-		Height(modalHeight).
+		Width(modalWidth + styles.PanelBorderOffset).
+		Height(modalHeight + styles.PanelBorderOffset).
 		Render(content)
 
 	// Center the modal
