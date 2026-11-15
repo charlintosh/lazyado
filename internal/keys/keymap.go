@@ -276,13 +276,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // FullHelp returns all key bindings for the help panel
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Top, k.Bottom},
-		{k.NextPanel, k.PrevPanel},
-		{k.Select, k.Open, k.View},
-		{k.ChangeState, k.CreateBranch, k.Assign},
-		{k.CreateTask, k.EditTask, k.DeleteTask},
-		{k.AddComment, k.SortByID, k.SortByType, k.SortByState},
-		{k.Search, k.Refresh},
-		{k.Help, k.Back, k.Quit},
+		{k.HubBacklog, k.HubBoard, k.HubSprint, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Panel5, k.Panel6, k.Panel7},
+		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
+		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.CreateBranch, k.Info},
+		{k.MoveItemLeft, k.MoveItemRight, k.EditComment, k.DeleteComment, k.Search, k.QuickSearch, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 	}
 }

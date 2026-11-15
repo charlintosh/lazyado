@@ -28,7 +28,7 @@ type HeaderBar struct {
 func NewHeaderBar(st styles.Styles, k keys.KeyMap) HeaderBar {
 	sp := spinner.New()
 	sp.Style = lipgloss.NewStyle().Foreground(styles.ColorPrimary).Background(styles.ColorSurface)
-	sp.Spinner = spinner.MiniDot
+	sp.Spinner = spinner.Line
 
 	return HeaderBar{
 		styles:  st,
@@ -81,46 +81,42 @@ func (h HeaderBar) Update(msg tea.Msg) (HeaderBar, tea.Cmd) {
 // View renders the header bar
 func (h HeaderBar) View() string {
 	bg := styles.ColorSurface
-	on := func(fg color.Color, bold bool) lipgloss.Style {
-		return lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(bold)
+	on := func(fg color.Color) lipgloss.Style {
+		return lipgloss.NewStyle().Background(bg).Foreground(fg)
 	}
-	sep := on(styles.ColorMuted, false).Render(" / ")
+	product := lipgloss.NewStyle().Background(styles.ColorPrimary).Foreground(styles.ColorOnAccent).Bold(true).Padding(0, 1).Render("lazyado")
 
-	parts := []string{
-		on(styles.ColorPrimary, true).Render(" ◆ lazyado"),
-		on(styles.ColorBorder, false).Render(" │ "),
-	}
 	trail := append([]string{h.organization, h.project}, h.crumbs...)
-	var crumbParts []string
+	var crumbs []string
 	for i, c := range trail {
 		if c == "" {
 			continue
 		}
-		fg := styles.ColorTextMuted
-		bold := false
-		switch {
-		case i == len(trail)-1:
-			fg = styles.ColorText
-			bold = true
-		case i == 1:
-			fg = styles.ColorText
+		st := on(styles.ColorTextMuted)
+		if i == 1 {
+			st = on(styles.ColorText)
 		}
-		crumbParts = append(crumbParts, on(fg, bold).Render(c))
+		if i == len(trail)-1 {
+			st = on(styles.ColorText).Bold(true)
+		}
+		crumbs = append(crumbs, st.Render(c))
 	}
-	left := strings.Join(parts, "") + strings.Join(crumbParts, sep)
+	left := product + on(styles.ColorText).Render(" ") + strings.Join(crumbs, on(styles.ColorMuted).Render(" / "))
 
-	var right []string
+	var right string
 	if h.notification != nil && h.notification.IsVisible() {
-		right = append(right, h.notification.View())
+		right = h.notification.View()
 	} else {
-		search := h.keys.QuickSearch.Help()
-		right = append(right,
-			on(styles.ColorTextMuted, false).Render("⌕ Search work items ")+on(styles.ColorLight, false).Render(search.Key))
+		search := on(styles.ColorTextMuted).Render("Search ") + on(styles.ColorPrimary).Bold(true).Render(h.keys.QuickSearch.Help().Key)
+		status := on(styles.ColorSuccess).Render("Synced")
 		if h.loading {
-			right = append(right, h.spinner.View()+on(styles.ColorTextMuted, false).Render(" syncing"))
-		} else {
-			right = append(right, on(styles.ColorSuccess, false).Render("● synced"))
+			status = h.spinner.View() + on(styles.ColorTextMuted).Render(" Syncing")
 		}
+		right = search + on(styles.ColorText).Render("   ") + status + on(styles.ColorText).Render(" ")
 	}
-	return JoinBar([]string{left}, right, h.width, bg)
+	leftWidth := max(h.width-lipgloss.Width(right), 0)
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Background(bg).Width(leftWidth).MaxWidth(leftWidth).Inline(true).Render(left),
+		right,
+	)
 }

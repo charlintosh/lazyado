@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+	llist "charm.land/lipgloss/v2/list"
 	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -38,20 +39,18 @@ func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 
 func (d DetailsPanel) View() string {
 	if d.item == nil {
-		return FitBlock(d.styles.TextMuted.Render("Select a work item to preview it here."), d.width, d.height)
+		return Block(Muted("Select a work item to preview it here."), d.width, d.height)
 	}
 	if !d.ready {
-		return FitBlock("", d.width, d.height)
+		return Block("", d.width, d.height)
 	}
 	body := d.viewport.View()
 	if d.viewport.TotalLineCount() > d.viewport.VisibleLineCount() {
-		pct := int(d.viewport.ScrollPercent() * 100)
-		body += "\n" + lipgloss.NewStyle().Foreground(styles.ColorMuted).Render(fmt.Sprintf("%d%%", pct))
+		body += "\n" + Muted(fmt.Sprintf("%d%%", int(d.viewport.ScrollPercent()*100)))
 	}
-	return FitBlock(body, d.width, d.height)
+	return Block(body, d.width, d.height)
 }
 
-// SetItem sets the work item to display
 func (d *DetailsPanel) SetItem(item *models.WorkItem) {
 	d.item = item
 	d.viewport.GotoTop()
@@ -103,15 +102,16 @@ func (d *DetailsPanel) updateViewportContent() {
 }
 
 func (d *DetailsPanel) buildContent(width int) string {
-	var sections []string
-	sections = append(sections, renderFormHeader(d.item, width))
-	sections = append(sections, renderFieldGrid(d.item, width))
+	sections := []string{
+		renderFormHeader(d.item, width),
+		renderFieldGrid(d.item, width),
+	}
 	if d.item.Description != "" {
-		sections = append(sections, SectionLabel("Description")+"\n"+
+		sections = append(sections, Heading("Description")+"\n"+
 			renderHTMLContent(d.item.DescriptionHTML, d.item.Description, width))
 	}
 	if d.item.AcceptanceCriteria != "" {
-		sections = append(sections, SectionLabel("Acceptance Criteria")+"\n"+
+		sections = append(sections, Heading("Acceptance Criteria")+"\n"+
 			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, width))
 	}
 	if children := renderChildList(d.item, width); children != "" {
@@ -121,30 +121,19 @@ func (d *DetailsPanel) buildContent(width int) string {
 }
 
 func renderFormHeader(item *models.WorkItem, width int) string {
-	typeColor := styles.TypeColor(string(item.Type))
-	stripe := lipgloss.NewStyle().Foreground(typeColor).Render("▌")
-	label := lipgloss.NewStyle().Foreground(typeColor).Bold(true).
-		Render(fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
-	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Width(max(width-2, 1)).Render(item.Title)
-	lines := []string{stripe + " " + label}
-	for _, l := range strings.Split(title, "\n") {
-		lines = append(lines, stripe+" "+l)
-	}
-	return strings.Join(lines, "\n")
+	badge := TypeBadge(string(item.Type), fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Width(max(width, 1)).Render(item.Title)
+	return lipgloss.JoinVertical(lipgloss.Left, badge, title)
 }
 
 func renderFieldGrid(item *models.WorkItem, width int) string {
-	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFieldLabelW)
 	value := lipgloss.NewStyle().Foreground(styles.ColorText)
-	muted := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
-	valueWidth := max(width-styles.DetailFieldLabelW, 1)
-
 	assigned := value.Render(item.AssignedTo)
 	if item.AssignedTo == "" {
-		assigned = muted.Render("Unassigned")
+		assigned = Muted("Unassigned")
 	}
 	rows := [][2]string{
-		{"State", StateDot(string(item.State), nil)},
+		{"State", StateText(string(item.State))},
 		{"Assigned", assigned},
 		{"Iteration", value.Render(item.IterationPath)},
 		{"Area", value.Render(item.AreaPath)},
@@ -163,17 +152,9 @@ func renderFieldGrid(item *models.WorkItem, width int) string {
 		rows = append(rows, [2]string{"Parent", lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent)})
 	}
 	if len(item.Tags) > 0 {
-		var chips []string
-		for _, t := range item.Tags {
-			chips = append(chips, Chip(t))
-		}
-		rows = append(rows, [2]string{"Tags", strings.Join(chips, " ")})
+		rows = append(rows, [2]string{"Tags", Chips(item.Tags)})
 	}
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		lines = append(lines, label.Render(r[0])+FitWidth(r[1], valueWidth))
-	}
-	return strings.Join(lines, "\n")
+	return FieldRows(rows, styles.DetailFieldLabelW, width)
 }
 
 func renderChildList(item *models.WorkItem, width int) string {
@@ -181,32 +162,34 @@ func renderChildList(item *models.WorkItem, width int) string {
 		return ""
 	}
 	done, total := DoneCount(item.Children)
-	lines := []string{
-		SectionLabel(fmt.Sprintf("Child items  %d / %d done", done, total)),
-		ProgressBar(done, total, min(width, styles.DetailProgressBarW)),
-	}
+	bar := newProgress(min(width, styles.DetailProgressBarW))
+	children := llist.New().
+		Enumerator(llist.Dash).
+		EnumeratorStyle(lipgloss.NewStyle().Foreground(styles.ColorTextMuted).MarginRight(1))
 	for _, c := range item.Children {
-		row := TypeGlyph(string(c.Type), nil) + " " +
-			lipgloss.NewStyle().Foreground(styles.ColorLight).Render(fmt.Sprintf("%d ", c.ID)) +
-			c.Title
-		dot := lipgloss.NewStyle().Foreground(styles.StateColor(string(c.State))).Render(" ●")
-		lines = append(lines, FitWidth(row, max(width-2, 1))+dot)
+		row := lipgloss.NewStyle().Foreground(styles.ColorLight).Render(fmt.Sprintf("%d ", c.ID)) + c.Title
+		state := StateText(string(c.State))
+		children.Item(Line(row, max(width-lipgloss.Width(state)-styles.ChildListChrome, 1)) + " " + state)
 	}
-	return strings.Join(lines, "\n")
+	return lipgloss.JoinVertical(lipgloss.Left,
+		Heading(fmt.Sprintf("Child items  %d of %d done", done, total)),
+		bar.ViewAs(float64(done)/float64(total)),
+		children.String(),
+	)
 }
 
 func orDash(ok bool, s string) string {
 	if ok {
 		return s
 	}
-	return "—"
+	return "-"
 }
 
-func (d *DetailsPanel) GetAvailableActions() []string {
+func (d *DetailsPanel) KeyBindings() []key.Binding {
 	if d.item == nil {
 		return nil
 	}
-	return Hints(styles.ColorSurface, d.keys.View, d.keys.ChangeState, d.keys.Assign, d.keys.EditTask, d.keys.AddComment)
+	return []key.Binding{d.keys.View, d.keys.ChangeState, d.keys.Assign, d.keys.EditTask, d.keys.AddComment}
 }
 
 // renderDetailMarkdown renders markdown using glamour, falling back to wordWrap.

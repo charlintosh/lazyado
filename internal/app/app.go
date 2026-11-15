@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -70,6 +71,7 @@ type App struct {
 	splashScreen     screens.SplashScreen
 	notification     notification.Notification
 	headerBar        panels.HeaderBar
+	statusHelp       help.Model
 
 	// State
 	activePanel Panel
@@ -137,6 +139,7 @@ func NewApp(client *api.Client) App {
 		splashScreen:      screens.NewSplashScreen(styles),
 		notification:      notification.NewNotification(styles, keys),
 		headerBar:         panels.NewHeaderBar(styles, keys),
+		statusHelp:        panels.NewHelp(),
 		activePanel:       PanelWorkItems,
 		rightTab:          PanelDetails,
 		hub:               panels.HubBacklog,
@@ -651,6 +654,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				group.SelectByValue(msg.SelectedOption.Value)
 			}
 		}
+		a.filterPanel.Refresh()
 		return a, loadWorkItemsCmd(a.client, a.filterPanel.FilterState())
 
 	case modals.SearchCancelledMsg:
@@ -1045,12 +1049,12 @@ func (a *App) applyLayout() {
 	a.filterPanel.SetSize(railWidth, l.bodyHeight)
 	a.filterPanel.SetHub(a.hub)
 
-	cw, ch := panels.BoxContentSize(l.mainWidth, mainHeight)
+	cw, ch := panels.PaneContentSize(l.mainWidth, mainHeight)
 	a.workItemsPanel.SetSize(cw, ch)
 	a.boardPanel.SetSize(cw, ch)
 	a.taskboardPanel.SetSize(cw, ch)
 
-	pw, ph := panels.BoxContentSize(l.paneWidth, l.bodyHeight)
+	pw, ph := panels.PaneContentSize(l.paneWidth, l.bodyHeight)
 	if !l.showPane {
 		pw, ph = cw, ch
 	}
@@ -1060,7 +1064,7 @@ func (a *App) applyLayout() {
 }
 
 func (a *App) renderTooSmall() string {
-	msg := a.styles.TextMuted.Render(fmt.Sprintf("Terminal too small (%d×%d).\nResize to at least %d×%d.",
+	msg := a.styles.TextMuted.Render(fmt.Sprintf("Terminal too small (%dx%d).\nResize to at least %dx%d.",
 		a.width, a.height, styles.ShellMinWidth, styles.ShellMinHeight))
 	return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, msg)
 }
@@ -1095,7 +1099,7 @@ func (a *App) renderMainView() string {
 		}
 		body = lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	}
-	body = panels.FitBlock(body, a.width, l.bodyHeight)
+	body = panels.Block(body, a.width, l.bodyHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, a.renderStatusBar())
 }
 
@@ -1107,9 +1111,9 @@ func (a *App) renderMainColumn(l shellLayout) string {
 	} else {
 		focused := a.activePanel == PanelWorkItems
 		title, content := a.mainPanelView()
-		box = panels.RenderTitledBox(panels.BoxTitle("5", title, focused), content, l.mainWidth, mainHeight, focused)
+		box = panels.Pane(panels.PaneTitle("5", title, focused), content, l.mainWidth, mainHeight, focused)
 	}
-	header := panels.FitBlock(a.renderPageHeader(l.mainWidth), l.mainWidth, styles.PageHeaderHeight)
+	header := panels.Block(a.renderPageHeader(l.mainWidth), l.mainWidth, styles.PageHeaderHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, box)
 }
 
@@ -1129,8 +1133,8 @@ func (a *App) renderPageHeader(width int) string {
 	if team == "" {
 		team = a.client.Project()
 	}
-	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(" " + team)
-	sep := lipgloss.NewStyle().Foreground(styles.ColorMuted).Render("  ›  ")
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).PaddingLeft(1).Render(team)
+	sep := lipgloss.NewStyle().Foreground(styles.ColorMuted).Render("  /  ")
 	view := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Underline(true)
 	muted := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
 
@@ -1140,33 +1144,33 @@ func (a *App) renderPageHeader(width int) string {
 	case panels.HubBoard:
 		line1 = title + sep + view.Render("Board")
 		tools = []string{
-			panels.ToolbarItem("+", "New item", a.keys.CreateParent),
-			panels.ToolbarItem("☰", "View as Backlog", a.keys.HubBacklog),
-			panels.ToolbarItem("⇄", "Move card", a.keys.MoveItemRight),
-			panels.ToolbarItem("◷", "Taskboard", a.keys.HubSprint),
-			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+			panels.Button("New item", a.keys.CreateParent),
+			panels.Button("View as Backlog", a.keys.HubBacklog),
+			panels.Button("Move card", a.keys.MoveItemRight),
+			panels.Button("Taskboard", a.keys.HubSprint),
+			panels.Button("Refresh", a.keys.Refresh),
 		}
 	case panels.HubSprint:
 		line1 = title + sep + view.Render(a.sprintName()) + muted.Render(a.sprintDates())
 		tools = []string{
-			panels.ToolbarItem("+", "New task", a.keys.CreateTask),
-			panels.ToolbarItem("⇄", "Move task", a.keys.MoveItemRight),
-			panels.ToolbarItem("⊞", "Board", a.keys.HubBoard),
-			panels.ToolbarItem("⫶", "Iteration", a.keys.Panel1),
-			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+			panels.Button("New task", a.keys.CreateTask),
+			panels.Button("Move task", a.keys.MoveItemRight),
+			panels.Button("Board", a.keys.HubBoard),
+			panels.Button("Iteration", a.keys.Panel1),
+			panels.Button("Refresh", a.keys.Refresh),
 		}
 	default:
 		line1 = title + sep + view.Render("Backlog")
 		tools = []string{
-			panels.ToolbarItem("+", "New Work Item", a.keys.CreateParent),
-			panels.ToolbarItem("⊞", "View as Board", a.keys.HubBoard),
-			panels.ToolbarItem("◷", "Taskboard", a.keys.HubSprint),
-			panels.ToolbarItem("▸", "Expand", a.keys.Right),
-			panels.ToolbarItem("↻", "Refresh", a.keys.Refresh),
+			panels.Button("New Work Item", a.keys.CreateParent),
+			panels.Button("View as Board", a.keys.HubBoard),
+			panels.Button("Taskboard", a.keys.HubSprint),
+			panels.Button("Expand", a.keys.Right),
+			panels.Button("Refresh", a.keys.Refresh),
 		}
 	}
-	toolbar := " " + strings.Join(tools, "    ")
-	return panels.FitWidth(line1, width) + "\n" + panels.FitWidth(toolbar, width)
+	toolbar := lipgloss.NewStyle().PaddingLeft(1).Render(strings.Join(tools, "   "))
+	return panels.Line(line1, width) + "\n" + panels.Line(toolbar, width)
 }
 
 func (a *App) currentIteration() *models.Iteration {
@@ -1199,9 +1203,9 @@ func (a *App) sprintDates() string {
 	if it == nil || it.StartDate.IsZero() || it.FinishDate.IsZero() {
 		return ""
 	}
-	out := "   " + it.StartDate.Format("Jan 2") + " – " + it.FinishDate.Format("Jan 2")
+	out := "   " + it.StartDate.Format("Jan 2") + " - " + it.FinishDate.Format("Jan 2")
 	if days := workingDaysLeft(time.Now(), it.FinishDate); days > 0 {
-		out += fmt.Sprintf(" · %d working days left", days)
+		out += fmt.Sprintf(", %d working days left", days)
 	}
 	return out
 }
@@ -1217,26 +1221,22 @@ func workingDaysLeft(from, to time.Time) int {
 }
 
 func (a *App) renderPane(width, height int) string {
-	detailsFocused := a.activePanel == PanelDetails
-	commentsFocused := a.activePanel == PanelComments
+	focused := a.isPanePanel()
 	discussion := "Discussion"
 	if n := a.commentsPanel.Count(); n > 0 {
 		discussion = fmt.Sprintf("Discussion %d", n)
 	}
-	detailsTitle := panels.BoxTitle("6", "Details", detailsFocused)
-	commentsTitle := panels.BoxTitle("7", discussion, commentsFocused)
-	if a.rightTab == PanelDetails && !detailsFocused {
-		detailsTitle = panels.BoxTitle("6", "Details", false) + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("•")
-	}
-	if a.rightTab == PanelComments && !commentsFocused {
-		commentsTitle = panels.BoxTitle("7", discussion, false) + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("•")
-	}
-	title := detailsTitle + lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(" │ ") + commentsTitle
+	active := 0
 	content := a.detailsPanel.View()
 	if a.rightTab == PanelComments {
+		active = 1
 		content = a.commentsPanel.View()
 	}
-	return panels.RenderTitledBox(title, content, width, height, detailsFocused || commentsFocused)
+	title := panels.Tabs([]string{
+		a.keys.Panel6.Help().Key + " Details",
+		a.keys.Panel7.Help().Key + " " + discussion,
+	}, active, focused)
+	return panels.Pane(title, content, width, height, focused)
 }
 
 func (a *App) renderDetailView() string {
@@ -1247,7 +1247,7 @@ func (a *App) renderDetailView() string {
 		id = fmt.Sprintf("%d", item.ID)
 	}
 	header := a.renderHeaderBar("Boards", a.hub.Name(), id)
-	body := panels.FitBlock(a.detailView.View(), a.width, l.bodyHeight)
+	body := panels.Block(a.detailView.View(), a.width, l.bodyHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, a.renderStatusBar())
 }
 
@@ -1271,33 +1271,38 @@ func (a *App) modeLabel() string {
 }
 
 func (a *App) renderStatusBar() string {
+	bg := styles.ColorSurface
 	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(styles.ColorPrimary).Bold(true).
-		Render(" " + a.modeLabel() + " ")
-	left := append([]string{pill}, a.statusHints()...)
-	right := panels.Hints(styles.ColorSurface, a.keys.Help, a.keys.Quit)
-	return panels.JoinBar(left, right, a.width, styles.ColorSurface)
+		Padding(0, 1).Render(a.modeLabel())
+	right := a.statusHelp.ShortHelpView([]key.Binding{a.keys.Help, a.keys.Quit})
+	hints := a.statusHelp
+	hints.SetWidth(max(a.width-lipgloss.Width(pill)-lipgloss.Width(right)-styles.StatusBarGaps, 0))
+	left := pill + " " + hints.ShortHelpView(a.statusBindings())
+	gap := max(a.width-lipgloss.Width(left)-lipgloss.Width(right)-1, 1)
+	return lipgloss.NewStyle().Background(bg).Width(a.width).MaxWidth(a.width).Inline(true).
+		Render(left + strings.Repeat(" ", gap) + right)
 }
 
-func (a *App) statusHints() []string {
+func (a *App) statusBindings() []key.Binding {
 	if a.viewMode == ViewDetail {
-		return a.detailView.GetAvailableActions()
+		return a.detailView.KeyBindings()
 	}
 	switch a.activePanel {
 	case PanelWorkItems:
 		switch a.hub {
 		case panels.HubBoard:
-			return a.boardPanel.GetAvailableActions()
+			return a.boardPanel.KeyBindings()
 		case panels.HubSprint:
-			return a.taskboardPanel.GetAvailableActions()
+			return a.taskboardPanel.KeyBindings()
 		default:
-			return a.workItemsPanel.GetAvailableActions()
+			return a.workItemsPanel.KeyBindings()
 		}
 	case PanelDetails:
-		return a.detailsPanel.GetAvailableActions()
+		return a.detailsPanel.KeyBindings()
 	case PanelComments:
-		return a.commentsPanel.GetAvailableActions()
+		return a.commentsPanel.KeyBindings()
 	default:
-		return a.filterPanel.GetAvailableActions()
+		return a.filterPanel.KeyBindings()
 	}
 }
 

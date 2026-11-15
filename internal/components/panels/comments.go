@@ -93,14 +93,14 @@ func (c CommentsPanel) Update(msg tea.Msg) (CommentsPanel, tea.Cmd) {
 func (c CommentsPanel) View() string {
 	if len(c.comments) == 0 {
 		hint := c.styles.TextMuted.Render("No comments yet. Press " + c.keys.AddComment.Help().Key + " to start the discussion.")
-		return FitBlock(hint, c.width, c.height)
+		return Block(hint, c.width, c.height)
 	}
 	body := c.viewport.View()
 	if c.viewport.TotalLineCount() > c.viewport.VisibleLineCount() {
 		pct := int(c.viewport.ScrollPercent() * 100)
 		body += "\n" + lipgloss.NewStyle().Foreground(styles.ColorMuted).Render(fmt.Sprintf("%d%%", pct))
 	}
-	return FitBlock(body, c.width, c.height)
+	return Block(body, c.width, c.height)
 }
 
 func (c CommentsPanel) Count() int {
@@ -222,10 +222,9 @@ func (c *CommentsPanel) SelectedComment() *models.Comment {
 	return &c.comments[c.cursor]
 }
 
-// GetAvailableActions returns a list of available actions for the comments panel
-func (c *CommentsPanel) GetAvailableActions() []string {
+func (c *CommentsPanel) KeyBindings() []key.Binding {
 	if len(c.comments) == 0 {
-		return Hints(styles.ColorSurface, c.keys.AddComment)
+		return []key.Binding{c.keys.AddComment}
 	}
-	return Hints(styles.ColorSurface, c.keys.Up, c.keys.AddComment, c.keys.EditComment, c.keys.DeleteComment)
+	return []key.Binding{c.keys.Up, c.keys.AddComment, c.keys.EditComment, c.keys.DeleteComment}
 }

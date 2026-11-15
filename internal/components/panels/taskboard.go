@@ -2,12 +2,12 @@ package panels
 
 import (
 	"fmt"
-	"image/color"
-	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	ltable "charm.land/lipgloss/v2/table"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
@@ -64,24 +64,26 @@ func (l taskLane) height() int {
 	for _, col := range l.cols {
 		tallest = max(tallest, len(col))
 	}
-	return tallest * styles.TaskCardHeight
+	return max(tallest*styles.TaskCardHeight, styles.TaskParentHeight)
 }
 
 type TaskboardPanel struct {
-	lanes   []taskLane
-	states  []string
-	styles  styles.Styles
-	keys    keys.KeyMap
-	lane    int
-	cell    int
-	offset  int
-	width   int
-	height  int
-	focused bool
+	lanes    []taskLane
+	states   []string
+	styles   styles.Styles
+	keys     keys.KeyMap
+	viewport viewport.Model
+	lane     int
+	cell     int
+	width    int
+	height   int
+	focused  bool
 }
 
 func NewTaskboardPanel(st styles.Styles, k keys.KeyMap) TaskboardPanel {
-	return TaskboardPanel{styles: st, keys: k}
+	vp := viewport.New()
+	vp.KeyMap = viewport.KeyMap{}
+	return TaskboardPanel{styles: st, keys: k, viewport: vp}
 }
 
 func (t *TaskboardPanel) SetItems(items []models.WorkItem, statesByType map[string][]models.WorkItemStateInfo) {
@@ -125,7 +127,7 @@ func (t *TaskboardPanel) SetItems(items []models.WorkItem, statesByType map[stri
 	if selectedID > 0 {
 		t.selectByID(selectedID)
 	}
-	t.ensureVisible()
+	t.render()
 }
 
 func (t *TaskboardPanel) selectByID(id int) {
@@ -166,17 +168,23 @@ func (t TaskboardPanel) Progress() (int, int) {
 
 func (t TaskboardPanel) Title() string {
 	done, total := t.Progress()
-	return fmt.Sprintf("Taskboard · %d backlog items · %d/%d tasks done", len(t.lanes), done, total)
+	return fmt.Sprintf("Taskboard  %d backlog items  %d/%d tasks done", len(t.lanes), done, total)
 }
 
 func (t *TaskboardPanel) SetSize(width, height int) {
+	if t.width == width && t.height == height {
+		return
+	}
 	t.width = width
 	t.height = height
-	t.ensureVisible()
+	t.viewport.SetWidth(max(width, 1))
+	t.viewport.SetHeight(max(height, 1))
+	t.render()
 }
 
 func (t *TaskboardPanel) SetFocused(focused bool) {
 	t.focused = focused
+	t.render()
 }
 
 func (t TaskboardPanel) Update(msg tea.Msg) (TaskboardPanel, tea.Cmd) {
@@ -193,6 +201,7 @@ func (t TaskboardPanel) Update(msg tea.Msg) (TaskboardPanel, tea.Cmd) {
 		case tea.MouseWheelDown:
 			t.moveLane(1)
 		}
+		t.render()
 	}
 	return t, nil
 }
@@ -217,14 +226,16 @@ func (t TaskboardPanel) handleKey(msg tea.KeyPressMsg) (TaskboardPanel, tea.Cmd)
 		return t, t.moveTask(1)
 	case key.Matches(msg, t.keys.Select):
 		if item := t.SelectedItem(); item != nil {
-			return t, func() tea.Msg { return OpenWorkItemMsg{Item: *item} }
+			opened := *item
+			return t, func() tea.Msg { return OpenWorkItemMsg{Item: opened} }
 		}
 	case key.Matches(msg, t.keys.View):
 		if item := t.SelectedItem(); item != nil {
-			return t, func() tea.Msg { return ViewWorkItemMsg{Item: *item} }
+			viewed := *item
+			return t, func() tea.Msg { return ViewWorkItemMsg{Item: viewed} }
 		}
 	}
-	t.ensureVisible()
+	t.render()
 	return t, nil
 }
 
@@ -236,7 +247,6 @@ func (t *TaskboardPanel) moveLane(delta int) {
 	col := t.lanes[t.lane].columnOf(t.cell)
 	t.lane = target
 	t.cell = t.lanes[target].firstCellIn(col)
-	t.ensureVisible()
 }
 
 func (t TaskboardPanel) moveTask(delta int) tea.Cmd {
@@ -251,115 +261,93 @@ func (t TaskboardPanel) moveTask(delta int) tea.Cmd {
 	return func() tea.Msg { return MoveWorkItemMsg{Item: moved, NewState: state} }
 }
 
+func (t TaskboardPanel) columnWidths() (int, int) {
+	n := max(len(t.states), 1)
+	usable := t.width - (n + 2) - (n+1)*styles.TaskCellPadding
+	laneWidth := int(float64(usable) * styles.TaskLaneWidthRatio)
+	laneWidth = max(min(laneWidth, styles.TaskLaneMaxWidth), styles.TaskLaneMinWidth)
+	colWidth := max((usable-laneWidth)/n, 1)
+	return laneWidth, colWidth
+}
+
+func (t *TaskboardPanel) render() {
+	if t.width <= 0 || t.height <= 0 {
+		return
+	}
+	if len(t.lanes) == 0 {
+		t.viewport.SetContent(Muted("No backlog items in this iteration. Pick another one with 1."))
+		return
+	}
+	laneWidth, colWidth := t.columnWidths()
+	headers := []string{"Backlog item"}
+	for ci, s := range t.states {
+		count := 0
+		for _, l := range t.lanes {
+			count += len(l.cols[ci])
+		}
+		headers = append(headers, fmt.Sprintf("%s  %d", s, count))
+	}
+	rows := make([][]string, 0, len(t.lanes))
+	for li, l := range t.lanes {
+		rows = append(rows, t.laneRow(li, l, laneWidth, colWidth))
+	}
+	tbl := ltable.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(styles.ColorBorder)).
+		BorderRow(true).
+		BorderColumn(true).
+		Headers(headers...).
+		Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			st := lipgloss.NewStyle().Padding(0, 1)
+			if row == ltable.HeaderRow {
+				return st.Bold(true).Foreground(styles.ColorTextMuted)
+			}
+			return st
+		})
+	t.viewport.SetContent(tbl.String())
+	t.scrollToLane()
+}
+
 func (t *TaskboardPanel) laneTop(i int) int {
-	y := 0
+	y := styles.TaskTableHeaderLines
 	for j := 0; j < i; j++ {
 		y += t.lanes[j].height() + 1
 	}
 	return y
 }
 
-func (t *TaskboardPanel) ensureVisible() {
-	if len(t.lanes) == 0 {
-		t.offset = 0
-		return
-	}
-	view := max(t.height-styles.BoardHeaderLines, 1)
+func (t *TaskboardPanel) scrollToLane() {
 	top := t.laneTop(t.lane)
 	bottom := top + t.lanes[t.lane].height()
-	if top < t.offset {
-		t.offset = top
+	if t.lane == 0 {
+		top = 0
 	}
-	if bottom > t.offset+view {
-		t.offset = bottom - view
+	if top < t.viewport.YOffset() {
+		t.viewport.SetYOffset(top)
+	} else if bottom > t.viewport.YOffset()+t.viewport.Height() {
+		t.viewport.SetYOffset(bottom - t.viewport.Height() + 1)
 	}
-	t.offset = max(t.offset, 0)
 }
 
-func (t TaskboardPanel) layout() (int, int) {
-	laneWidth := int(float64(t.width) * styles.TaskLaneWidthRatio)
-	laneWidth = max(min(laneWidth, styles.TaskLaneMaxWidth), styles.TaskLaneMinWidth)
-	n := max(len(t.states), 1)
-	colWidth := (t.width - laneWidth - n*styles.BoardColumnGap) / n
-	return laneWidth, max(colWidth, 1)
-}
-
-func (t TaskboardPanel) View() string {
-	if t.width <= 0 || t.height <= 0 {
-		return ""
-	}
-	if len(t.lanes) == 0 {
-		return FitBlock(t.styles.TextMuted.Render("No backlog items in this iteration. Pick another one with 1."), t.width, t.height)
-	}
-	laneWidth, colWidth := t.layout()
-	gap := strings.Repeat(" ", styles.BoardColumnGap)
-	head := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true)
-	header := FitWidth(head.Render("BACKLOG ITEM"), laneWidth)
-	for ci, s := range t.states {
-		count := 0
-		for _, l := range t.lanes {
-			count += len(l.cols[ci])
-		}
-		label := head.Render(strings.ToUpper(s)) + lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(fmt.Sprintf("  %d", count))
-		header += gap + FitWidth(label, colWidth)
-	}
-	rule := lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", t.width))
-
-	var body []string
-	for li, l := range t.lanes {
-		body = append(body, t.renderLane(li, l, laneWidth, colWidth)...)
-		body = append(body, lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("┄", t.width)))
-	}
-	view := max(t.height-styles.BoardHeaderLines, 0)
-	start := min(t.offset, max(len(body)-1, 0))
-	end := min(start+view, len(body))
-	lines := append([]string{header, rule}, body[start:end]...)
-	return FitBlock(strings.Join(lines, "\n"), t.width, t.height)
-}
-
-func (t TaskboardPanel) renderLane(li int, l taskLane, laneWidth, colWidth int) []string {
+func (t TaskboardPanel) laneRow(li int, l taskLane, laneWidth, colWidth int) []string {
 	height := l.height()
 	selectedLane := li == t.lane
-	parentSelected := selectedLane && t.cell == 0
-
-	var laneBg color.Color
-	if selectedLane {
-		laneBg = styles.ColorSurfaceAlt
-	}
-	parentBg := laneBg
-	if parentSelected && t.focused {
-		parentBg = styles.ColorHighlight
-	}
-	parentBlock := t.renderParent(l, laneWidth, height, parentBg)
-
-	blocks := []string{parentBlock}
-	cellIndex := 1
+	row := []string{Block(t.renderParent(l, laneWidth, selectedLane && t.cell == 0), laneWidth, height)}
+	cell := 1
 	for _, col := range l.cols {
-		var cards []string
+		cards := make([]string, 0, len(col))
 		for _, task := range col {
-			bg := styles.ColorSurface
-			if selectedLane && t.cell == cellIndex && t.focused {
-				bg = styles.ColorHighlight
-			}
-			cards = append(cards, renderTaskCard(task, colWidth, bg)...)
-			cellIndex++
+			cards = append(cards, renderTaskCard(task, colWidth, selectedLane && t.cell == cell, t.focused))
+			cell++
 		}
-		blocks = append(blocks, FitBlock("", styles.BoardColumnGap, height), FitBlock(strings.Join(cards, "\n"), colWidth, height))
+		row = append(row, Block(lipgloss.JoinVertical(lipgloss.Left, cards...), colWidth, height))
 	}
-	return strings.Split(lipgloss.JoinHorizontal(lipgloss.Top, blocks...), "\n")
+	return row
 }
 
-func (t TaskboardPanel) renderParent(l taskLane, width, height int, bg color.Color) string {
+func (t TaskboardPanel) renderParent(l taskLane, width int, selected bool) string {
 	p := l.parent
-	paint := func(fg color.Color) lipgloss.Style {
-		st := lipgloss.NewStyle().Foreground(fg)
-		if bg != nil {
-			st = st.Background(bg)
-		}
-		return st
-	}
-	bar := paint(styles.TypeColor(string(p.Type))).Render("▌")
-	title := paint(styles.ColorLight).Render(fmt.Sprintf("%d ", p.ID)) + paint(styles.ColorText).Bold(true).Render(p.Title)
 	done, total := 0, 0
 	for ci, col := range l.cols {
 		total += len(col)
@@ -367,37 +355,61 @@ func (t TaskboardPanel) renderParent(l taskLane, width, height int, bg color.Col
 			done += len(col)
 		}
 	}
-	meta := StateDot(string(p.State), bg) + paint(styles.ColorTextMuted).Render(fmt.Sprintf(" · %d/%d done", done, total))
-	lines := []string{bar + paint(styles.ColorText).Render(" ") + title, bar + paint(styles.ColorText).Render(" ") + meta}
-	for len(lines) < height {
-		lines = append(lines, "")
+	title := lipgloss.NewStyle().Foreground(styles.ColorLight).Render(fmt.Sprintf("%d ", p.ID)) +
+		lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(p.Title)
+	meta := StateText(string(p.State)) + Muted(fmt.Sprintf("  %d/%d done", done, total))
+	style := lipgloss.NewStyle().
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderLeft(true).
+		BorderForeground(styles.TypeColor(string(p.Type))).
+		PaddingLeft(1).
+		Width(width)
+	if selected && t.focused {
+		style = style.BorderForeground(styles.ColorPrimary)
+		title = Badge(fmt.Sprintf("%d", p.ID), styles.ColorPrimary, styles.ColorOnAccent) + " " +
+			lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(p.Title)
 	}
-	if bg == nil {
-		return FitBlock(strings.Join(lines, "\n"), width, height)
-	}
-	return FillBlock(strings.Join(lines, "\n"), width, height, bg)
+	return style.Render(Line(title, width-styles.CardChromeWidth) + "\n" + Line(meta, width-styles.CardChromeWidth))
 }
 
-func renderTaskCard(task *models.WorkItem, width int, bg color.Color) []string {
-	on := func(fg color.Color) lipgloss.Style {
-		return lipgloss.NewStyle().Foreground(fg).Background(bg)
+func renderTaskCard(task *models.WorkItem, width int, selected, focused bool) string {
+	bg := styles.ColorSurface
+	if selected {
+		bg = styles.ColorSurfaceAlt
+		if focused {
+			bg = styles.ColorHighlight
+		}
 	}
-	bar := on(styles.TypeColor(string(task.Type))).Render("▌")
-	assignee := task.AssignedTo
-	fg := styles.ColorOffWhite
-	if assignee == "" {
-		assignee = "Unassigned"
-		fg = styles.ColorTextMuted
+	inner := max(width-styles.CardChromeWidth, 1)
+	text := lipgloss.NewStyle().Background(bg)
+	assignee := text.Foreground(styles.ColorOffWhite).Render(task.AssignedTo)
+	if task.AssignedTo == "" {
+		assignee = text.Foreground(styles.ColorTextMuted).Render("Unassigned")
 	}
-	line1 := on(styles.ColorLight).Render(fmt.Sprintf(" %d ", task.ID)) + on(styles.ColorText).Render(task.Title)
-	line2 := on(fg).Render(" ◉ " + assignee)
-	inner := max(width-1, 1)
-	return []string{bar + FillBlock(line1, inner, 1, bg), bar + FillBlock(line2, inner, 1, bg)}
+	title := text.Foreground(styles.ColorLight).Render(fmt.Sprintf("%d ", task.ID)) + text.Foreground(styles.ColorText).Render(task.Title)
+	body := text.Width(inner).MaxWidth(inner).Inline(true).Render(title) + "\n" +
+		text.Width(inner).MaxWidth(inner).Inline(true).Render(assignee)
+	return lipgloss.NewStyle().
+		Background(bg).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderLeft(true).
+		BorderForeground(styles.TypeColor(string(task.Type))).
+		BorderBackground(bg).
+		PaddingLeft(1).
+		Width(width).
+		Render(body)
 }
 
-func (t *TaskboardPanel) GetAvailableActions() []string {
-	return Hints(styles.ColorSurface,
+func (t TaskboardPanel) View() string {
+	if t.width <= 0 || t.height <= 0 {
+		return ""
+	}
+	return Block(t.viewport.View(), t.width, t.height)
+}
+
+func (t *TaskboardPanel) KeyBindings() []key.Binding {
+	return []key.Binding{
 		t.keys.View, t.keys.MoveItemLeft, t.keys.MoveItemRight, t.keys.ChangeState, t.keys.Assign,
 		t.keys.CreateTask, t.keys.EditTask, t.keys.AddComment,
-	)
+	}
 }

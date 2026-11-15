@@ -3,6 +3,7 @@ package styles
 const (
 	TopBarHeight        = 1
 	StatusBarHeight     = 1
+	StatusBarGaps       = 3
 	PageHeaderHeight    = 3
 	RailWidth           = 28
 	RailShowWidth       = 100
@@ -12,37 +13,46 @@ const (
 	RightPaneWidthRatio = 0.32
 	ShellMinWidth       = 50
 	ShellMinHeight      = 14
-	BoxBorderSize       = 2
 	BoxPaddedSize       = 4
+	PaneChromeHeight    = 4
 )
 
 const (
-	GridColGap         = 2
+	GridColTree        = 1
+	GridColType        = 8
+	GridCellPadding    = 2
 	GridColID          = 6
 	GridColState       = 14
 	GridColAssigned    = 16
 	GridColEffort      = 6
 	GridColIteration   = 12
 	GridColTags        = 14
-	GridColTitleMin    = 24
-	GridHeaderLines    = 2
-	GridTreeIndent     = 2
+	GridColTitleMin    = 36
 	RailFilterOptions  = 8
 	RailFieldMinWidth  = 12
+	RailFieldInset     = 2
+	RailDropdownChrome = 5
+	RailHubInset       = 3
+	RailHubListHeight  = 5
 	DetailFieldLabelW  = 11
-	DetailProgressBarW = 20
+	SectionBodyOffset  = 5
+	DetailProgressBarW = 24
+	ChildListChrome    = 3
 )
 
 const (
-	BoardCardHeight     = 4
-	BoardCardGap        = 1
-	BoardColumnMinWidth = 24
-	BoardColumnGap      = 1
-	BoardHeaderLines    = 2
-	TaskCardHeight      = 2
-	TaskLaneMinWidth    = 26
-	TaskLaneMaxWidth    = 44
-	TaskLaneWidthRatio  = 0.30
+	BoardCardHeight      = 4
+	CardChromeWidth      = 2
+	BoardCardGap         = 1
+	BoardColumnMinWidth  = 24
+	BoardColumnGap       = 1
+	TaskCardHeight       = 2
+	TaskParentHeight     = 2
+	TaskCellPadding      = 2
+	TaskTableHeaderLines = 3
+	TaskLaneMinWidth     = 26
+	TaskLaneMaxWidth     = 44
+	TaskLaneWidthRatio   = 0.30
 )
 
 // ── Panel height minimums ─────────────────────────────────────────────────
@@ -160,11 +170,6 @@ const (
 // ── Filter panel ─────────────────────────────────────────────────────────
 const (
 	FilterGroupVisibleOptions = 6 // max visible options per filter group
-)
-
-// ── Help panel ────────────────────────────────────────────────────────────
-const (
-	HelpKeyColumnWidth = 12
 )
 
 // ── Assignee list in modals ───────────────────────────────────────────────

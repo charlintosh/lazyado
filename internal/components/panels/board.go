@@ -2,10 +2,11 @@ package panels
 
 import (
 	"fmt"
-	"image/color"
+	"io"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
@@ -13,15 +14,94 @@ import (
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
+type cardItem struct {
+	item *models.WorkItem
+}
+
+func (c cardItem) FilterValue() string { return c.item.Title }
+
+type cardDelegate struct {
+	active  bool
+	focused bool
+}
+
+func (d cardDelegate) Height() int                             { return styles.BoardCardHeight }
+func (d cardDelegate) Spacing() int                            { return styles.BoardCardGap }
+func (d cardDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (d cardDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	c, ok := li.(cardItem)
+	if !ok {
+		return
+	}
+	selected := index == m.Index() && d.active
+	_, _ = io.WriteString(w, RenderCard(c.item, m.Width(), selected, selected && d.focused))
+}
+
+func RenderCard(item *models.WorkItem, width int, selected, focused bool) string {
+	bg := styles.ColorSurface
+	if selected {
+		bg = styles.ColorSurfaceAlt
+	}
+	if focused {
+		bg = styles.ColorHighlight
+	}
+	inner := max(width-styles.CardChromeWidth, 1)
+	text := lipgloss.NewStyle().Background(bg).Foreground(styles.ColorText)
+	muted := text.Foreground(styles.ColorTextMuted)
+
+	idStyle := text.Foreground(styles.ColorLight)
+	if focused {
+		idStyle = idStyle.Foreground(styles.ColorPrimary).Bold(true)
+	}
+	title := text.Bold(true).Width(inner).MaxHeight(2).Render(idStyle.Render(fmt.Sprintf("%d ", item.ID)) + text.Bold(true).Render(item.Title))
+	if lipgloss.Height(title) < 2 {
+		title = lipgloss.JoinVertical(lipgloss.Left, title, text.Width(inner).Render(""))
+	}
+
+	assignee := text.Render(item.AssignedTo)
+	if item.AssignedTo == "" {
+		assignee = muted.Render("Unassigned")
+	}
+	effort := ""
+	if item.Effort > 0 {
+		effort = muted.Render("Effort ") + text.Render(formatEffort(item.Effort))
+	}
+	people := lipgloss.JoinHorizontal(lipgloss.Top,
+		text.Width(max(inner-lipgloss.Width(effort), 1)).Render(assignee),
+		effort,
+	)
+
+	meta := []string{text.Foreground(styles.StateColor(string(item.State))).Render(string(item.State))}
+	if len(item.Children) > 0 {
+		done, total := DoneCount(item.Children)
+		meta = append(meta, muted.Render(fmt.Sprintf("Tasks %d/%d", done, total)))
+	}
+	if len(item.Tags) > 0 {
+		meta = append(meta, Chip(item.Tags[0]))
+	}
+	metaLine := text.Width(inner).MaxWidth(inner).Render(strings.Join(meta, text.Render("  ")))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, title, people, metaLine)
+	return lipgloss.NewStyle().
+		Background(bg).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderLeft(true).
+		BorderForeground(styles.TypeColor(string(item.Type))).
+		BorderBackground(bg).
+		PaddingLeft(1).
+		Width(width).
+		MaxHeight(styles.BoardCardHeight).
+		Render(body)
+}
+
 type boardColumn struct {
-	state  string
-	items  []*models.WorkItem
-	row    int
-	offset int
+	state string
+	list  list.Model
 }
 
 type BoardPanel struct {
-	columns []boardColumn
+	columns []*boardColumn
 	styles  styles.Styles
 	keys    keys.KeyMap
 	col     int
@@ -49,43 +129,47 @@ func (b *BoardPanel) SetItems(items []models.WorkItem, statesByType map[string][
 		}
 	}
 	states := models.BoardColumns(statesByType, backlogType(backlog, statesByType), present)
-	cols := make([]boardColumn, len(states))
-	index := map[string]int{}
-	for i, st := range states {
-		cols[i] = boardColumn{state: st}
-		index[st] = i
-	}
+	grouped := map[string][]list.Item{}
 	for _, it := range backlog {
-		if i, ok := index[string(it.State)]; ok {
-			cols[i].items = append(cols[i].items, it)
-		}
+		grouped[string(it.State)] = append(grouped[string(it.State)], cardItem{item: it})
 	}
-	b.columns = cols
-	b.col = min(b.col, max(len(cols)-1, 0))
+	b.columns = make([]*boardColumn, len(states))
+	for i, st := range states {
+		l := newComponentList(grouped[st], cardDelegate{}, b.keys, st)
+		l.SetStatusBarItemName("card", "cards")
+		b.columns[i] = &boardColumn{state: st, list: l}
+	}
+	b.col = min(b.col, max(len(states)-1, 0))
 	if selectedID > 0 {
 		b.selectByID(selectedID)
 	}
-	b.clampRows()
+	b.refresh()
 }
 
 func (b *BoardPanel) selectByID(id int) {
 	for ci, c := range b.columns {
-		for ri, it := range c.items {
-			if it.ID == id {
+		for ri, li := range c.list.Items() {
+			if li.(cardItem).item.ID == id {
 				b.col = ci
-				b.columns[ci].row = ri
+				c.list.Select(ri)
 				return
 			}
 		}
 	}
 }
 
-func (b *BoardPanel) clampRows() {
-	for i := range b.columns {
-		c := &b.columns[i]
-		c.row = max(min(c.row, len(c.items)-1), 0)
+func (b *BoardPanel) refresh() {
+	_, _, width := b.visibleColumns()
+	for i, c := range b.columns {
+		c.list.SetDelegate(cardDelegate{active: i == b.col, focused: b.focused})
+		c.list.Title = fmt.Sprintf("%s  %d", c.state, len(c.list.Items()))
+		titleColor := styles.ColorText
+		if i == b.col && b.focused {
+			titleColor = styles.ColorPrimary
+		}
+		c.list.Styles = listStyles(titleColor)
+		c.list.SetSize(width, b.height)
 	}
-	b.ensureVisible()
 }
 
 func backlogItems(items []models.WorkItem) []*models.WorkItem {
@@ -123,88 +207,80 @@ func (b *BoardPanel) SelectedItem() *models.WorkItem {
 	if b.col < 0 || b.col >= len(b.columns) {
 		return nil
 	}
-	c := b.columns[b.col]
-	if c.row < 0 || c.row >= len(c.items) {
-		return nil
+	if c, ok := b.columns[b.col].list.SelectedItem().(cardItem); ok {
+		return c.item
 	}
-	return c.items[c.row]
+	return nil
 }
 
 func (b BoardPanel) Count() int {
 	n := 0
 	for _, c := range b.columns {
-		n += len(c.items)
+		n += len(c.list.Items())
 	}
 	return n
 }
 
 func (b BoardPanel) Title() string {
-	return fmt.Sprintf("Board · %d items", b.Count())
+	return fmt.Sprintf("Board  %d items", b.Count())
 }
 
 func (b *BoardPanel) SetSize(width, height int) {
 	b.width = width
 	b.height = height
-	b.ensureVisible()
+	b.refresh()
 }
 
 func (b *BoardPanel) SetFocused(focused bool) {
 	b.focused = focused
+	b.refresh()
 }
 
 func (b BoardPanel) Update(msg tea.Msg) (BoardPanel, tea.Cmd) {
 	if !b.focused || len(b.columns) == 0 {
 		return b, nil
 	}
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		return b.handleKey(msg)
-	case tea.MouseWheelMsg:
-		switch msg.Button {
+	if k, ok := msg.(tea.KeyPressMsg); ok {
+		switch {
+		case key.Matches(k, b.keys.Left):
+			b.col = max(b.col-1, 0)
+			b.refresh()
+			return b, nil
+		case key.Matches(k, b.keys.Right):
+			b.col = min(b.col+1, len(b.columns)-1)
+			b.refresh()
+			return b, nil
+		case key.Matches(k, b.keys.MoveItemLeft):
+			return b, b.moveCard(-1)
+		case key.Matches(k, b.keys.MoveItemRight):
+			return b, b.moveCard(1)
+		case key.Matches(k, b.keys.Select):
+			if item := b.SelectedItem(); item != nil {
+				opened := *item
+				return b, func() tea.Msg { return OpenWorkItemMsg{Item: opened} }
+			}
+			return b, nil
+		case key.Matches(k, b.keys.View):
+			if item := b.SelectedItem(); item != nil {
+				viewed := *item
+				return b, func() tea.Msg { return ViewWorkItemMsg{Item: viewed} }
+			}
+			return b, nil
+		}
+	}
+	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
+		c := &b.columns[b.col].list
+		switch wheel.Button {
 		case tea.MouseWheelUp:
-			b.moveRow(-1)
+			c.CursorUp()
 		case tea.MouseWheelDown:
-			b.moveRow(1)
+			c.CursorDown()
 		}
+		return b, nil
 	}
-	return b, nil
-}
-
-func (b BoardPanel) handleKey(msg tea.KeyPressMsg) (BoardPanel, tea.Cmd) {
-	switch {
-	case key.Matches(msg, b.keys.Left):
-		b.col = max(b.col-1, 0)
-	case key.Matches(msg, b.keys.Right):
-		b.col = min(b.col+1, len(b.columns)-1)
-	case key.Matches(msg, b.keys.Up):
-		b.moveRow(-1)
-	case key.Matches(msg, b.keys.Down):
-		b.moveRow(1)
-	case key.Matches(msg, b.keys.Top):
-		b.columns[b.col].row = 0
-	case key.Matches(msg, b.keys.Bottom):
-		b.columns[b.col].row = max(len(b.columns[b.col].items)-1, 0)
-	case key.Matches(msg, b.keys.MoveItemLeft):
-		return b, b.moveCard(-1)
-	case key.Matches(msg, b.keys.MoveItemRight):
-		return b, b.moveCard(1)
-	case key.Matches(msg, b.keys.Select):
-		if item := b.SelectedItem(); item != nil {
-			return b, func() tea.Msg { return OpenWorkItemMsg{Item: *item} }
-		}
-	case key.Matches(msg, b.keys.View):
-		if item := b.SelectedItem(); item != nil {
-			return b, func() tea.Msg { return ViewWorkItemMsg{Item: *item} }
-		}
-	}
-	b.ensureVisible()
-	return b, nil
-}
-
-func (b *BoardPanel) moveRow(delta int) {
-	c := &b.columns[b.col]
-	c.row = max(min(c.row+delta, len(c.items)-1), 0)
-	b.ensureVisible()
+	var cmd tea.Cmd
+	b.columns[b.col].list, cmd = b.columns[b.col].list.Update(msg)
+	return b, cmd
 }
 
 func (b BoardPanel) moveCard(delta int) tea.Cmd {
@@ -218,33 +294,15 @@ func (b BoardPanel) moveCard(delta int) tea.Cmd {
 	return func() tea.Msg { return MoveWorkItemMsg{Item: moved, NewState: state} }
 }
 
-func (b *BoardPanel) cardsPerColumn() int {
-	return max((b.height-styles.BoardHeaderLines+styles.BoardCardGap)/(styles.BoardCardHeight+styles.BoardCardGap), 1)
-}
-
-func (b *BoardPanel) ensureVisible() {
-	per := b.cardsPerColumn()
-	for i := range b.columns {
-		c := &b.columns[i]
-		if c.row < c.offset {
-			c.offset = c.row
-		}
-		if c.row >= c.offset+per {
-			c.offset = c.row - per + 1
-		}
-		c.offset = max(min(c.offset, len(c.items)-per), 0)
-	}
-}
-
 func (b BoardPanel) visibleColumns() (int, int, int) {
-	n := len(b.columns)
+	n := max(len(b.columns), 1)
 	maxCols := max((b.width+styles.BoardColumnGap)/(styles.BoardColumnMinWidth+styles.BoardColumnGap), 1)
 	count := min(n, maxCols)
 	start := 0
 	if b.col >= count {
 		start = b.col - count + 1
 	}
-	width := (b.width - (count-1)*styles.BoardColumnGap) / max(count, 1)
+	width := (b.width - (count-1)*styles.BoardColumnGap) / count
 	return start, count, width
 }
 
@@ -253,132 +311,25 @@ func (b BoardPanel) View() string {
 		return ""
 	}
 	if len(b.columns) == 0 {
-		return FitBlock(b.styles.TextMuted.Render("No backlog items match the current filters."), b.width, b.height)
+		return Block(Muted("No backlog items match the current filters."), b.width, b.height)
 	}
 	start, count, colWidth := b.visibleColumns()
+	gap := Block("", styles.BoardColumnGap, b.height)
 	var blocks []string
-	for i := start; i < start+count; i++ {
+	for i := start; i < min(start+count, len(b.columns)); i++ {
 		if i > start {
-			blocks = append(blocks, FitBlock("", styles.BoardColumnGap, b.height))
+			blocks = append(blocks, gap)
 		}
-		blocks = append(blocks, b.renderColumn(i, colWidth))
+		blocks = append(blocks, Block(b.columns[i].list.View(), colWidth, b.height))
 	}
-	out := lipgloss.JoinHorizontal(lipgloss.Top, blocks...)
-	if start > 0 || start+count < len(b.columns) {
-		lines := strings.Split(out, "\n")
-		marker := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).
-			Render(fmt.Sprintf("columns %d–%d of %d · h/l to scroll", start+1, start+count, len(b.columns)))
-		lines[len(lines)-1] = marker
-		out = strings.Join(lines, "\n")
-	}
-	return FitBlock(out, b.width, b.height)
+	return Block(lipgloss.JoinHorizontal(lipgloss.Top, blocks...), b.width, b.height)
 }
 
-func (b BoardPanel) renderColumn(i, width int) string {
-	c := b.columns[i]
-	active := i == b.col
-	nameStyle := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
-	countStyle := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
-	ruleColor := styles.ColorBorder
-	if active && b.focused {
-		ruleColor = styles.ColorPrimary
-		countStyle = countStyle.Foreground(styles.ColorPrimary)
-	}
-	header := nameStyle.Render(c.state)
-	count := countStyle.Render(fmt.Sprintf("%d", len(c.items)))
-	gap := width - lipgloss.Width(header) - lipgloss.Width(count)
-	lines := []string{
-		header + strings.Repeat(" ", max(gap, 1)) + count,
-		lipgloss.NewStyle().Foreground(ruleColor).Render(strings.Repeat("─", width)),
-	}
-	per := b.cardsPerColumn()
-	end := min(c.offset+per, len(c.items))
-	for r := c.offset; r < end; r++ {
-		if r > c.offset {
-			lines = append(lines, "")
-		}
-		lines = append(lines, b.renderCard(c.items[r], width, active && r == c.row)...)
-	}
-	if len(c.items) == 0 {
-		lines = append(lines, lipgloss.NewStyle().Foreground(styles.ColorMuted).Render("No items"))
-	}
-	if end < len(c.items) {
-		lines = append(lines, lipgloss.NewStyle().Foreground(styles.ColorTextMuted).
-			Render(fmt.Sprintf("+ %d more", len(c.items)-end)))
-	}
-	return FitBlock(strings.Join(lines, "\n"), width, b.height)
-}
-
-func (b BoardPanel) renderCard(item *models.WorkItem, width int, selected bool) []string {
-	bg := styles.ColorSurface
-	if selected {
-		bg = styles.ColorSurfaceAlt
-		if b.focused {
-			bg = styles.ColorHighlight
-		}
-	}
-	return renderWorkItemCard(item, width, bg, selected && b.focused)
-}
-
-func renderWorkItemCard(item *models.WorkItem, width int, bg color.Color, highlight bool) []string {
-	on := func(fg color.Color) lipgloss.Style {
-		return lipgloss.NewStyle().Foreground(fg).Background(bg)
-	}
-	bar := on(styles.TypeColor(string(item.Type))).Render("▌")
-	inner := max(width-1, 1)
-	idColor := styles.ColorLight
-	if highlight {
-		idColor = styles.ColorPrimary
-	}
-	id := fmt.Sprintf("%d ", item.ID)
-	titleWidth := max(inner-1-len(id), 1)
-	wrapped := strings.Split(lipgloss.NewStyle().Width(titleWidth).Render(item.Title), "\n")
-	line1 := on(idColor).Render(" "+id) + on(styles.ColorText).Bold(true).Render(strings.TrimRight(wrapped[0], " "))
-	line2 := ""
-	if len(wrapped) > 1 {
-		line2 = on(styles.ColorText).Bold(true).Render(strings.Repeat(" ", len(id)+1) + strings.TrimRight(wrapped[1], " "))
-	}
-
-	assignee := item.AssignedTo
-	assigneeColor := styles.ColorOffWhite
-	if assignee == "" {
-		assignee = "Unassigned"
-		assigneeColor = styles.ColorTextMuted
-	}
-	effort := ""
-	if item.Effort > 0 {
-		effort = formatEffort(item.Effort) + " "
-	}
-	left := on(assigneeColor).Render(" ◉ " + assignee)
-	right := on(styles.ColorLight).Render(effort)
-	line3 := left + on(styles.ColorText).Render(strings.Repeat(" ", max(inner-lipgloss.Width(left)-lipgloss.Width(right), 1))) + right
-
-	var meta []string
-	if len(item.Children) > 0 {
-		done, total := DoneCount(item.Children)
-		meta = append(meta, on(styles.ColorTextMuted).Render(fmt.Sprintf("☑ %d/%d", done, total)))
-	}
-	if len(item.Tags) > 0 {
-		meta = append(meta, Chip(item.Tags[0]))
-	}
-	line4 := on(styles.ColorText).Render(" ") + strings.Join(meta, on(styles.ColorText).Render(" "))
-	if len(meta) == 0 {
-		line4 = StateDot(string(item.State), bg)
-		line4 = on(styles.ColorText).Render(" ") + line4
-	}
-
-	lines := []string{line1, line2, line3, line4}
-	for i, l := range lines {
-		lines[i] = bar + FillBlock(l, inner, 1, bg)
-	}
-	return lines
-}
-
-func (b *BoardPanel) GetAvailableActions() []string {
-	return Hints(styles.ColorSurface,
+func (b *BoardPanel) KeyBindings() []key.Binding {
+	return []key.Binding{
 		b.keys.View, b.keys.MoveItemLeft, b.keys.MoveItemRight, b.keys.ChangeState, b.keys.Assign,
 		b.keys.CreateTask, b.keys.AddComment, b.keys.CreateParent,
-	)
+	}
 }
 
 type MoveWorkItemMsg struct {

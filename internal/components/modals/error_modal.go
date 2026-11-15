@@ -67,7 +67,7 @@ func (m ErrorModal) View() string {
 	title := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(styles.ColorError).
-		Render("⚠ Error")
+		Render("Error")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -83,7 +83,7 @@ func (m ErrorModal) View() string {
 	// Instructions
 	instructions := lipgloss.NewStyle().
 		Foreground(styles.ColorMuted).
-		Render("Press Enter/Esc to close • Select text to copy")
+		Render("Press Enter/Esc to close   Select text to copy")
 	b.WriteString(instructions)
 
 	// Style the modal
@@ -91,7 +91,7 @@ func (m ErrorModal) View() string {
 		Width(modalWidth+styles.PanelBorderOffset).
 		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).
 		Render(b.String())
 

@@ -28,9 +28,9 @@ const (
 
 // notificationIcons maps notification types to their display icons
 var notificationIcons = map[NotificationType]string{
-	NotificationSuccess: "✓",
-	NotificationError:   "✗",
-	NotificationInfo:    "ℹ",
+	NotificationSuccess: "Done",
+	NotificationError:   "Error",
+	NotificationInfo:    "Info",
 }
 
 // Notification displays auto-dismissable messages in the top-right corner
@@ -112,12 +112,12 @@ func (n Notification) View() string {
 }
 
 // Show displays a notification message with the specified type
-// The type determines the icon prefix (✓ for success, ✗ for error, ℹ for info)
+// The type determines the label prefix (Done, Error, Info)
 func (n *Notification) Show(notifType NotificationType, message string) tea.Cmd {
 	icon := notificationIcons[notifType]
 	n.visible = true
 	n.notifType = notifType
-	n.message = fmt.Sprintf("%s %s", icon, message)
+	n.message = fmt.Sprintf("%s: %s", icon, message)
 	return autoDismissCmd()
 }
 

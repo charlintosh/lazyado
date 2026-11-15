@@ -181,12 +181,12 @@ func DefaultStyles() Styles {
 			Padding(0, 1),
 
 		PanelActive: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorPrimary).
 			Padding(0, 1),
 
 		PanelInactive: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1),
 
@@ -240,7 +240,7 @@ func DefaultStyles() Styles {
 			MarginBottom(1),
 
 		DetailSection: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1).
 			MarginBottom(1),
@@ -267,13 +267,13 @@ func DefaultStyles() Styles {
 			MarginRight(1),
 
 		CommentBox: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorBorder).
 			Padding(0, 1).
 			MarginBottom(1),
 
 		CommentBoxSelected: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorPrimary).
 			Padding(0, 1).
 			MarginBottom(1),
@@ -317,7 +317,7 @@ func DefaultStyles() Styles {
 			Foreground(ColorTextMuted),
 
 		HelpPanel: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorBorder).
 			Padding(1, 2),
 

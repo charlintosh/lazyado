@@ -2,7 +2,6 @@ package panels
 
 import (
 	"fmt"
-	"image/color"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -125,85 +124,67 @@ func (d DetailView) Update(msg tea.Msg) (DetailView, tea.Cmd) {
 
 func (d DetailView) View() string {
 	if d.item == nil {
-		return FitBlock("", d.width, d.height)
+		return Block("", d.width, d.height)
 	}
 	var body string
 	if d.ready {
 		body = d.viewport.View()
 	}
-	return FitBlock(d.renderHeader()+"\n"+body, d.width, d.height)
+	return Block(lipgloss.JoinVertical(lipgloss.Left, d.renderHeader(), body), d.width, d.height)
 }
 
 func (d *DetailView) renderHeader() string {
 	item := d.item
-	width := d.width
+	inner := max(d.width-styles.CardChromeWidth, 1)
 	bg := styles.ColorSurfaceAlt
-	on := func(fg color.Color) lipgloss.Style {
-		return lipgloss.NewStyle().Foreground(fg).Background(bg)
-	}
-	typeColor := styles.TypeColor(string(item.Type))
-	stripe := on(typeColor).Render("▌ ")
+	text := lipgloss.NewStyle().Background(bg).Foreground(styles.ColorText)
+	label := text.Foreground(styles.ColorTextMuted)
+	gap := text.Render("    ")
 
-	typeLine := on(typeColor).Bold(true).Render(fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
-	titleLine := on(styles.ColorText).Bold(true).Render(item.Title)
+	badge := TypeBadge(string(item.Type), fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
+	title := text.Bold(true).Render(item.Title)
 
-	assigned := item.AssignedTo
-	assignedFg := styles.ColorText
-	if assigned == "" {
-		assigned = "Unassigned"
-		assignedFg = styles.ColorTextMuted
+	assigned := text.Render(item.AssignedTo)
+	if item.AssignedTo == "" {
+		assigned = label.Render("Unassigned")
 	}
-	people := []string{
-		on(assignedFg).Render("◉ " + assigned),
-		on(styles.ColorLight).Render(fmt.Sprintf("❝ %d comments", len(d.comments))),
+	people := assigned + gap + label.Render(fmt.Sprintf("%d comments", len(d.comments)))
+	if len(item.Tags) > 0 {
+		people += gap + Chips(item.Tags)
 	}
-	for _, t := range item.Tags {
-		people = append(people, Chip(t))
-	}
-	peopleLine := strings.Join(people, on(styles.ColorText).Render("   "))
+	fields := label.Render("State ") + text.Foreground(styles.StateColor(string(item.State))).Render(string(item.State)) +
+		gap + label.Render("Area ") + text.Render(item.AreaPath) +
+		gap + label.Render("Iteration ") + text.Render(item.IterationPath)
 
-	label := on(styles.ColorTextMuted)
-	fields := []string{
-		label.Render("State ") + StateDot(string(item.State), bg),
-		label.Render("Area ") + on(styles.ColorText).Render(item.AreaPath),
-		label.Render("Iteration ") + on(styles.ColorText).Render(item.IterationPath),
-	}
-	fieldLine := strings.Join(fields, on(styles.ColorText).Render("    "))
+	line := text.Width(inner).MaxWidth(inner).Inline(true)
+	block := lipgloss.NewStyle().
+		Background(bg).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderLeft(true).
+		BorderForeground(styles.TypeColor(string(item.Type))).
+		BorderBackground(bg).
+		PaddingLeft(1).
+		Width(d.width).
+		Render(lipgloss.JoinVertical(lipgloss.Left, line.Render(badge), line.Render(title), line.Render(people), line.Render(fields)))
 
-	var lines []string
-	for _, l := range []string{typeLine, titleLine, peopleLine, fieldLine} {
-		lines = append(lines, FillBlock(stripe+l, width, 1, bg))
-	}
-
-	details := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(" Details ")
-	discussion := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(fmt.Sprintf(" Discussion %d ", len(d.comments)))
-	underline := lipgloss.NewStyle().Foreground(styles.ColorPrimary)
+	active := 0
 	if d.commentFocused {
-		discussion = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(fmt.Sprintf(" Discussion %d ", len(d.comments)))
-	} else {
-		details = lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(" Details ")
+		active = 1
 	}
-	tabs := details + "  " + discussion
-	detailsW := lipgloss.Width(details)
-	discussionW := lipgloss.Width(discussion)
-	var rule string
-	if d.commentFocused {
-		rule = lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", detailsW+2)) +
-			underline.Render(strings.Repeat("━", discussionW))
-	} else {
-		rule = underline.Render(strings.Repeat("━", detailsW)) +
-			lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", 2+discussionW))
-	}
-	rule += lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", max(width-detailsW-discussionW-2, 0)))
-	lines = append(lines, FitWidth(tabs, width), FitWidth(rule, width))
-	return strings.Join(lines, "\n")
+	tabs := lipgloss.NewStyle().
+		Width(d.width).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		BorderForeground(styles.ColorBorder).
+		Render(Tabs([]string{"Details", fmt.Sprintf("Discussion %d", len(d.comments))}, active, true))
+	return lipgloss.JoinVertical(lipgloss.Left, block, tabs)
 }
 
-func (d *DetailView) GetAvailableActions() []string {
+func (d *DetailView) KeyBindings() []key.Binding {
 	if d.commentFocused {
-		return Hints(styles.ColorSurface, d.keys.Up, d.keys.EditComment, d.keys.DeleteComment, d.keys.AddComment, d.keys.NextPanel, d.keys.Back)
+		return []key.Binding{d.keys.Up, d.keys.EditComment, d.keys.DeleteComment, d.keys.AddComment, d.keys.NextPanel, d.keys.Back}
 	}
-	return Hints(styles.ColorSurface, d.keys.Up, d.keys.NextPanel, d.keys.AddComment, d.keys.Back)
+	return []key.Binding{d.keys.Up, d.keys.NextPanel, d.keys.AddComment, d.keys.Back}
 }
 
 // SetSize updates the component dimensions and refreshes the viewport.
@@ -265,16 +246,14 @@ func (d *DetailView) updateViewportContent() {
 }
 
 func formSection(title, body string, width int, focused bool) string {
-	contentWidth := max(width-styles.BoxPaddedSize, 1)
-	body = lipgloss.NewStyle().Width(contentWidth).Render(body)
-	return RenderTitledBox(title, body, width, lipgloss.Height(body)+styles.BoxBorderSize, focused)
+	return Section(title, body, width, focused)
 }
 
 func (d *DetailView) mainSections(width int) (string, int) {
 	wrap := max(width-styles.BoxPaddedSize, styles.DetailWrapMinWidth)
-	pre := []string{formSection(BoxTitle("", "Description", false), d.buildDescriptionBody(wrap), width, false)}
+	pre := []string{formSection(PaneTitle("", "Description", false), d.buildDescriptionBody(wrap), width, false)}
 	if d.item.AcceptanceCriteria != "" {
-		pre = append(pre, formSection(BoxTitle("", "Acceptance Criteria", false),
+		pre = append(pre, formSection(PaneTitle("", "Acceptance Criteria", false),
 			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrap), width, false))
 	}
 	preContent := strings.Join(pre, "\n")
@@ -282,12 +261,10 @@ func (d *DetailView) mainSections(width int) (string, int) {
 }
 
 func (d *DetailView) discussionSection(preContent string, width, wrap int) string {
-	d.discussionBaseOffset = strings.Count(preContent, "\n") + 2
-	title := BoxTitle("", fmt.Sprintf("Discussion · %d", len(d.comments)), d.commentFocused)
-	hint := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).
-		Render("Add a comment… " + d.keys.AddComment.Help().Key)
+	d.discussionBaseOffset = strings.Count(preContent, "\n") + styles.SectionBodyOffset
+	title := PaneTitle("", fmt.Sprintf("Discussion  %d", len(d.comments)), d.commentFocused)
+	hint := Button("Add a comment", d.keys.AddComment)
 	body := d.buildDiscussionBody(wrap)
-	d.discussionBaseOffset++
 	return formSection(title, hint+"\n"+body, width, d.commentFocused)
 }
 
@@ -361,10 +338,10 @@ func (d *DetailView) sidebarSections(width int) []string {
 		row("Created", d.item.CreatedDate.Format(dateFormat)),
 		row("Updated", d.item.ChangedDate.Format(dateFormat)),
 	}
-	sections := []string{formSection(BoxTitle("", "Planning", false), strings.Join(planning, "\n"), width, false)}
+	sections := []string{formSection(PaneTitle("", "Planning", false), strings.Join(planning, "\n"), width, false)}
 
-	branch := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render("+ Create branch  " + d.keys.CreateBranch.Help().Key)
-	sections = append(sections, formSection(BoxTitle("", "Development", false), branch, width, false))
+	branch := Button("Create branch", d.keys.CreateBranch)
+	sections = append(sections, formSection(PaneTitle("", "Development", false), branch, width, false))
 
 	var related []string
 	if d.item.ParentID > 0 {
@@ -372,7 +349,7 @@ func (d *DetailView) sidebarSections(width int) []string {
 		if d.item.ParentTitle != "" {
 			parent += " " + d.item.ParentTitle
 		}
-		related = append(related, SectionLabel("Parent"), lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent))
+		related = append(related, Heading("Parent"), lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent))
 	}
 	if children := renderChildList(d.item, max(width-styles.BoxPaddedSize, 1)); children != "" {
 		if len(related) > 0 {
@@ -381,9 +358,9 @@ func (d *DetailView) sidebarSections(width int) []string {
 		related = append(related, children)
 	}
 	if len(related) == 0 {
-		related = append(related, lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render("No related work"))
+		related = append(related, Muted("No related work"))
 	}
-	sections = append(sections, formSection(BoxTitle("", "Related Work", false), strings.Join(related, "\n"), width, false))
+	sections = append(sections, formSection(PaneTitle("", "Related Work", false), strings.Join(related, "\n"), width, false))
 	return sections
 }
 

@@ -76,7 +76,7 @@ func (m ParentSelectionModal) View() string {
 		cursor := "  "
 		style := lipgloss.NewStyle()
 		if i == m.cursor {
-			cursor = "▸ "
+			cursor = "> "
 			style = style.Bold(true).Foreground(styles.ColorPrimary)
 		}
 		b.WriteString(cursor + style.Render(o) + "\n")

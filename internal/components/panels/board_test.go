@@ -122,8 +122,8 @@ func TestTaskboardNavigatesLanesAndMovesTasks(t *testing.T) {
 	}
 }
 
-func TestRenderTitledBoxIsExactSize(t *testing.T) {
-	out := RenderTitledBox(BoxTitle("5", "A very long title that will not fit", true), "body\nline", 20, 6, true)
+func TestPaneIsExactSize(t *testing.T) {
+	out := Pane(PaneTitle("5", "A very long title that will not fit", true), "body\nline", 20, 6, true)
 	lines := strings.Split(out, "\n")
 	if len(lines) != 6 {
 		t.Fatalf("got %d lines, want 6", len(lines))

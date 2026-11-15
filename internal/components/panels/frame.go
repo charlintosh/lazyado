@@ -8,7 +8,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type Hub int
@@ -41,207 +40,138 @@ func (h Hub) Mode() string {
 	}
 }
 
-func (h Hub) Icon() string {
-	switch h {
-	case HubBoard:
-		return "▦"
-	case HubSprint:
-		return "◷"
-	default:
-		return "☰"
+func Block(s string, width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
 	}
+	return lipgloss.NewStyle().Width(width).Height(height).MaxWidth(width).MaxHeight(height).Render(s)
 }
 
-func FitWidth(s string, width int) string {
+func Line(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if ansi.StringWidth(s) > width {
-		s = ansi.Truncate(s, width, "…")
-	}
-	if pad := width - ansi.StringWidth(s); pad > 0 {
-		s += strings.Repeat(" ", pad)
-	}
-	return s
+	return lipgloss.NewStyle().Inline(true).Width(width).MaxWidth(width).Render(s)
 }
 
-func FitBlock(s string, width, height int) string {
-	lines := strings.Split(s, "\n")
-	if len(lines) > height {
-		lines = lines[:height]
-	}
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-	for i, l := range lines {
-		lines[i] = FitWidth(l, width)
-	}
-	return strings.Join(lines, "\n")
-}
-
-func FillBlock(s string, width, height int, bg color.Color) string {
-	fill := lipgloss.NewStyle().Background(bg)
-	lines := strings.Split(s, "\n")
-	if len(lines) > height {
-		lines = lines[:height]
-	}
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-	for i, l := range lines {
-		if ansi.StringWidth(l) > width {
-			l = ansi.Truncate(l, width, "…")
-		}
-		if pad := width - ansi.StringWidth(l); pad > 0 {
-			l += fill.Render(strings.Repeat(" ", pad))
-		}
-		lines[i] = l
-	}
-	return strings.Join(lines, "\n")
-}
-
-func BoxTitle(number, title string, focused bool) string {
-	numberColor := styles.ColorTextMuted
-	titleColor := styles.ColorLight
+func paneBorderColor(focused bool) color.Color {
 	if focused {
-		numberColor = styles.ColorPrimary
-		titleColor = styles.ColorPrimary
+		return styles.ColorPrimary
 	}
-	label := lipgloss.NewStyle().Foreground(titleColor).Bold(true).Render(title)
+	return styles.ColorBorder
+}
+
+func Pane(title, body string, width, height int, focused bool) string {
+	if width < styles.BoxPaddedSize || height < styles.PaneChromeHeight {
+		return Block("", width, height)
+	}
+	innerWidth, innerHeight := PaneContentSize(width, height)
+	header := lipgloss.NewStyle().
+		Width(innerWidth).MaxWidth(innerWidth).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		BorderForeground(styles.ColorBorder).
+		Render(Line(title, innerWidth))
+	content := Block(body, innerWidth, innerHeight)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(paneBorderColor(focused)).
+		Padding(0, 1).
+		Width(width).Height(height).
+		MaxWidth(width).MaxHeight(height).
+		Render(lipgloss.JoinVertical(lipgloss.Left, header, content))
+}
+
+func PaneContentSize(width, height int) (int, int) {
+	return max(width-styles.BoxPaddedSize, 0), max(height-styles.PaneChromeHeight, 0)
+}
+
+func Section(title, body string, width int, focused bool) string {
+	innerWidth := max(width-styles.BoxPaddedSize, 1)
+	body = lipgloss.NewStyle().Width(innerWidth).Render(body)
+	return Pane(title, body, width, lipgloss.Height(body)+styles.PaneChromeHeight, focused)
+}
+
+func PaneTitle(number, title string, focused bool) string {
+	titleStyle := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
+	badgeBg := styles.ColorChip
+	badgeFg := styles.ColorLight
+	if focused {
+		titleStyle = titleStyle.Foreground(styles.ColorPrimary)
+		badgeBg = styles.ColorPrimary
+		badgeFg = styles.ColorOnAccent
+	}
 	if number == "" {
-		return label
+		return titleStyle.Render(title)
 	}
-	return lipgloss.NewStyle().Foreground(numberColor).Render("["+number+"] ") + label
+	return Badge(number, badgeBg, badgeFg) + " " + titleStyle.Render(title)
 }
 
-func RenderTitledBox(title, body string, width, height int, focused bool) string {
-	if width < styles.BoxPaddedSize || height < styles.BoxBorderSize {
-		return FitBlock("", width, height)
-	}
-	borderColor := styles.ColorBorder
+func Tabs(labels []string, active int, focused bool) string {
+	activeColor := styles.ColorText
 	if focused {
-		borderColor = styles.ColorPrimary
+		activeColor = styles.ColorPrimary
 	}
-	border := lipgloss.NewStyle().Foreground(borderColor)
-	innerWidth := width - styles.BoxBorderSize
-
-	label := ""
-	if title != "" {
-		label = " " + title + " "
+	tabs := make([]string, 0, len(labels))
+	for i, l := range labels {
+		st := lipgloss.NewStyle().Padding(0, 1).Foreground(styles.ColorTextMuted)
+		if i == active {
+			st = st.Foreground(activeColor).Bold(true).Underline(true)
+		}
+		tabs = append(tabs, st.Render(l))
 	}
-	if ansi.StringWidth(label) > innerWidth-1 {
-		label = ansi.Truncate(label, innerWidth-1, "…")
-	}
-	rest := innerWidth - 1 - ansi.StringWidth(label)
-	top := border.Render("┌─") + label + border.Render(strings.Repeat("─", rest)+"┐")
-
-	contentWidth := width - styles.BoxPaddedSize
-	contentHeight := height - styles.BoxBorderSize
-	content := FitBlock(body, contentWidth, contentHeight)
-
-	lines := make([]string, 0, height)
-	lines = append(lines, top)
-	side := border.Render("│")
-	for _, l := range strings.Split(content, "\n") {
-		lines = append(lines, side+" "+l+" "+side)
-	}
-	lines = append(lines, border.Render("└"+strings.Repeat("─", innerWidth)+"┘"))
-	return strings.Join(lines, "\n")
+	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
 }
 
-func BoxContentSize(width, height int) (int, int) {
-	return max(width-styles.BoxPaddedSize, 0), max(height-styles.BoxBorderSize, 0)
+func Badge(text string, bg, fg color.Color) string {
+	return lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true).Padding(0, 1).Render(text)
 }
 
-func Hint(b key.Binding, bg color.Color) string {
-	h := b.Help()
-	keyStyle := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true)
-	descStyle := lipgloss.NewStyle().Foreground(styles.ColorLight)
-	if bg != nil {
-		keyStyle = keyStyle.Background(bg)
-		descStyle = descStyle.Background(bg)
-	}
-	return keyStyle.Render(h.Key) + descStyle.Render(" "+h.Desc)
+func TypeBadge(workItemType string, label string) string {
+	return Badge(label, styles.TypeColor(workItemType), styles.ColorOnAccent)
 }
 
-func Hints(bg color.Color, bindings ...key.Binding) []string {
-	out := make([]string, 0, len(bindings))
-	for _, b := range bindings {
-		out = append(out, Hint(b, bg))
-	}
-	return out
+func TypeText(item *models.WorkItem) string {
+	return lipgloss.NewStyle().Foreground(styles.TypeColor(string(item.Type))).Bold(true).Render(item.ShortType())
 }
 
-func ToolbarItem(icon, label string, b key.Binding) string {
-	text := lipgloss.NewStyle().Foreground(styles.ColorText).Render(icon + " " + label)
-	shortcut := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(" " + b.Help().Key)
-	return text + shortcut
+func StateText(state string) string {
+	return lipgloss.NewStyle().Foreground(styles.StateColor(state)).Render(state)
 }
 
 func Chip(text string) string {
-	return lipgloss.NewStyle().Foreground(styles.ColorLight).Background(styles.ColorChip).Render(" " + text + " ")
+	return lipgloss.NewStyle().Foreground(styles.ColorLight).Background(styles.ColorChip).Padding(0, 1).Render(text)
 }
 
-func StateDot(state string, bg color.Color) string {
-	dot := lipgloss.NewStyle().Foreground(styles.StateColor(state))
-	text := lipgloss.NewStyle().Foreground(styles.ColorText)
-	if bg != nil {
-		dot = dot.Background(bg)
-		text = text.Background(bg)
+func Chips(tags []string) string {
+	out := make([]string, 0, len(tags))
+	for _, t := range tags {
+		out = append(out, Chip(t))
 	}
-	return dot.Render("●") + text.Render(" "+state)
+	return strings.Join(out, " ")
 }
 
-func TypeGlyph(workItemType string, bg color.Color) string {
-	st := lipgloss.NewStyle().Foreground(styles.TypeColor(workItemType))
-	if bg != nil {
-		st = st.Background(bg)
-	}
-	return st.Render("■")
+func Button(label string, b key.Binding) string {
+	text := lipgloss.NewStyle().Foreground(styles.ColorText).Background(styles.ColorChip).Padding(0, 1).Render(label)
+	shortcut := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Render(b.Help().Key)
+	return text + " " + shortcut
 }
 
-func SectionLabel(text string) string {
-	return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(strings.ToUpper(text))
+func Muted(s string) string {
+	return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(s)
 }
 
-func ProgressBar(done, total, width int) string {
-	if total <= 0 || width <= 0 {
-		return ""
-	}
-	filled := done * width / total
-	return lipgloss.NewStyle().Foreground(styles.ColorSuccess).Render(strings.Repeat("█", filled)) +
-		lipgloss.NewStyle().Foreground(styles.ColorChip).Render(strings.Repeat("█", width-filled))
+func Heading(s string) string {
+	return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(strings.ToUpper(s))
 }
 
-func JoinBar(left, right []string, width int, bg color.Color) string {
-	fill := lipgloss.NewStyle().Background(bg)
-	sep := fill.Render("  ")
-	r := strings.Join(right, sep)
-	rw := ansi.StringWidth(r)
-	if rw > 0 {
-		r = fill.Render(" ") + r + fill.Render(" ")
-		rw += 2
+func FieldRows(rows [][2]string, labelWidth, width int) string {
+	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(labelWidth)
+	lines := make([]string, 0, len(rows))
+	for _, r := range rows {
+		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Top, label.Render(r[0]), Line(r[1], max(width-labelWidth, 1))))
 	}
-	if rw > width {
-		r, rw = "", 0
-	}
-	avail := width - rw
-	l := ""
-	for i, seg := range left {
-		candidate := seg
-		if i > 0 {
-			candidate = l + sep + seg
-		}
-		if ansi.StringWidth(candidate) > avail {
-			if i == 0 {
-				l = ansi.Truncate(seg, avail, "")
-			}
-			break
-		}
-		l = candidate
-	}
-	gap := avail - ansi.StringWidth(l)
-	return l + fill.Render(strings.Repeat(" ", max(gap, 0))) + r
+	return strings.Join(lines, "\n")
 }
 
 func DoneCount(children []*models.WorkItem) (int, int) {

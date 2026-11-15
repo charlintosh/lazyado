@@ -36,7 +36,7 @@ func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentLi
 		author := s.CommentAuthor.Render(comment.CreatedBy)
 		dateStr := formatCommentDate(comment.CreatedDate)
 		date := s.CommentDate.Render(dateStr)
-		separator := s.TextMuted.Render(" • ")
+		separator := s.TextMuted.Render("  ")
 
 		header := lipgloss.JoinHorizontal(lipgloss.Left, author, separator, date)
 		commentContent.WriteString(s.CommentHeader.Render(header))
@@ -56,7 +56,7 @@ func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentLi
 
 		if cfg.ShowEdited && !comment.ModifiedDate.IsZero() && !comment.ModifiedDate.Equal(comment.CreatedDate) {
 			commentContent.WriteString("\n")
-			modStr := fmt.Sprintf("✏ Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
+			modStr := fmt.Sprintf("Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
 			commentContent.WriteString(s.CommentEdited.Render(modStr))
 		}
 
@@ -141,7 +141,7 @@ func extractStyledSegments(n *html.Node, segments *[]string, s styles.Styles) {
 			return
 
 		case "li":
-			*segments = append(*segments, "\n  • ")
+			*segments = append(*segments, "\n  - ")
 
 		case "ul", "ol":
 			*segments = append(*segments, "\n")

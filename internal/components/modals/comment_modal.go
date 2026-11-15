@@ -192,7 +192,7 @@ func (m CommentModal) View() string {
 
 	// Comment area with border
 	commentView := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV).
 		Width(m.commentArea.Width() + styles.PanelPaddedOffset + styles.PanelBorderOffset).
@@ -209,7 +209,7 @@ func (m CommentModal) View() string {
 	if len(m.teamMembers) > 0 && !m.showingSuggestions {
 		mentionsHint = "\n" + lipgloss.NewStyle().
 			Foreground(styles.ColorTextMuted).
-			Render("💡 Tip: Type @ to see available users")
+			Render("Tip: type @ to mention a team member")
 	}
 
 	// Error message
@@ -217,7 +217,7 @@ func (m CommentModal) View() string {
 	if m.err != "" {
 		errorView = "\n" + lipgloss.NewStyle().
 			Foreground(styles.ColorError).
-			Render("⚠ "+m.err)
+			Render("Error: "+m.err)
 	}
 
 	// Instructions (derived from KeyMap)
@@ -240,7 +240,7 @@ func (m CommentModal) View() string {
 
 	// Center modal
 	modalStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(styles.ModalWidthXL + styles.PanelBorderOffset)
@@ -514,7 +514,7 @@ func (m *CommentModal) renderSuggestions() string {
 	}
 
 	suggestionsBox := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(0, 1).
 		Render(strings.Join(items, "\n"))
@@ -524,7 +524,7 @@ func (m *CommentModal) renderSuggestions() string {
 	sel := m.keys.Select.Help()
 	next := m.keys.NextPanel.Help()
 	back := m.keys.Back.Help()
-	header := m.styles.ModalInstructions.Render(fmt.Sprintf("%s/%s: Navigate  •  %s/%s: Select  •  %s: Cancel", up.Key, down.Key, sel.Key, next.Key, back.Key))
+	header := m.styles.ModalInstructions.Render(fmt.Sprintf("%s/%s: Navigate    %s/%s: Select    %s: Cancel", up.Key, down.Key, sel.Key, next.Key, back.Key))
 
 	return "\n" + lipgloss.JoinVertical(lipgloss.Left, suggestionsBox, header)
 }

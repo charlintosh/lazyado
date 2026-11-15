@@ -537,7 +537,7 @@ func (p ParentModal) View() string {
 	}
 	typeValue := workItemTypeVisual[p.workItemType]
 	if p.focusedField == 0 {
-		typeValue = "◀ " + p.styles.AccentBold.Render(workItemTypeVisual[p.workItemType]) + " ▶"
+		typeValue = "< " + p.styles.AccentBold.Render(workItemTypeVisual[p.workItemType]) + " >"
 	}
 	b.WriteString(typeLabel + " " + typeValue)
 	b.WriteString("\n\n")
@@ -583,7 +583,7 @@ func (p ParentModal) View() string {
 		sprintValue = p.iterations[p.selectedSprint].DisplayName()
 	}
 	if p.focusedField == 5 {
-		sprintValue = "◀ " + p.styles.AccentBold.Render(sprintValue) + " ▶"
+		sprintValue = "< " + p.styles.AccentBold.Render(sprintValue) + " >"
 	}
 	b.WriteString(sprintLabel + " " + sprintValue)
 	b.WriteString("\n\n")
@@ -634,7 +634,7 @@ func (p ParentModal) View() string {
 				member := p.filteredMembers[i]
 				cursor := "  "
 				if i == p.assigneeCursor {
-					cursor = "▸ "
+					cursor = "> "
 				}
 
 				style := p.styles.TextMuted
@@ -689,7 +689,7 @@ func (p ParentModal) View() string {
 				member := p.filteredMembers[i]
 				cursor := "  "
 				if i == p.assigneeCursor {
-					cursor = "▸ "
+					cursor = "> "
 				}
 
 				style := p.styles.TextMuted
@@ -721,7 +721,7 @@ func (p ParentModal) View() string {
 	modalRight := p.keys.ModalRight.Help()
 	save := p.keys.Save.Help()
 	back := p.keys.Back.Help()
-	instr := fmt.Sprintf("%s: %s • %s/%s: %s • %s: %s • %s: %s", next.Key, next.Desc, modalLeft.Key, modalRight.Key, "change type", save.Key, save.Desc, back.Key, back.Desc)
+	instr := fmt.Sprintf("%s: %s   %s/%s: %s   %s: %s   %s: %s", next.Key, next.Desc, modalLeft.Key, modalRight.Key, "change type", save.Key, save.Desc, back.Key, back.Desc)
 	b.WriteString(p.styles.ModalInstructions.Render(instr))
 
 	// Style the modal
@@ -729,7 +729,7 @@ func (p ParentModal) View() string {
 		Width(modalWidth+styles.PanelBorderOffset).
 		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())
 

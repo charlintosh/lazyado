@@ -122,7 +122,7 @@ func (m InfoModal) View() string {
 	for i, opt := range options {
 		cursor := "  "
 		if InfoOption(i) == m.cursor {
-			cursor = "▸ "
+			cursor = "> "
 		}
 
 		style := lipgloss.NewStyle()
@@ -142,7 +142,7 @@ func (m InfoModal) View() string {
 
 	// Modal style
 	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth + styles.PanelBorderOffset).

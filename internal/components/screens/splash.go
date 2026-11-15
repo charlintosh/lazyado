@@ -124,7 +124,7 @@ func (s SplashScreen) View() string {
 		v := s.letterVal[i]
 		switch {
 		case v < 0.15:
-			titleParts = append(titleParts, dotStyle.Render("·"))
+			titleParts = append(titleParts, dotStyle.Render("."))
 		case v < 0.7:
 			titleParts = append(titleParts, mutedStyle.Render(ch))
 		default:

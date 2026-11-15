@@ -426,7 +426,7 @@ func (m PBIModal) View() string {
 			member := m.filteredMembers[i]
 			cursor := "  "
 			if i == m.assigneeCursor {
-				cursor = "▸ "
+				cursor = "> "
 			}
 
 			style := m.styles.TextMuted
@@ -476,16 +476,16 @@ func (m PBIModal) View() string {
 	if !m.editMode && m.focusedField == 7 {
 		up := m.keys.Up.Help()
 		down := m.keys.Down.Help()
-		instr = fmt.Sprintf("%s/%s: Change sprint  •  %s: %s  •  %s: %s", up.Key, down.Key, save.Key, save.Desc, back.Key, back.Desc)
+		instr = fmt.Sprintf("%s/%s: Change sprint    %s: %s    %s: %s", up.Key, down.Key, save.Key, save.Desc, back.Key, back.Desc)
 	} else {
-		instr = fmt.Sprintf("%s/%s: Switch field  •  %s: %s  •  %s: %s", next.Key, prev.Key, save.Key, save.Desc, back.Key, back.Desc)
+		instr = fmt.Sprintf("%s/%s: Switch field    %s: %s    %s: %s", next.Key, prev.Key, save.Key, save.Desc, back.Key, back.Desc)
 	}
 	b.WriteString(m.styles.ModalInstructions.Render(instr))
 
 	content := lipgloss.NewStyle().
 		Width(modalWidth+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(b.String())
 

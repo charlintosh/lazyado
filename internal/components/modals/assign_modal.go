@@ -192,7 +192,7 @@ func (m AssignModal) View() string {
 	// Unassign option first
 	unassignCursor := "  "
 	if m.cursor == 0 && len(m.filtered) == 0 {
-		unassignCursor = "▸ "
+		unassignCursor = "> "
 	}
 
 	// Member options
@@ -214,7 +214,7 @@ func (m AssignModal) View() string {
 			member := m.filtered[i]
 			cursor := "  "
 			if i == m.cursor {
-				cursor = "▸ "
+				cursor = "> "
 			}
 
 			style := m.styles.TextMuted

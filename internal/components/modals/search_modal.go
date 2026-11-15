@@ -34,7 +34,7 @@ func NewSearchModal(st styles.Styles, keys keys.KeyMap) SearchModal {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
 	ti.CharLimit = styles.InputCharLimitMD
-	ti.Prompt = "🔍 "
+	ti.Prompt = "Search: "
 	tiStyles := ti.Styles()
 	tiStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	tiStyles.Focused.Text = lipgloss.NewStyle().Foreground(styles.ColorText)
@@ -148,7 +148,7 @@ func (s SearchModal) View() string {
 		// Scroll up indicator
 		if s.offset > 0 {
 			scrollStyle := lipgloss.NewStyle().Foreground(styles.ColorMuted)
-			b.WriteString(scrollStyle.Render("  ▲ more"))
+			b.WriteString(scrollStyle.Render("  more above"))
 			b.WriteString("\n")
 		}
 
@@ -159,13 +159,13 @@ func (s SearchModal) View() string {
 			// Cursor indicator
 			cursor := " "
 			if isCursor {
-				cursor = "▸"
+				cursor = ">"
 			}
 
 			// Selection indicator
-			indicator := "○"
+			indicator := "( )"
 			if opt.Selected {
-				indicator = "●"
+				indicator = "(x)"
 			}
 
 			// Style
@@ -185,7 +185,7 @@ func (s SearchModal) View() string {
 		// Scroll down indicator
 		if endIdx < len(s.filterGroup.Options) {
 			scrollStyle := lipgloss.NewStyle().Foreground(styles.ColorMuted)
-			b.WriteString(scrollStyle.Render("  ▼ more"))
+			b.WriteString(scrollStyle.Render("  more below"))
 			b.WriteString("\n")
 		}
 
@@ -214,7 +214,7 @@ func (s SearchModal) View() string {
 	modalHeight := styles.ModalHeightXL
 
 	panel := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
 		Width(modalWidth + styles.PanelBorderOffset).

@@ -14,7 +14,8 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 - feat: Details / Discussion preview pane beside the backlog on wide terminals
 - feat: work item form redesigned after the Azure DevOps form (type stripe, State/Area/Iteration row, Description, Acceptance Criteria, Discussion, Planning, Development, Related Work)
 - style: dark palette based on Azure DevOps; work item type colors and live state colors from the Azure DevOps process metadata
-- style: square borders in all panes and modals
+- refactor: UI built from Charm components: bubbles `table` for the backlog grid, `list` with custom delegates for board columns, rail hubs and filter dropdowns, `help` for the status bar and help overlay, `progress` for child completion; Lip Gloss `table` for the sprint taskboard and `list` / `tree` for hierarchies
+- style: decorative Unicode symbols and emoji replaced by color, badges, borders and text labels; rounded Lip Gloss borders across panes and modals
 
 ### Added
 

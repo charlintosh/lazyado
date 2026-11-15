@@ -81,9 +81,9 @@ func (m DeleteModal) View() string {
 	var b strings.Builder
 
 	// Title
-	titleText := "⚠ Delete Work Item"
+	titleText := "Delete Work Item"
 	if m.comment != nil {
-		titleText = "⚠ Delete Comment"
+		titleText = "Delete Comment"
 	}
 	title := lipgloss.NewStyle().
 		Bold(true).
@@ -118,7 +118,7 @@ func (m DeleteModal) View() string {
 	// Instructions (derived from KeyMap)
 	confirm := m.keys.Confirm.Help()
 	back := m.keys.Back.Help()
-	instr := fmt.Sprintf("%s: %s • %s: %s", confirm.Key, confirm.Desc, back.Key, back.Desc)
+	instr := fmt.Sprintf("%s: %s   %s: %s", confirm.Key, confirm.Desc, back.Key, back.Desc)
 	b.WriteString(m.styles.ModalInstructions.Render(instr))
 
 	// Style the modal
@@ -126,7 +126,7 @@ func (m DeleteModal) View() string {
 		Width(modalWidth+styles.PanelBorderOffset).
 		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorError).
 		Render(b.String())
 

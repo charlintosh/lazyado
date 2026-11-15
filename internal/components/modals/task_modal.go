@@ -190,7 +190,7 @@ func (m TaskModal) View() string {
 	back := m.keys.Back.Help()
 
 	// Build a plain instruction string and render it with ModalInstructions
-	instr := fmt.Sprintf("%s: %s • %s: %s • %s: %s", next.Key, next.Desc, save.Key, save.Desc, back.Key, back.Desc)
+	instr := fmt.Sprintf("%s: %s   %s: %s   %s: %s", next.Key, next.Desc, save.Key, save.Desc, back.Key, back.Desc)
 	b.WriteString(m.styles.ModalInstructions.Render(instr))
 
 	// Style the modal
@@ -200,7 +200,7 @@ func (m TaskModal) View() string {
 		Width(modalWidth+styles.PanelBorderOffset).
 		Height(modalHeight+styles.PanelBorderOffset).
 		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.ColorPrimary).
 		Render(contentStr)
 
