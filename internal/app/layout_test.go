@@ -14,6 +14,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/config"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func sampleWorkItems() []models.WorkItem {
@@ -86,6 +87,17 @@ func assertFits(t *testing.T, out string, width, height int) {
 			t.Errorf("line %d is %d cells wide, terminal has %d: %q", i, w, width, l)
 		}
 	}
+	status := ansi.Strip(lines[len(lines)-1])
+	if !strings.Contains(status, "help") {
+		t.Errorf("status bar at %dx%d lost the help hint: %q", width, height, status)
+	}
+	if strings.Contains(status, "…") || strings.HasSuffix(strings.TrimSpace(status), "...") {
+		t.Errorf("status bar at %dx%d cuts a hint: %q", width, height, status)
+	}
+	header := ansi.Strip(lines[0])
+	if strings.Contains(header, "Backlogs Search") || strings.Contains(header, "Boards Search") || strings.Contains(header, "Sprints Search") {
+		t.Errorf("breadcrumb runs into the search hint at %dx%d: %q", width, height, header)
+	}
 	if dir := os.Getenv("LAYOUT_DUMP_DIR"); dir != "" {
 		name := fmt.Sprintf("%s_%dx%d.ans", strings.ReplaceAll(t.Name(), "/", "_"), width, height)
 		_ = os.WriteFile(filepath.Join(dir, name), []byte(out), 0o644)
@@ -93,7 +105,7 @@ func assertFits(t *testing.T, out string, width, height int) {
 }
 
 func TestMainLayoutFitsTerminal(t *testing.T) {
-	sizes := [][2]int{{200, 50}, {160, 45}, {120, 32}, {90, 26}, {60, 20}, {40, 10}}
+	sizes := [][2]int{{200, 50}, {160, 45}, {139, 40}, {120, 32}, {99, 30}, {90, 26}, {70, 22}, {60, 20}, {50, 14}}
 	for _, sz := range sizes {
 		app := newTestApp(t, sz[0], sz[1])
 		assertFits(t, app.render(), sz[0], sz[1])
@@ -107,7 +119,7 @@ func TestHubLayoutsFitTerminal(t *testing.T) {
 	}
 	for name, k := range hubs {
 		t.Run(name, func(t *testing.T) {
-			for _, sz := range [][2]int{{180, 46}, {110, 30}, {70, 22}} {
+			for _, sz := range [][2]int{{180, 46}, {110, 30}, {90, 26}, {70, 22}, {55, 18}} {
 				var m tea.Model = newTestApp(t, sz[0], sz[1])
 				m, _ = m.Update(k)
 				assertFits(t, m.(App).render(), sz[0], sz[1])

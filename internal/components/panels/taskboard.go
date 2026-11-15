@@ -167,6 +167,10 @@ func (t TaskboardPanel) Progress() (int, int) {
 }
 
 func (t TaskboardPanel) Title() string {
+	if start, count := t.stateWindow(); count < len(t.states) {
+		return fmt.Sprintf("Taskboard  states %d-%d of %d  %s/%s to scroll", start+1, start+count, len(t.states),
+			ShortKey(t.keys.Left), ShortKey(t.keys.Right))
+	}
 	done, total := t.Progress()
 	return fmt.Sprintf("Taskboard  %d backlog items  %d/%d tasks done", len(t.lanes), done, total)
 }
@@ -261,12 +265,27 @@ func (t TaskboardPanel) moveTask(delta int) tea.Cmd {
 	return func() tea.Msg { return MoveWorkItemMsg{Item: moved, NewState: state} }
 }
 
-func (t TaskboardPanel) columnWidths() (int, int) {
+func (t TaskboardPanel) stateWindow() (int, int) {
 	n := max(len(t.states), 1)
-	usable := t.width - (n + 2) - (n+1)*styles.TaskCellPadding
-	laneWidth := int(float64(usable) * styles.TaskLaneWidthRatio)
-	laneWidth = max(min(laneWidth, styles.TaskLaneMaxWidth), styles.TaskLaneMinWidth)
-	colWidth := max((usable-laneWidth)/n, 1)
+	usable := t.width - styles.TaskCellPadding - 2
+	laneWidth := max(min(int(float64(usable)*styles.TaskLaneWidthRatio), styles.TaskLaneMaxWidth), styles.TaskLaneMinWidth)
+	fit := max((usable-laneWidth)/(styles.TaskStateMinWidth+styles.TaskCellPadding+1), 1)
+	count := min(n, fit)
+	col := 0
+	if t.lane < len(t.lanes) {
+		col = max(t.lanes[t.lane].columnOf(t.cell), 0)
+	}
+	start := 0
+	if col >= count {
+		start = col - count + 1
+	}
+	return start, count
+}
+
+func (t TaskboardPanel) columnWidths(count int) (int, int) {
+	usable := t.width - (count + 2) - (count+1)*styles.TaskCellPadding
+	laneWidth := max(min(int(float64(usable)*styles.TaskLaneWidthRatio), styles.TaskLaneMaxWidth), styles.TaskLaneMinWidth)
+	colWidth := max((usable-laneWidth)/max(count, 1), 1)
 	return laneWidth, colWidth
 }
 
@@ -278,9 +297,13 @@ func (t *TaskboardPanel) render() {
 		t.viewport.SetContent(Muted("No backlog items in this iteration. Pick another one with 1."))
 		return
 	}
-	laneWidth, colWidth := t.columnWidths()
+	start, count := t.stateWindow()
+	laneWidth, colWidth := t.columnWidths(count)
 	headers := []string{"Backlog item"}
 	for ci, s := range t.states {
+		if ci < start || ci >= start+count {
+			continue
+		}
 		count := 0
 		for _, l := range t.lanes {
 			count += len(l.cols[ci])
@@ -289,7 +312,7 @@ func (t *TaskboardPanel) render() {
 	}
 	rows := make([][]string, 0, len(t.lanes))
 	for li, l := range t.lanes {
-		rows = append(rows, t.laneRow(li, l, laneWidth, colWidth))
+		rows = append(rows, t.laneRow(li, l, laneWidth, colWidth, start, count))
 	}
 	tbl := ltable.New().
 		Border(lipgloss.RoundedBorder()).
@@ -330,18 +353,23 @@ func (t *TaskboardPanel) scrollToLane() {
 	}
 }
 
-func (t TaskboardPanel) laneRow(li int, l taskLane, laneWidth, colWidth int) []string {
+func (t TaskboardPanel) laneRow(li int, l taskLane, laneWidth, colWidth, start, count int) []string {
 	height := l.height()
 	selectedLane := li == t.lane
 	row := []string{Block(t.renderParent(l, laneWidth, selectedLane && t.cell == 0), laneWidth, height)}
 	cell := 1
-	for _, col := range l.cols {
+	for ci, col := range l.cols {
+		visible := ci >= start && ci < start+count
 		cards := make([]string, 0, len(col))
 		for _, task := range col {
-			cards = append(cards, renderTaskCard(task, colWidth, selectedLane && t.cell == cell, t.focused))
+			if visible {
+				cards = append(cards, renderTaskCard(task, colWidth, selectedLane && t.cell == cell, t.focused))
+			}
 			cell++
 		}
-		row = append(row, Block(lipgloss.JoinVertical(lipgloss.Left, cards...), colWidth, height))
+		if visible {
+			row = append(row, Block(lipgloss.JoinVertical(lipgloss.Left, cards...), colWidth, height))
+		}
 	}
 	return row
 }

@@ -4,6 +4,8 @@ const (
 	TopBarHeight        = 1
 	StatusBarHeight     = 1
 	StatusBarGaps       = 3
+	HeaderFullWidth     = 90
+	HeaderCompactWidth  = 70
 	PageHeaderHeight    = 3
 	RailWidth           = 28
 	RailShowWidth       = 100
@@ -28,6 +30,8 @@ const (
 	GridColIteration   = 12
 	GridColTags        = 14
 	GridColTitleMin    = 36
+	GridColTitleFloor  = 20
+	GridTitleRatio     = 0.4
 	RailFilterOptions  = 8
 	RailFieldMinWidth  = 12
 	RailFieldInset     = 2
@@ -50,7 +54,8 @@ const (
 	TaskParentHeight     = 2
 	TaskCellPadding      = 2
 	TaskTableHeaderLines = 3
-	TaskLaneMinWidth     = 26
+	TaskStateMinWidth    = 18
+	TaskLaneMinWidth     = 22
 	TaskLaneMaxWidth     = 44
 	TaskLaneWidthRatio   = 0.30
 )

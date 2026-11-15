@@ -222,6 +222,11 @@ func (b BoardPanel) Count() int {
 }
 
 func (b BoardPanel) Title() string {
+	start, count, _ := b.visibleColumns()
+	if count < len(b.columns) {
+		return fmt.Sprintf("Board  columns %d-%d of %d  %s/%s to scroll", start+1, start+count, len(b.columns),
+			ShortKey(b.keys.Left), ShortKey(b.keys.Right))
+	}
 	return fmt.Sprintf("Board  %d items", b.Count())
 }
 

@@ -1169,7 +1169,7 @@ func (a *App) renderPageHeader(width int) string {
 			panels.Button("Refresh", a.keys.Refresh),
 		}
 	}
-	toolbar := lipgloss.NewStyle().PaddingLeft(1).Render(strings.Join(tools, "   "))
+	toolbar := " " + panels.FitItems(tools, "   ", max(width-1, 0))
 	return panels.Line(line1, width) + "\n" + panels.Line(toolbar, width)
 }
 
@@ -1271,16 +1271,16 @@ func (a *App) modeLabel() string {
 }
 
 func (a *App) renderStatusBar() string {
-	bg := styles.ColorSurface
 	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(styles.ColorPrimary).Bold(true).
 		Padding(0, 1).Render(a.modeLabel())
-	right := a.statusHelp.ShortHelpView([]key.Binding{a.keys.Help, a.keys.Quit})
-	hints := a.statusHelp
-	hints.SetWidth(max(a.width-lipgloss.Width(pill)-lipgloss.Width(right)-styles.StatusBarGaps, 0))
-	left := pill + " " + hints.ShortHelpView(a.statusBindings())
+	rightItems := panels.HelpItems(a.statusHelp, []key.Binding{a.keys.Help, a.keys.Quit})
+	right := panels.FitItems(rightItems, "   ", max(a.width-lipgloss.Width(pill)-1, 0))
+	budget := max(a.width-lipgloss.Width(pill)-lipgloss.Width(right)-styles.StatusBarGaps, 0)
+	hints := panels.FitItems(panels.HelpItems(a.statusHelp, a.statusBindings()), "   ", budget)
+	left := pill + " " + hints
 	gap := max(a.width-lipgloss.Width(left)-lipgloss.Width(right)-1, 1)
-	return lipgloss.NewStyle().Background(bg).Width(a.width).MaxWidth(a.width).Inline(true).
-		Render(left + strings.Repeat(" ", gap) + right)
+	return lipgloss.NewStyle().Background(styles.ColorSurface).Width(a.width).MaxWidth(a.width).
+		Render(left + strings.Repeat(" ", gap) + right + " ")
 }
 
 func (a *App) statusBindings() []key.Binding {

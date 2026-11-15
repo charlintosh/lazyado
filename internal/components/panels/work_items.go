@@ -211,7 +211,8 @@ func (w WorkItemsPanel) layoutColumns() []columnSpec {
 		{colTags, "Tags", styles.GridColTags},
 	}
 	cell := styles.GridCellPadding
-	used := (styles.GridColTree + cell) + (styles.GridColID + cell) + (styles.GridColTitleMin + cell)
+	titleMin := max(min(int(float64(w.width)*styles.GridTitleRatio), styles.GridColTitleMin), styles.GridColTitleFloor)
+	used := (styles.GridColTree + cell) + (styles.GridColID + cell) + (titleMin + cell)
 	chosen := map[gridColumn]columnSpec{}
 	for _, c := range optional {
 		if used+c.width+cell > w.width {
@@ -220,7 +221,7 @@ func (w WorkItemsPanel) layoutColumns() []columnSpec {
 		used += c.width + cell
 		chosen[c.kind] = c
 	}
-	titleWidth := styles.GridColTitleMin + max(w.width-used, 0)
+	titleWidth := titleMin + max(w.width-used, 0)
 	cols := []columnSpec{
 		{colTree, "", styles.GridColTree},
 		{colID, w.sortTitle("ID", SortByID), styles.GridColID},

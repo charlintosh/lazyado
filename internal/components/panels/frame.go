@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"strings"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -182,4 +183,37 @@ func DoneCount(children []*models.WorkItem) (int, int) {
 		}
 	}
 	return done, len(children)
+}
+
+func FitItems(items []string, sep string, width int) string {
+	out := ""
+	for i, it := range items {
+		candidate := it
+		if i > 0 {
+			candidate = out + sep + it
+		}
+		if lipgloss.Width(candidate) > width {
+			break
+		}
+		out = candidate
+	}
+	return out
+}
+
+func HelpItems(h help.Model, bindings []key.Binding) []string {
+	out := make([]string, 0, len(bindings))
+	for _, b := range bindings {
+		if v := h.ShortHelpView([]key.Binding{b}); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func ShortKey(b key.Binding) string {
+	ks := b.Keys()
+	if len(ks) == 0 {
+		return ""
+	}
+	return ks[len(ks)-1]
 }

@@ -87,6 +87,12 @@ func (h HeaderBar) View() string {
 	product := lipgloss.NewStyle().Background(styles.ColorPrimary).Foreground(styles.ColorOnAccent).Bold(true).Padding(0, 1).Render("lazyado")
 
 	trail := append([]string{h.organization, h.project}, h.crumbs...)
+	switch {
+	case h.width < styles.HeaderCompactWidth:
+		trail = []string{"", "", trail[len(trail)-1]}
+	case h.width < styles.HeaderFullWidth:
+		trail = append([]string{"", h.project}, trail[len(trail)-1])
+	}
 	var crumbs []string
 	for i, c := range trail {
 		if c == "" {
@@ -112,8 +118,12 @@ func (h HeaderBar) View() string {
 		if h.loading {
 			status = h.spinner.View() + on(styles.ColorTextMuted).Render(" Syncing")
 		}
-		right = search + on(styles.ColorText).Render("   ") + status + on(styles.ColorText).Render(" ")
+		right = status + on(styles.ColorText).Render(" ")
+		if h.width >= styles.HeaderFullWidth {
+			right = search + on(styles.ColorText).Render("   ") + right
+		}
 	}
+	right = on(styles.ColorText).Render("  ") + right
 	leftWidth := max(h.width-lipgloss.Width(right), 0)
 	return lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.NewStyle().Background(bg).Width(leftWidth).MaxWidth(leftWidth).Inline(true).Render(left),
