@@ -8,7 +8,7 @@ This file is a compact, actionable prompt for LLM agents and contributors. Use t
 
 Examples:
 
-- "If you need to change keybindings: update [internal/keys/keymap.go](internal/keys/keymap.go); add defaults in `DefaultKeyMap()`; update in-app help [internal/components/panels/help.go](internal/components/panels/help.go) and [README.md](README.md)."
+- "If you need to change keybindings: update [internal/keys/keymap.go](internal/keys/keymap.go); add defaults in `DefaultKeyMap()`; add them to `KeyMap.FullHelp()` for the in-app help ([internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) and update [README.md](README.md)."
 - "If you need shared colors/styles: define exported `Color*` vars in [internal/styles/styles.go](internal/styles/styles.go) and import [internal/styles](internal/styles) from components."
 - "If you need logging: create a scoped logger with `debug.Scope(\"<scope>\")` at file scope and use `logX.Debugf(...)`. Keep the scope short and lower_snake_case."
 

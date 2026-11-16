@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
@@ -135,7 +136,7 @@ func (b *BoardPanel) SetItems(items []models.WorkItem, statesByType map[string][
 	}
 	b.columns = make([]*boardColumn, len(states))
 	for i, st := range states {
-		l := newComponentList(grouped[st], cardDelegate{}, b.keys, st)
+		l := widgets.NewList(grouped[st], cardDelegate{}, b.keys, st)
 		l.SetStatusBarItemName("card", "cards")
 		b.columns[i] = &boardColumn{state: st, list: l}
 	}
@@ -167,7 +168,7 @@ func (b *BoardPanel) refresh() {
 		if i == b.col && b.focused {
 			titleColor = styles.ColorPrimary
 		}
-		c.list.Styles = listStyles(titleColor)
+		c.list.Styles = widgets.ListStyles(titleColor)
 		c.list.SetSize(width, b.height)
 	}
 }
@@ -231,12 +232,18 @@ func (b BoardPanel) Title() string {
 }
 
 func (b *BoardPanel) SetSize(width, height int) {
+	if b.width == width && b.height == height {
+		return
+	}
 	b.width = width
 	b.height = height
 	b.refresh()
 }
 
 func (b *BoardPanel) SetFocused(focused bool) {
+	if b.focused == focused {
+		return
+	}
 	b.focused = focused
 	b.refresh()
 }

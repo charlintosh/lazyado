@@ -2,22 +2,15 @@ package notification
 
 import (
 	"image/color"
-
-	"fmt"
 	"time"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
-const (
-	notificationDuration = 8 * time.Second
-)
+const notificationDuration = 8 * time.Second
 
-// NotificationType represents the type of notification
 type NotificationType int
 
 const (
@@ -26,114 +19,63 @@ const (
 	NotificationInfo
 )
 
-// notificationIcons maps notification types to their display icons
-var notificationIcons = map[NotificationType]string{
+var notificationLabels = map[NotificationType]string{
 	NotificationSuccess: "Done",
 	NotificationError:   "Error",
 	NotificationInfo:    "Info",
 }
 
-// Notification displays auto-dismissable messages in the top-right corner
+var notificationColors = map[NotificationType]color.Color{
+	NotificationSuccess: styles.ColorSuccess,
+	NotificationError:   styles.ColorError,
+	NotificationInfo:    styles.ColorPrimary,
+}
+
+type AutoDismissMsg struct {
+	ID int
+}
+
 type Notification struct {
+	id        int
 	visible   bool
 	message   string
 	notifType NotificationType
-	styles    styles.Styles
-	keys      keys.KeyMap
-	width     int
-	height    int
 }
 
-// NewNotification creates a new notification
-func NewNotification(st styles.Styles, k keys.KeyMap) Notification {
-	return Notification{
-		styles: st,
-		keys:   k,
-	}
-}
-
-// AutoDismissMsg is sent after the notification duration
-type AutoDismissMsg struct{}
-
-func autoDismissCmd() tea.Cmd {
-	return tea.Tick(notificationDuration, func(t time.Time) tea.Msg {
-		return AutoDismissMsg{}
-	})
-}
-
-// Update handles messages
-func (n Notification) Update(msg tea.Msg) (Notification, tea.Cmd) {
-	if !n.visible {
-		return n, nil
-	}
-
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		// Dismiss with ESC, Back key, or comma
-		if key.Matches(msg, n.keys.Back) || key.Matches(msg, n.keys.DismissNotification) {
-			n.visible = false
-			return n, nil
-		}
-	case AutoDismissMsg:
-		n.visible = false
-		return n, nil
-	}
-
-	return n, nil
-}
-
-// View renders the notification
-func (n Notification) View() string {
-	if !n.visible || n.message == "" {
-		return ""
-	}
-
-	// Choose background color based on notification type
-	var bgColor color.Color
-	switch n.notifType {
-	case NotificationSuccess:
-		bgColor = styles.ColorSuccess
-	case NotificationError:
-		bgColor = styles.ColorError
-	case NotificationInfo:
-		bgColor = styles.ColorPrimary
-	default:
-		bgColor = styles.ColorSuccess
-	}
-
-	// Simple text with background color, no borders
-	notifStyle := lipgloss.NewStyle().
-		Background(bgColor).
-		Foreground(styles.ColorOnAccent).
-		Bold(true).
-		Padding(0, 1)
-
-	return notifStyle.Render(n.message)
-}
-
-// Show displays a notification message with the specified type
-// The type determines the label prefix (Done, Error, Info)
-func (n *Notification) Show(notifType NotificationType, message string) tea.Cmd {
-	icon := notificationIcons[notifType]
+func (n Notification) Show(t NotificationType, message string) (Notification, tea.Cmd) {
+	n.id++
 	n.visible = true
-	n.notifType = notifType
-	n.message = fmt.Sprintf("%s: %s", icon, message)
-	return autoDismissCmd()
+	n.notifType = t
+	n.message = notificationLabels[t] + ": " + message
+	id := n.id
+	return n, tea.Tick(notificationDuration, func(time.Time) tea.Msg { return AutoDismissMsg{ID: id} })
 }
 
-// SetSize updates the notification dimensions
-func (n *Notification) SetSize(width, height int) {
-	n.width = width
-	n.height = height
+func (n Notification) Update(msg tea.Msg) Notification {
+	if m, ok := msg.(AutoDismissMsg); ok && m.ID == n.id {
+		return n.Dismiss()
+	}
+	return n
 }
 
-// IsVisible returns whether the notification is visible
+func (n Notification) Dismiss() Notification {
+	n.visible = false
+	n.message = ""
+	return n
+}
+
 func (n Notification) IsVisible() bool {
 	return n.visible
 }
 
-// Hide hides the notification
-func (n *Notification) Hide() {
-	n.visible = false
-	n.message = ""
+func (n Notification) View() string {
+	if !n.visible {
+		return ""
+	}
+	return lipgloss.NewStyle().
+		Background(notificationColors[n.notifType]).
+		Foreground(styles.ColorOnAccent).
+		Bold(true).
+		Padding(0, 1).
+		Render(n.message)
 }

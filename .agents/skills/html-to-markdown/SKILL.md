@@ -25,7 +25,7 @@ Azure DevOps API (HTML)
   components.HTMLToMarkdown(html) → Markdown string
         │
         ▼
-  renderDetailMarkdown(md, width) → glamour ANSI output
+  components.RenderMarkdown(md, width) → glamour ANSI output (cached)
         │
         ▼
   Terminal (styled headings, bold, lists, links, tables)
@@ -35,10 +35,12 @@ Azure DevOps API (HTML)
 
 | File                                        | Role                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------- |
-| `internal/components/html_markdown.go`      | Shared `HTMLToMarkdown()` converter using `html-to-markdown/v2`           |
+| `internal/components/html_markdown.go`      | Shared `HTMLToMarkdown()` converter using `html-to-markdown/v2`, plus the @mention rule |
+| `internal/components/markdown.go`           | `RenderMarkdown()`, `RenderHTML()`, `CommentMarkdown()`; theme-matched glamour style and render cache |
 | `internal/models/work_item.go`              | `WorkItem` struct with `*HTML` fields                                     |
 | `internal/api/work_items.go`                | `convertWorkItem()` populates both HTML and plain-text fields             |
-| `internal/components/panels/details.go`     | Side-panel rendering via `renderHTMLContent()` → `renderDetailMarkdown()` |
+| `internal/components/panels/details.go`     | Side-panel rendering via `components.RenderHTML()`                        |
+| `internal/components/panels/comment_list.go` | Comment bodies via `components.CommentMarkdown()` → `RenderMarkdown()`    |
 | `internal/components/panels/detail_view.go` | Fullscreen view rendering, same pipeline                                  |
 
 ## 3. Adding a new rich-text field
@@ -76,7 +78,7 @@ ReproStepsHTML: item.Fields.ReproSteps,
 Use the shared helper in any panel:
 
 ```go
-renderHTMLContent(d.item.ReproStepsHTML, d.item.ReproSteps, wrapWidth)
+components.RenderHTML(d.item.ReproStepsHTML, d.item.ReproSteps, wrapWidth)
 ```
 
 ## 4. The converter
@@ -98,19 +100,25 @@ If conversion fails, the function returns the escaped HTML string as a safe fall
 
 This mirrors the `Comment` model pattern (`Text` + `RenderedText`).
 
-## 6. The rendering helper
+## 6. The rendering helpers
 
-`renderHTMLContent(htmlContent, fallback, width)` in `details.go`:
+`components.RenderHTML(htmlContent, fallback, width)` in `markdown.go`:
 
 1. If `htmlContent` is non-empty → convert via `HTMLToMarkdown()`.
 2. Otherwise → use the plain-text `fallback`.
-3. Pass result through `renderDetailMarkdown()` (glamour with "dark" theme + word wrap).
+3. Pass result through `RenderMarkdown()`.
+
+`RenderMarkdown(md, width)` keeps one glamour renderer per width and memoises rendered output per `(width, source)`, so calling it from `Update` on every selection change is cheap. The glamour style is built from the `styles.Color*` palette with no document margin, so output needs no dedenting.
+
+Comments use the same pipeline: `CommentMarkdown(comment)` returns the comment text as Markdown (as-is when `Format` is `markdown`, otherwise `RenderedText`/`Text` converted from HTML). Azure DevOps mentions (`<a data-vss-mention>`) are converted to bold `@Name` by a converter rule registered for `<a>` with `PriorityEarly`.
+
+Images (`<img>`, an `<a>` wrapping only an `<img>`, and `![alt](url)` in Markdown-format comments) are normalised to `![image: <name>](<url>)`, where the name comes from the `fileName` query parameter, the URL path, or the alt text. The glamour style renders them as a short `[image: image.png]` label that is an OSC 8 hyperlink to the full URL (`ImageText.Format = "[{{.text}}]"`, `Image.Format = `{{""}}`` hides the printed URL). Do not restore glamour's default `Image: alt → url` output: the long wrapped URL next to the ambiguous-width `→` corrupts the layout in terminals behind ConPTY (WSL, Windows Terminal, VS Code).
 
 ## 7. Troubleshooting
 
 | Symptom                            | Cause                                           | Fix                                                                                          |
 | ---------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Raw `<div>`, `<br>` tags visible   | HTML field not wired through `HTMLToMarkdown()` | Check rendering call uses `renderHTMLContent()`                                              |
+| Raw `<div>`, `<br>` tags visible   | HTML field not wired through `HTMLToMarkdown()` | Check rendering call uses `components.RenderHTML()`                                              |
 | No formatting (flat text)          | `*HTML` field is empty                          | Verify `convertWorkItem()` sets the `*HTML` field                                            |
 | Tables render as plain text        | Table plugin not registered                     | Ensure `table.NewTablePlugin()` is in the converter                                          |
 | Garbled entities (`&amp;`, `&lt;`) | Double-escaping                                 | `HTMLToMarkdown()` handles entities; do not call `stripHTML()` on the HTML before converting |
@@ -120,4 +128,3 @@ This mirrors the `Comment` model pattern (`Text` + `RenderedText`).
 - [Azure DevOps REST API — Get Work Item (v7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-item?view=azure-devops-rest-7.1&tabs=HTTP)
 - [html-to-markdown v2 (GitHub)](https://github.com/JohannesKaufmann/html-to-markdown)
 - [glamour — Markdown terminal renderer](https://github.com/charmbracelet/glamour)
-- Comments use a separate DOM-walking approach: see `parseAndStyleHTML()` in `comments.go`.

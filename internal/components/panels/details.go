@@ -7,14 +7,13 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 	llist "charm.land/lipgloss/v2/list"
 	"github.com/charlintosh/lazyado/internal/components"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type DetailsPanel struct {
@@ -28,10 +27,9 @@ type DetailsPanel struct {
 	focused  bool
 }
 
-// NewDetailsPanel creates a new details panel
 func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
 	return DetailsPanel{
-		viewport: viewport.New(),
+		viewport: widgets.NewViewport(k),
 		styles:   st,
 		keys:     k,
 	}
@@ -52,8 +50,14 @@ func (d DetailsPanel) View() string {
 }
 
 func (d *DetailsPanel) SetItem(item *models.WorkItem) {
+	if item == d.item {
+		return
+	}
+	sameItem := item != nil && d.item != nil && item.ID == d.item.ID
 	d.item = item
-	d.viewport.GotoTop()
+	if !sameItem {
+		d.viewport.GotoTop()
+	}
 	d.updateViewportContent()
 }
 
@@ -108,11 +112,11 @@ func (d *DetailsPanel) buildContent(width int) string {
 	}
 	if d.item.Description != "" {
 		sections = append(sections, Heading("Description")+"\n"+
-			renderHTMLContent(d.item.DescriptionHTML, d.item.Description, width))
+			components.RenderHTML(d.item.DescriptionHTML, d.item.Description, width))
 	}
 	if d.item.AcceptanceCriteria != "" {
 		sections = append(sections, Heading("Acceptance Criteria")+"\n"+
-			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, width))
+			components.RenderHTML(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, width))
 	}
 	if children := renderChildList(d.item, width); children != "" {
 		sections = append(sections, children)
@@ -190,90 +194,4 @@ func (d *DetailsPanel) KeyBindings() []key.Binding {
 		return nil
 	}
 	return []key.Binding{d.keys.View, d.keys.ChangeState, d.keys.Assign, d.keys.EditTask, d.keys.AddComment}
-}
-
-// renderDetailMarkdown renders markdown using glamour, falling back to wordWrap.
-func renderHTMLContent(htmlContent, fallback string, width int) string {
-	md := htmlContent
-	if md != "" {
-		md = components.HTMLToMarkdown(md)
-	} else {
-		md = fallback
-	}
-	return renderDetailMarkdown(md, width)
-}
-
-func renderDetailMarkdown(content string, width int) string {
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithStylePath("dark"),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
-		return wordWrap(content, width)
-	}
-	rendered, renderErr := renderer.Render(content)
-	if renderErr != nil {
-		return wordWrap(content, width)
-	}
-	return dedent(rendered)
-}
-
-// truncateStr truncates a string to maxLen runes, appending "..." if needed.
-func truncateStr(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
-
-func wordWrap(text string, width int) string {
-	if width <= 0 {
-		return text
-	}
-
-	var result strings.Builder
-	words := strings.Fields(text)
-	currentLineLength := 0
-
-	for i, word := range words {
-		if currentLineLength+len(word)+1 > width {
-			result.WriteString("\n")
-			currentLineLength = 0
-		} else if i > 0 {
-			result.WriteString(" ")
-			currentLineLength++
-		}
-		result.WriteString(word)
-		currentLineLength += len(word)
-	}
-
-	return result.String()
-}
-
-func dedent(s string) string {
-	lines := strings.Split(s, "\n")
-	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[0])) == "" {
-		lines = lines[1:]
-	}
-	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
-		lines = lines[:len(lines)-1]
-	}
-	indent := -1
-	for _, l := range lines {
-		plain := ansi.Strip(l)
-		if strings.TrimSpace(plain) == "" {
-			continue
-		}
-		n := len(plain) - len(strings.TrimLeft(plain, " "))
-		if indent < 0 || n < indent {
-			indent = n
-		}
-	}
-	for i, l := range lines {
-		if indent > 0 {
-			l = ansi.Cut(l, indent, ansi.StringWidth(l))
-		}
-		lines[i] = strings.TrimRight(l, " ")
-	}
-	return strings.Join(lines, "\n")
 }

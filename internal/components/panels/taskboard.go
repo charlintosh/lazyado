@@ -2,12 +2,14 @@ package panels
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	ltable "charm.land/lipgloss/v2/table"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
@@ -64,7 +66,7 @@ func (l taskLane) height() int {
 	for _, col := range l.cols {
 		tallest = max(tallest, len(col))
 	}
-	return max(tallest*styles.TaskCardHeight, styles.TaskParentHeight)
+	return max(tallest*styles.TaskCardHeight+(tallest-1)*styles.TaskCardGap, styles.TaskParentHeight)
 }
 
 type TaskboardPanel struct {
@@ -187,6 +189,9 @@ func (t *TaskboardPanel) SetSize(width, height int) {
 }
 
 func (t *TaskboardPanel) SetFocused(focused bool) {
+	if t.focused == focused {
+		return
+	}
 	t.focused = focused
 	t.render()
 }
@@ -294,7 +299,9 @@ func (t *TaskboardPanel) render() {
 		return
 	}
 	if len(t.lanes) == 0 {
-		t.viewport.SetContent(Muted("No backlog items in this iteration. Pick another one with 1."))
+		k := t.keys
+		t.viewport.SetContent(Muted(fmt.Sprintf("No backlog items match. Pick another sprint with %s, or change the filters with %s-%s or %s.",
+			k.Panel1.Help().Key, k.Panel2.Help().Key, k.Panel4.Help().Key, k.ClearFilters.Help().Key)))
 		return
 	}
 	start, count := t.stateWindow()
@@ -346,11 +353,7 @@ func (t *TaskboardPanel) scrollToLane() {
 	if t.lane == 0 {
 		top = 0
 	}
-	if top < t.viewport.YOffset() {
-		t.viewport.SetYOffset(top)
-	} else if bottom > t.viewport.YOffset()+t.viewport.Height() {
-		t.viewport.SetYOffset(bottom - t.viewport.Height() + 1)
-	}
+	widgets.Reveal(&t.viewport, top, bottom)
 }
 
 func (t TaskboardPanel) laneRow(li int, l taskLane, laneWidth, colWidth, start, count int) []string {
@@ -368,7 +371,8 @@ func (t TaskboardPanel) laneRow(li int, l taskLane, laneWidth, colWidth, start, 
 			cell++
 		}
 		if visible {
-			row = append(row, Block(lipgloss.JoinVertical(lipgloss.Left, cards...), colWidth, height))
+			gap := strings.Repeat("\n", styles.TaskCardGap+1)
+			row = append(row, Block(strings.Join(cards, gap), colWidth, height))
 		}
 	}
 	return row

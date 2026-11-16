@@ -53,8 +53,10 @@ type WorkItem struct {
 	Rev                    int           `json:"rev"`
 	Title                  string        `json:"title"`
 	State                  WorkItemState `json:"state"`
+	Reason                 string        `json:"reason"`
 	Type                   WorkItemType  `json:"type"`
 	AssignedTo             string        `json:"assignedTo"`
+	AssignedToUniqueName   string        `json:"assignedToUniqueName"`
 	IterationPath          string        `json:"iterationPath"`
 	AreaPath               string        `json:"areaPath"`
 	Description            string        `json:"description"`

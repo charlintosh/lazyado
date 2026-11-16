@@ -86,6 +86,16 @@ func StateColor(state string) color.Color {
 	return ColorTextMuted
 }
 
+var avatarColors = []color.Color{ColorOrange, ColorSecondary, ColorSuccess, ColorViolet, ColorWarning, ColorPrimaryLight}
+
+func AvatarColor(name string) color.Color {
+	sum := 0
+	for _, r := range name {
+		sum += int(r)
+	}
+	return avatarColors[sum%len(avatarColors)]
+}
+
 func TypeLabel(workItemType string) string {
 	if l, ok := typeLabels[workItemType]; ok {
 		return l
@@ -141,24 +151,10 @@ type Styles struct {
 	CommentHeader      lipgloss.Style
 	CommentAuthor      lipgloss.Style
 	CommentDate        lipgloss.Style
-	CommentText        lipgloss.Style
 	CommentEdited      lipgloss.Style
-	CommentMention     lipgloss.Style
-	CommentLink        lipgloss.Style
 
-	HelpKey   lipgloss.Style
-	HelpDesc  lipgloss.Style
-	HelpPanel lipgloss.Style
-
-	ModalInstructions lipgloss.Style
-	ModalTitle        lipgloss.Style
-	ModalBox          lipgloss.Style
-
-	TextMuted  lipgloss.Style
-	ErrorText  lipgloss.Style
-	AccentBold lipgloss.Style
-	Selected   lipgloss.Style
-	Accent     lipgloss.Style
+	TextMuted lipgloss.Style
+	Selected  lipgloss.Style
 
 	TypeBadge  func(string) lipgloss.Style
 	StateBadge func(string) lipgloss.Style
@@ -291,61 +287,13 @@ func DefaultStyles() Styles {
 			Foreground(ColorTextMuted).
 			Italic(true),
 
-		CommentText: lipgloss.NewStyle().
-			Foreground(ColorOffWhite).
-			MarginTop(0).
-			MarginBottom(0),
-
 		CommentEdited: lipgloss.NewStyle().
 			Foreground(ColorMuted).
 			Italic(true).
 			MarginTop(0),
 
-		CommentMention: lipgloss.NewStyle().
-			Foreground(ColorSecondary).
-			Bold(true),
-
-		CommentLink: lipgloss.NewStyle().
-			Foreground(ColorAccent).
-			Underline(true),
-
-		HelpKey: lipgloss.NewStyle().
-			Foreground(ColorPrimary).
-			Bold(true),
-
-		HelpDesc: lipgloss.NewStyle().
-			Foreground(ColorTextMuted),
-
-		HelpPanel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorBorder).
-			Padding(1, 2),
-
-		ModalInstructions: lipgloss.NewStyle().
-			Foreground(ColorMuted),
-
-		ModalTitle: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorTesting).
-			Padding(0, 1),
-
-		ModalBox: lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(ColorPrimary).
-			Padding(1, 2),
-
 		TextMuted: lipgloss.NewStyle().
 			Foreground(ColorTextMuted),
-
-		ErrorText: lipgloss.NewStyle().
-			Foreground(ColorError),
-
-		AccentBold: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary),
-
-		Accent: lipgloss.NewStyle().
-			Foreground(ColorAccent),
 
 		Selected: lipgloss.NewStyle().
 			Background(ColorHighlight).

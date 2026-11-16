@@ -7,7 +7,7 @@ This document contains the detailed conventions, rules and patterns referenced f
 - Shared UI colors and style constants MUST be defined and exported from the [internal/styles](internal/styles) package. Do not duplicate color literals across files; import and reuse [internal/styles](internal/styles) values instead.
 - Define all color variables in [internal/styles/styles.go](internal/styles/styles.go) as exported `Color*` vars (example: `ColorPrimary = lipgloss.Color("#7C3AED")`) and reference them from components via the [internal/styles](internal/styles) package (example: `styles.ColorPrimary`).
 - Do not add code comments in new code. Prefer small, self-explanatory functions and clear names.
-- Whenever keybindings or keyboard behavior change, update [README.md](README.md) and the in-app help component ([internal/components/panels/help.go](internal/components/panels/help.go)) with a short note describing the change and the affected files.
+- Whenever keybindings or keyboard behavior change, update [README.md](README.md) and `KeyMap.FullHelp()` (rendered by [internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) with a short note describing the change and the affected files.
 - All keyboard input handling MUST use the centralized [internal/keys/keymap.go](internal/keys/keymap.go). Do not use raw string matching in `Update` handlers. Instead:
   - Add new bindings to the `KeyMap` struct.
   - Provide defaults in `DefaultKeyMap()`.
@@ -55,7 +55,7 @@ This document contains the detailed conventions, rules and patterns referenced f
 ## Quick checklist for PRs that change keybindings or inputs
 
 - Update [internal/keys/keymap.go](internal/keys/keymap.go) with the new binding and default.
-- Update [internal/components/panels/help.go](internal/components/panels/help.go) (in-app help) to include the binding.
+- Add the binding to `KeyMap.FullHelp()` so the in-app help ([internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) shows it.
 - Add a short note to [README.md](README.md) describing the change and affected files.
 - Run unit tests for components affected by input handling.
 

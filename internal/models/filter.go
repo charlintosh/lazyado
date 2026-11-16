@@ -1,22 +1,45 @@
 package models
 
-import "github.com/charlintosh/lazyado/internal/styles"
+import (
+	"sort"
+	"strconv"
+	"strings"
+)
 
 // FilterType represents the type of filter
 type FilterType int
 
 const (
 	FilterTypeSprint FilterType = iota
-	FilterTypeState
 	FilterTypeAssigned
+	FilterTypeState
 	FilterTypeArea
 )
+
+const (
+	FilterAll    = "all"
+	AssignedMe   = "me"
+	AssignedNone = "none"
+)
+
+type OptionSection int
+
+const (
+	SectionNone OptionSection = iota
+	SectionActive
+	SectionIdle
+)
+
+const UnknownCount = -1
 
 // FilterOption represents a selectable filter option
 type FilterOption struct {
 	Label    string
 	Value    string
 	Selected bool
+	Section  OptionSection
+	Count    int
+	You      bool
 }
 
 // FilterGroup represents a group of filter options
@@ -24,10 +47,7 @@ type FilterGroup struct {
 	Type       FilterType
 	Title      string
 	Options    []FilterOption
-	Cursor     int
-	Offset     int            // Scroll offset for viewing
-	allOptions []FilterOption // Original unfiltered options
-	isFiltered bool           // Whether search filter is active
+	ShowCounts bool
 }
 
 // SelectedOption returns the currently selected option
@@ -43,6 +63,17 @@ func (f *FilterGroup) SelectedOption() *FilterOption {
 	return nil
 }
 
+func (f *FilterGroup) Value() string {
+	if opt := f.SelectedOption(); opt != nil {
+		return opt.Value
+	}
+	return FilterAll
+}
+
+func (f *FilterGroup) IsSet() bool {
+	return f.Value() != FilterAll
+}
+
 // Select marks the option at the given index as selected
 func (f *FilterGroup) Select(index int) {
 	if index < 0 || index >= len(f.Options) {
@@ -53,114 +84,11 @@ func (f *FilterGroup) Select(index int) {
 	}
 }
 
-// SelectCurrent marks the option at the current cursor as selected
-func (f *FilterGroup) SelectCurrent() {
-	f.Select(f.Cursor)
-}
-
 // SelectByValue marks the option with the given value as selected
-func (f *FilterGroup) SelectByValue(value string) {
+func (f *FilterGroup) SelectByValue(value string) bool {
 	for i := range f.Options {
 		if f.Options[i].Value == value {
-			f.Options[i].Selected = true
-			f.Cursor = i
-		} else {
-			f.Options[i].Selected = false
-		}
-	}
-}
-
-// MoveUp moves the cursor up
-func (f *FilterGroup) MoveUp() {
-	if f.Cursor > 0 {
-		f.Cursor--
-	}
-}
-
-// MoveDown moves the cursor down
-func (f *FilterGroup) MoveDown() {
-	if f.Cursor < len(f.Options)-1 {
-		f.Cursor++
-	}
-}
-
-// MoveToTop moves cursor to the first option
-func (f *FilterGroup) MoveToTop() {
-	f.Cursor = 0
-}
-
-// MoveToBottom moves cursor to the last option
-func (f *FilterGroup) MoveToBottom() {
-	if len(f.Options) > 0 {
-		f.Cursor = len(f.Options) - 1
-	}
-}
-
-// ApplySearchFilter filters options based on search query
-func (f *FilterGroup) ApplySearchFilter(query string) {
-	if query == "" {
-		f.ClearSearchFilter()
-		return
-	}
-
-	// Store original options on first filter
-	if !f.isFiltered {
-		f.allOptions = make([]FilterOption, len(f.Options))
-		copy(f.allOptions, f.Options)
-		f.isFiltered = true
-	}
-
-	// Filter options by query (case-insensitive substring match)
-	filtered := []FilterOption{}
-	lowerQuery := toLower(query)
-	for _, opt := range f.allOptions {
-		if contains(toLower(opt.Label), lowerQuery) {
-			filtered = append(filtered, opt)
-		}
-	}
-
-	f.Options = filtered
-	f.Cursor = 0
-	f.Offset = 0
-}
-
-// ClearSearchFilter restores all options
-func (f *FilterGroup) ClearSearchFilter() {
-	if f.isFiltered && f.allOptions != nil {
-		f.Options = make([]FilterOption, len(f.allOptions))
-		copy(f.Options, f.allOptions)
-		f.isFiltered = false
-	}
-}
-
-// Helper functions for case-insensitive string operations
-func toLower(s string) string {
-	result := make([]rune, 0, len(s))
-	for _, r := range s {
-		if r >= 'A' && r <= 'Z' {
-			r = r + 32
-		}
-		result = append(result, r)
-	}
-	return string(result)
-}
-
-func contains(s, substr string) bool {
-	if len(substr) == 0 {
-		return true
-	}
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			if s[i+j] != substr[j] {
-				match = false
-				break
-			}
-		}
-		if match {
+			f.Select(i)
 			return true
 		}
 	}
@@ -169,292 +97,305 @@ func contains(s, substr string) bool {
 
 // FilterState holds the complete filter state
 type FilterState struct {
-	Groups      []*FilterGroup
-	ActiveGroup int
-	SearchQuery string
+	Groups []*FilterGroup
 }
 
 // NewFilterState creates a new filter state with default groups
 func NewFilterState(iterations []Iteration, areas []Area, statesByType map[string][]WorkItemStateInfo) *FilterState {
-	// Build sprint options from iterations
-	sprintOptions := []FilterOption{
-		{Label: "All", Value: "all", Selected: false},
-	}
-
-	for _, iter := range iterations {
-		selected := iter.IsCurrent()
-		sprintOptions = append(sprintOptions, FilterOption{
-			Label:    iter.DisplayName(),
-			Value:    iter.Path,
-			Selected: selected,
-		})
-	}
-
-	// If no current sprint found, select "All"
-	hasSelected := false
-	selectedIdx := 0
-	for i, opt := range sprintOptions {
-		if opt.Selected {
-			hasSelected = true
-			selectedIdx = i
-			break
-		}
-	}
-	if !hasSelected && len(sprintOptions) > 0 {
-		sprintOptions[0].Selected = true
-	}
-
-	// Calculate initial cursor and offset for sprint group
-	sprintCursor := selectedIdx
-	sprintOffset := 0
-	if sprintCursor >= styles.FilterGroupVisibleOptions {
-		sprintOffset = sprintCursor - styles.FilterGroupVisibleOptions + 1
-	}
-
-	// Build area options from areas
-	areaOptions := []FilterOption{
-		{Label: "All", Value: "all", Selected: true},
-	}
-	areaCursor := 0
-	for i, area := range areas {
-		areaOptions = append(areaOptions, FilterOption{
-			Label:    area.DisplayName(),
-			Value:    area.Path,
-			Selected: false,
-		})
-		// Track if this area becomes selected later
-		_ = i
-	}
-	areaOffset := 0
-	if areaCursor >= styles.FilterGroupVisibleOptions {
-		areaOffset = areaCursor - styles.FilterGroupVisibleOptions + 1
-	}
-
-	// Build state options from all work item types (unique states)
-	stateOptions := []FilterOption{
-		{Label: "All", Value: "all", Selected: true},
-	}
-	if len(statesByType) > 0 {
-		// Collect unique states preserving order by category
-		seenStates := make(map[string]bool)
-		// Process in category order: Proposed, InProgress, Resolved, Completed
-		categoryOrder := []string{"Proposed", "InProgress", "Resolved", "Completed", "Removed"}
-		for _, category := range categoryOrder {
-			for _, states := range statesByType {
-				for _, state := range states {
-					if state.Category == category && !seenStates[state.Name] {
-						seenStates[state.Name] = true
-						stateOptions = append(stateOptions, FilterOption{
-							Label:    state.Name,
-							Value:    state.Name,
-							Selected: false,
-						})
-					}
-				}
-			}
-		}
-		// Also add any states that didn't match known categories
-		for _, states := range statesByType {
-			for _, state := range states {
-				if !seenStates[state.Name] {
-					seenStates[state.Name] = true
-					stateOptions = append(stateOptions, FilterOption{
-						Label:    state.Name,
-						Value:    state.Name,
-						Selected: false,
-					})
-				}
-			}
-		}
-	}
-	// Fallback to default states if we only have "All"
-	if len(stateOptions) <= 1 {
-		defaultStates := []string{"New", "Active", "Resolved", "Closed"}
-		for _, state := range defaultStates {
-			stateOptions = append(stateOptions, FilterOption{
-				Label:    state,
-				Value:    state,
-				Selected: false,
-			})
-		}
-	}
-
-	// Calculate cursor and offset for state group
-	stateCursor := 0
-	for i, opt := range stateOptions {
-		if opt.Selected {
-			stateCursor = i
-			break
-		}
-	}
-	stateOffset := 0
-	if stateCursor >= styles.FilterGroupVisibleOptions {
-		stateOffset = stateCursor - styles.FilterGroupVisibleOptions + 1
-	}
-
-	// Calculate cursor for assigned group
-	assignedOptions := []FilterOption{
-		{Label: "All", Value: "all", Selected: false},
-		{Label: "Me", Value: "me", Selected: true},
-	}
-	assignedCursor := 1 // "Me" is selected by default
-
 	return &FilterState{
 		Groups: []*FilterGroup{
-			{
-				Type:    FilterTypeSprint,
-				Title:   "Sprint",
-				Options: sprintOptions,
-				Cursor:  sprintCursor,
-				Offset:  sprintOffset,
-			},
-			{
-				Type:    FilterTypeState,
-				Title:   "State",
-				Options: stateOptions,
-				Cursor:  stateCursor,
-				Offset:  stateOffset,
-			},
-			{
-				Type:    FilterTypeAssigned,
-				Title:   "Assigned",
-				Options: assignedOptions,
-				Cursor:  assignedCursor,
-				Offset:  0,
-			},
-			{
-				Type:    FilterTypeArea,
-				Title:   "Area",
-				Options: areaOptions,
-				Cursor:  areaCursor,
-				Offset:  areaOffset,
-			},
+			sprintGroup(iterations),
+			assignedGroup(),
+			stateGroup(statesByType),
+			areaGroup(areas),
 		},
-		ActiveGroup: 0,
 	}
 }
 
-// ActiveFilterGroup returns the currently active filter group
-func (f *FilterState) ActiveFilterGroup() *FilterGroup {
-	if f.ActiveGroup >= 0 && f.ActiveGroup < len(f.Groups) {
-		return f.Groups[f.ActiveGroup]
+func sprintGroup(iterations []Iteration) *FilterGroup {
+	options := []FilterOption{{Label: "All", Value: FilterAll}}
+	current := 0
+	for _, iter := range iterations {
+		if iter.IsCurrent() && current == 0 {
+			current = len(options)
+		}
+		options = append(options, FilterOption{Label: iter.DisplayName(), Value: iter.Path})
+	}
+	options[current].Selected = true
+	return &FilterGroup{Type: FilterTypeSprint, Title: "Iteration", Options: options}
+}
+
+func assignedGroup() *FilterGroup {
+	return &FilterGroup{
+		Type:       FilterTypeAssigned,
+		Title:      "Person",
+		Options:    pinnedPeople(UnknownCount, UnknownCount, UnknownCount, AssignedMe),
+		ShowCounts: true,
+	}
+}
+
+func pinnedPeople(total, mine, unassigned int, selected string) []FilterOption {
+	return []FilterOption{
+		{Label: "All", Value: FilterAll, Count: total, Selected: selected == FilterAll},
+		{Label: "@Me", Value: AssignedMe, Count: mine, Selected: selected == AssignedMe},
+		{Label: "Unassigned", Value: AssignedNone, Count: unassigned, Selected: selected == AssignedNone},
+	}
+}
+
+func stateGroup(statesByType map[string][]WorkItemStateInfo) *FilterGroup {
+	options := []FilterOption{{Label: "All", Value: FilterAll, Selected: true}}
+	seen := map[string]bool{}
+	add := func(name string) {
+		if !seen[name] {
+			seen[name] = true
+			options = append(options, FilterOption{Label: name, Value: name})
+		}
+	}
+	for _, category := range []string{"Proposed", "InProgress", "Resolved", "Completed", "Removed"} {
+		for _, states := range statesByType {
+			for _, state := range states {
+				if state.Category == category {
+					add(state.Name)
+				}
+			}
+		}
+	}
+	for _, states := range statesByType {
+		for _, state := range states {
+			add(state.Name)
+		}
+	}
+	if len(options) == 1 {
+		for _, state := range []string{"New", "Active", "Resolved", "Closed"} {
+			add(state)
+		}
+	}
+	return &FilterGroup{Type: FilterTypeState, Title: "State", Options: options}
+}
+
+func areaGroup(areas []Area) *FilterGroup {
+	options := []FilterOption{{Label: "All", Value: FilterAll, Selected: true}}
+	for _, area := range areas {
+		options = append(options, FilterOption{Label: area.DisplayName(), Value: area.Path})
+	}
+	return &FilterGroup{Type: FilterTypeArea, Title: "Area", Options: options}
+}
+
+func (f *FilterState) Group(t FilterType) *FilterGroup {
+	for _, g := range f.Groups {
+		if g.Type == t {
+			return g
+		}
 	}
 	return nil
 }
 
-// NextGroup moves to the next filter group
-func (f *FilterState) NextGroup() {
-	if f.ActiveGroup < len(f.Groups)-1 {
-		f.ActiveGroup++
+func (f *FilterState) value(t FilterType) string {
+	if g := f.Group(t); g != nil {
+		return g.Value()
 	}
-}
-
-// PrevGroup moves to the previous filter group
-func (f *FilterState) PrevGroup() {
-	if f.ActiveGroup > 0 {
-		f.ActiveGroup--
-	}
+	return FilterAll
 }
 
 // GetSelectedSprint returns the selected sprint path
 func (f *FilterState) GetSelectedSprint() string {
-	for _, g := range f.Groups {
-		if g.Type == FilterTypeSprint {
-			if opt := g.SelectedOption(); opt != nil {
-				return opt.Value
-			}
-		}
-	}
-	return "all"
+	return f.value(FilterTypeSprint)
 }
 
 // GetSelectedState returns the selected state filter
 func (f *FilterState) GetSelectedState() string {
-	for _, g := range f.Groups {
-		if g.Type == FilterTypeState {
-			if opt := g.SelectedOption(); opt != nil {
-				return opt.Value
-			}
-		}
-	}
-	return "all"
+	return f.value(FilterTypeState)
 }
 
 // GetSelectedAssigned returns the selected assigned filter
 func (f *FilterState) GetSelectedAssigned() string {
-	for _, g := range f.Groups {
-		if g.Type == FilterTypeAssigned {
-			if opt := g.SelectedOption(); opt != nil {
-				return opt.Value
-			}
-		}
-	}
-	return "all"
+	return f.value(FilterTypeAssigned)
 }
 
 // GetSelectedArea returns the selected area path
 func (f *FilterState) GetSelectedArea() string {
-	for _, g := range f.Groups {
-		if g.Type == FilterTypeArea {
-			if opt := g.SelectedOption(); opt != nil {
-				return opt.Value
-			}
+	return f.value(FilterTypeArea)
+}
+
+func (f *FilterState) ActiveCount(types ...FilterType) int {
+	n := 0
+	for _, t := range types {
+		if g := f.Group(t); g != nil && g.IsSet() {
+			n++
 		}
 	}
-	return "all"
+	return n
+}
+
+func (f *FilterState) Reset(types ...FilterType) {
+	for _, t := range types {
+		if g := f.Group(t); g != nil {
+			g.SelectByValue(FilterAll)
+		}
+	}
 }
 
 // ApplySavedSelections applies saved filter selections
 func (f *FilterState) ApplySavedSelections(sprint, state, assigned, area string) {
-
+	saved := map[FilterType]string{
+		FilterTypeSprint:   sprint,
+		FilterTypeState:    state,
+		FilterTypeAssigned: assigned,
+		FilterTypeArea:     area,
+	}
 	for _, g := range f.Groups {
-		var targetValue string
-		switch g.Type {
-		case FilterTypeSprint:
-			targetValue = sprint
-		case FilterTypeState:
-			targetValue = state
-		case FilterTypeAssigned:
-			targetValue = assigned
-		case FilterTypeArea:
-			targetValue = area
-		}
-
-		if targetValue == "" {
+		value := saved[g.Type]
+		if value == "" || g.SelectByValue(value) || g.Type != FilterTypeAssigned {
 			continue
 		}
+		g.Options = append(g.Options, FilterOption{Label: value, Value: value, Section: SectionIdle, Count: UnknownCount})
+		g.SelectByValue(value)
+	}
+}
 
-		// Find and select the matching option
-		found := false
-		for i, opt := range g.Options {
-			if opt.Value == targetValue {
-				g.Select(i)
-				g.Cursor = i
-				// Adjust offset to make selected item visible
-				if g.Cursor >= styles.FilterGroupVisibleOptions {
-					g.Offset = g.Cursor - styles.FilterGroupVisibleOptions + 1
-				} else {
-					g.Offset = 0
-				}
-				found = true
-				break
-			}
+func (f *FilterState) SetPeople(items []WorkItem, members []TeamMember, me Identity) {
+	g := f.Group(FilterTypeAssigned)
+	if g == nil {
+		return
+	}
+	previous := *g.SelectedOption()
+	g.Options = PeopleOptions(items, members, me)
+	if g.SelectByValue(previous.Value) {
+		return
+	}
+	previous.Section, previous.Count = SectionIdle, 0
+	g.Options = append(g.Options, previous)
+	g.SelectByValue(previous.Value)
+}
+
+type assigneeTally struct {
+	name   string
+	value  string
+	count  int
+	isSelf bool
+}
+
+func PeopleOptions(items []WorkItem, members []TeamMember, me Identity) []FilterOption {
+	byValue := map[string]*assigneeTally{}
+	byName := map[string]bool{}
+	var tallies []*assigneeTally
+	mine, unassigned := 0, 0
+	for i := range items {
+		it := &items[i]
+		if it.AssignedTo == "" {
+			unassigned++
+			continue
 		}
+		self := me.Known() && me.Matches(it.AssignedTo, it.AssignedToUniqueName)
+		if self {
+			mine++
+		}
+		value := AssigneeValue(it.AssignedTo, it.AssignedToUniqueName)
+		t, ok := byValue[strings.ToLower(value)]
+		if !ok {
+			t = &assigneeTally{name: it.AssignedTo, value: value, isSelf: self}
+			byValue[strings.ToLower(value)] = t
+			byName[it.AssignedTo] = true
+			tallies = append(tallies, t)
+		}
+		t.count++
+	}
+	sort.SliceStable(tallies, func(i, j int) bool {
+		if tallies[i].count != tallies[j].count {
+			return tallies[i].count > tallies[j].count
+		}
+		return tallies[i].name < tallies[j].name
+	})
+	if !me.Known() {
+		mine = UnknownCount
+	}
+	options := pinnedPeople(len(items), mine, unassigned, "")
+	for _, t := range tallies {
+		options = append(options, FilterOption{Label: t.name, Value: t.value, Section: SectionActive, Count: t.count, You: t.isSelf})
+	}
+	idle := make([]TeamMember, 0, len(members))
+	for _, m := range members {
+		value := AssigneeValue(m.DisplayName, m.UniqueName)
+		if _, ok := byValue[strings.ToLower(value)]; ok || byName[m.DisplayName] {
+			continue
+		}
+		idle = append(idle, m)
+	}
+	sort.SliceStable(idle, func(i, j int) bool { return idle[i].DisplayName < idle[j].DisplayName })
+	for _, m := range idle {
+		options = append(options, FilterOption{
+			Label:   m.DisplayName,
+			Value:   AssigneeValue(m.DisplayName, m.UniqueName),
+			Section: SectionIdle,
+			You:     me.Known() && me.Matches(m.DisplayName, m.UniqueName),
+		})
+	}
+	return options
+}
 
-		// If not found and it's sprint with "current", keep the current selection
-		if !found && g.Type == FilterTypeSprint && targetValue == "current" {
-			// Already handled in NewFilterState - just ensure cursor is on selected
-			for i, opt := range g.Options {
-				if opt.Selected {
-					g.Cursor = i
-					if g.Cursor >= styles.FilterGroupVisibleOptions {
-						g.Offset = g.Cursor - styles.FilterGroupVisibleOptions + 1
-					} else {
-						g.Offset = 0
-					}
-					break
-				}
-			}
+func AssigneeValue(displayName, uniqueName string) string {
+	if uniqueName != "" {
+		return uniqueName
+	}
+	return displayName
+}
+
+func MatchesAssignee(item *WorkItem, value string, me Identity) bool {
+	switch value {
+	case FilterAll, "":
+		return true
+	case AssignedMe:
+		return !me.Known() || me.Matches(item.AssignedTo, item.AssignedToUniqueName)
+	case AssignedNone:
+		return item.AssignedTo == ""
+	}
+	return strings.EqualFold(value, item.AssignedToUniqueName) || value == item.AssignedTo
+}
+
+func MatchesKeyword(item *WorkItem, keyword string) bool {
+	q := strings.ToLower(strings.TrimSpace(keyword))
+	if q == "" {
+		return true
+	}
+	if strings.Contains(strconv.Itoa(item.ID), q) || strings.Contains(strings.ToLower(item.Title), q) {
+		return true
+	}
+	for _, tag := range item.Tags {
+		if strings.Contains(strings.ToLower(tag), q) {
+			return true
 		}
 	}
+	return false
+}
+
+func FilterTree(items []WorkItem, keep func(*WorkItem) bool) []WorkItem {
+	index := make(map[int]int, len(items))
+	for i := range items {
+		index[items[i].ID] = i
+	}
+	visible := make([]bool, len(items))
+	for i := range items {
+		if !keep(&items[i]) {
+			continue
+		}
+		for j, ok := i, true; ok && !visible[j]; j, ok = index[items[j].ParentID] {
+			visible[j] = true
+		}
+	}
+	out := make([]WorkItem, 0, len(items))
+	position := make(map[int]int, len(items))
+	for i := range items {
+		if visible[i] {
+			item := items[i]
+			item.Children = nil
+			position[item.ID] = len(out)
+			out = append(out, item)
+		}
+	}
+	for i := range out {
+		if p, ok := position[out[i].ParentID]; ok && p != i {
+			out[p].Children = append(out[p].Children, &out[i])
+		}
+	}
+	return out
 }

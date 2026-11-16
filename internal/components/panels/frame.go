@@ -87,12 +87,6 @@ func PaneContentSize(width, height int) (int, int) {
 	return max(width-styles.BoxPaddedSize, 0), max(height-styles.PaneChromeHeight, 0)
 }
 
-func Section(title, body string, width int, focused bool) string {
-	innerWidth := max(width-styles.BoxPaddedSize, 1)
-	body = lipgloss.NewStyle().Width(innerWidth).Render(body)
-	return Pane(title, body, width, lipgloss.Height(body)+styles.PaneChromeHeight, focused)
-}
-
 func PaneTitle(number, title string, focused bool) string {
 	titleStyle := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
 	badgeBg := styles.ColorChip
@@ -150,12 +144,6 @@ func Chips(tags []string) string {
 		out = append(out, Chip(t))
 	}
 	return strings.Join(out, " ")
-}
-
-func Button(label string, b key.Binding) string {
-	text := lipgloss.NewStyle().Foreground(styles.ColorText).Background(styles.ColorChip).Padding(0, 1).Render(label)
-	shortcut := lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Render(b.Help().Key)
-	return text + " " + shortcut
 }
 
 func Muted(s string) string {

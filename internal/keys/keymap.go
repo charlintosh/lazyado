@@ -14,7 +14,6 @@ type KeyMap struct {
 	PrevPanel key.Binding
 
 	Select              key.Binding
-	Open                key.Binding
 	View                key.Binding
 	Search              key.Binding
 	Refresh             key.Binding
@@ -23,7 +22,6 @@ type KeyMap struct {
 	DismissNotification key.Binding
 	Quit                key.Binding
 	ChangeState         key.Binding
-	CreateBranch        key.Binding
 	Assign              key.Binding
 	CreateTask          key.Binding
 	CreateParent        key.Binding
@@ -48,12 +46,17 @@ type KeyMap struct {
 	Panel6      key.Binding
 	Panel7      key.Binding
 
-	ModalLeft  key.Binding
-	ModalRight key.Binding
+	PickerUp   key.Binding
+	PickerDown key.Binding
 
 	HubBacklog    key.Binding
 	HubBoard      key.Binding
 	HubSprint     key.Binding
+	PrevView      key.Binding
+	NextView      key.Binding
+	FilterBar     key.Binding
+	ClearFilters  key.Binding
+	Fullscreen    key.Binding
 	MoveItemLeft  key.Binding
 	MoveItemRight key.Binding
 	HalfPageUp    key.Binding
@@ -79,13 +82,13 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("right", "l"),
 			key.WithHelp("→/l", "right"),
 		),
-		ModalLeft: key.NewBinding(
-			key.WithKeys("left"),
-			key.WithHelp("←", "change"),
+		PickerUp: key.NewBinding(
+			key.WithKeys("up", "ctrl+p"),
+			key.WithHelp("↑", "up"),
 		),
-		ModalRight: key.NewBinding(
-			key.WithKeys("right"),
-			key.WithHelp("→", "change"),
+		PickerDown: key.NewBinding(
+			key.WithKeys("down", "ctrl+n"),
+			key.WithHelp("↓", "down"),
 		),
 		Top: key.NewBinding(
 			key.WithKeys("g"),
@@ -113,7 +116,7 @@ func DefaultKeyMap() KeyMap {
 		),
 		Search: key.NewBinding(
 			key.WithKeys("/"),
-			key.WithHelp("/", "search"),
+			key.WithHelp("/", "keyword filter"),
 		),
 		Refresh: key.NewBinding(
 			key.WithKeys("ctrl+r"),
@@ -138,10 +141,6 @@ func DefaultKeyMap() KeyMap {
 		ChangeState: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "change state"),
-		),
-		CreateBranch: key.NewBinding(
-			key.WithKeys("b"),
-			key.WithHelp("b", "create branch"),
 		),
 		Assign: key.NewBinding(
 			key.WithKeys("a"),
@@ -205,7 +204,7 @@ func DefaultKeyMap() KeyMap {
 		),
 		Panel2: key.NewBinding(
 			key.WithKeys("2"),
-			key.WithHelp("2", "state filter"),
+			key.WithHelp("2", "person filter"),
 		),
 		SortByState: key.NewBinding(
 			key.WithKeys("3"),
@@ -213,7 +212,7 @@ func DefaultKeyMap() KeyMap {
 		),
 		Panel3: key.NewBinding(
 			key.WithKeys("3"),
-			key.WithHelp("3", "assigned filter"),
+			key.WithHelp("3", "state filter"),
 		),
 		Panel4: key.NewBinding(
 			key.WithKeys("4"),
@@ -243,6 +242,26 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("S"),
 			key.WithHelp("S", "sprint taskboard"),
 		),
+		PrevView: key.NewBinding(
+			key.WithKeys("["),
+			key.WithHelp("[", "previous view"),
+		),
+		NextView: key.NewBinding(
+			key.WithKeys("]"),
+			key.WithHelp("]", "next view"),
+		),
+		FilterBar: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "filter bar"),
+		),
+		ClearFilters: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "clear filters"),
+		),
+		Fullscreen: key.NewBinding(
+			key.WithKeys("z"),
+			key.WithHelp("z", "full screen"),
+		),
 		MoveItemLeft: key.NewBinding(
 			key.WithKeys("<"),
 			key.WithHelp("<", "move left"),
@@ -262,23 +281,13 @@ func DefaultKeyMap() KeyMap {
 	}
 }
 
-// ShortHelp returns a short help text for the status bar
-func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{
-		k.NextPanel,
-		k.Up, k.Down,
-		k.Top, k.Bottom,
-		k.Open,
-		k.Help,
-	}
-}
-
 // FullHelp returns all key bindings for the help panel
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.HubBacklog, k.HubBoard, k.HubSprint, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Panel5, k.Panel6, k.Panel7},
+		{k.HubBoard, k.HubBacklog, k.HubSprint, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
+		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
-		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.CreateBranch, k.Info},
-		{k.MoveItemLeft, k.MoveItemRight, k.EditComment, k.DeleteComment, k.Search, k.QuickSearch, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
+		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
+		{k.MoveItemLeft, k.MoveItemRight, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 	}
 }

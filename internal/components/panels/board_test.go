@@ -134,3 +134,15 @@ func TestPaneIsExactSize(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkItemsPanelKeepsSelectionAcrossResize(t *testing.T) {
+	w := NewWorkItemsPanel(styles.DefaultStyles(), keys.DefaultKeyMap())
+	w.SetSize(120, 20)
+	w.SetItems([]models.WorkItem{{ID: 1, Title: "One"}, {ID: 2, Title: "Two"}})
+	w.SetFocused(true)
+	w, _ = w.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	w.SetSize(80, 20)
+	if sel := w.SelectedItem(); sel == nil || sel.ID != 2 {
+		t.Fatalf("selection after resize = %v, want item 2", sel)
+	}
+}

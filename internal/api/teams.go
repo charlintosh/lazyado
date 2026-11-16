@@ -49,3 +49,38 @@ func (c *Client) GetTeamMembers() ([]models.TeamMember, error) {
 
 	return members, nil
 }
+
+type connectionUser struct {
+	ID                  string `json:"id"`
+	ProviderDisplayName string `json:"providerDisplayName"`
+	Properties          struct {
+		Account struct {
+			Value string `json:"$value"`
+		} `json:"Account"`
+	} `json:"properties"`
+}
+
+type connectionDataResponse struct {
+	AuthenticatedUser connectionUser `json:"authenticatedUser"`
+	AuthorizedUser    connectionUser `json:"authorizedUser"`
+}
+
+func (c *Client) GetCurrentUser() (models.Identity, error) {
+	url := fmt.Sprintf("https://dev.azure.com/%s/_apis/connectionData", c.organization)
+	resp, err := c.doRequest("GET", url, nil)
+	if err != nil {
+		return models.Identity{}, err
+	}
+	var data connectionDataResponse
+	if err := decode(resp, &data); err != nil {
+		return models.Identity{}, err
+	}
+	user := data.AuthenticatedUser
+	if user.ID == "" {
+		user = data.AuthorizedUser
+	}
+	if user.ID == "" {
+		return models.Identity{}, fmt.Errorf("connection data did not name the signed-in user")
+	}
+	return models.Identity{ID: user.ID, DisplayName: user.ProviderDisplayName, UniqueName: user.Properties.Account.Value}, nil
+}

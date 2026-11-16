@@ -5,197 +5,124 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/html"
-
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/components"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
+const (
+	commentBoxInset   = 2
+	commentBodyInset  = 6
+	commentMinBodyLen = 20
+)
+
+const youNote = "you"
+
 type CommentListConfig struct {
-	Width      int
-	Selected   int
-	ShowEdited bool
-	ShowBoxes  bool
+	Width    int
+	Selected int
+	Me       models.Identity
 }
 
-func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentListConfig) (content string, offsets []int) {
+func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentListConfig) (string, []int) {
 	if len(comments) == 0 {
 		return "", nil
 	}
-
-	var b strings.Builder
-	offsets = make([]int, len(comments))
-	currentLine := 0
-
-	for i, comment := range comments {
-		offsets[i] = currentLine
-
-		var commentContent strings.Builder
-
-		author := s.CommentAuthor.Render(comment.CreatedBy)
-		dateStr := formatCommentDate(comment.CreatedDate)
-		date := s.CommentDate.Render(dateStr)
-		separator := s.TextMuted.Render("  ")
-
-		header := lipgloss.JoinHorizontal(lipgloss.Left, author, separator, date)
-		commentContent.WriteString(s.CommentHeader.Render(header))
-		commentContent.WriteString("\n")
-
-		boxWidth := cfg.Width - 6
-		if boxWidth < 20 {
-			boxWidth = 20
+	offsets := make([]int, len(comments))
+	boxes := make([]string, len(comments))
+	line := 0
+	for i, c := range comments {
+		box := s.CommentBox
+		if i == cfg.Selected {
+			box = s.CommentBoxSelected
 		}
-
-		sourceText := comment.Text
-		if comment.RenderedText != "" {
-			sourceText = comment.RenderedText
-		}
-		text := parseAndStyleHTML(sourceText, boxWidth, s)
-		commentContent.WriteString(text)
-
-		if cfg.ShowEdited && !comment.ModifiedDate.IsZero() && !comment.ModifiedDate.Equal(comment.CreatedDate) {
-			commentContent.WriteString("\n")
-			modStr := fmt.Sprintf("Edited by %s on %s", comment.ModifiedBy, formatCommentDate(comment.ModifiedDate))
-			commentContent.WriteString(s.CommentEdited.Render(modStr))
-		}
-
-		if cfg.ShowBoxes {
-			boxStyle := s.CommentBox
-			if i == cfg.Selected {
-				boxStyle = s.CommentBoxSelected
-			}
-			boxStyle = boxStyle.Width(cfg.Width - 2)
-
-			rendered := boxStyle.Render(commentContent.String())
-			b.WriteString(rendered)
-			b.WriteString("\n")
-			currentLine += strings.Count(rendered, "\n") + 1
-		} else {
-			rendered := commentContent.String()
-			b.WriteString(rendered)
-			b.WriteString("\n\n")
-			currentLine += strings.Count(rendered, "\n") + 2
-		}
+		boxes[i] = box.Width(cfg.Width - commentBoxInset).Render(renderComment(c, s, cfg.Width, cfg.Me.Owns(c)))
+		offsets[i] = line
+		line += lipgloss.Height(boxes[i])
 	}
-
-	return b.String(), offsets
+	return strings.Join(boxes, "\n"), offsets
 }
 
-func parseAndStyleHTML(htmlText string, width int, s styles.Styles) string {
-	if width <= 0 || htmlText == "" {
-		return htmlText
+func renderComment(c models.Comment, s styles.Styles, width int, mine bool) string {
+	author := s.CommentAuthor.Render(c.CreatedBy)
+	if mine {
+		author += s.TextMuted.Render(" " + youNote)
 	}
-
-	doc, err := html.Parse(strings.NewReader(htmlText))
-	if err != nil {
-		return s.CommentText.Render(htmlText)
+	header := s.CommentHeader.Render(lipgloss.JoinHorizontal(lipgloss.Left,
+		author,
+		s.TextMuted.Render("  "),
+		s.CommentDate.Render(formatCommentDate(c.CreatedDate)),
+	))
+	body := components.RenderMarkdown(components.CommentMarkdown(c), max(width-commentBodyInset, commentMinBodyLen))
+	parts := []string{header, body}
+	if !c.ModifiedDate.IsZero() && !c.ModifiedDate.Equal(c.CreatedDate) {
+		parts = append(parts, s.CommentEdited.Render(fmt.Sprintf("Edited by %s on %s", c.ModifiedBy, formatCommentDate(c.ModifiedDate))))
 	}
-
-	var segments []string
-	extractStyledSegments(doc, &segments, s)
-
-	return strings.Join(segments, "")
-}
-
-func extractStyledSegments(n *html.Node, segments *[]string, s styles.Styles) {
-	if n.Type == html.TextNode {
-		text := n.Data
-		if text != "" {
-			*segments = append(*segments, s.CommentText.Render(text))
-		}
-		return
-	}
-
-	if n.Type == html.ElementNode {
-		switch n.Data {
-		case "a":
-			isMention := false
-			for _, attr := range n.Attr {
-				if attr.Key == "data-vss-mention" {
-					isMention = true
-					break
-				}
-			}
-
-			linkText := getNodeText(n)
-			if linkText != "" {
-				if isMention {
-					*segments = append(*segments, s.CommentMention.Render(linkText))
-				} else {
-					*segments = append(*segments, s.CommentLink.Render(linkText))
-				}
-			}
-			return
-
-		case "br":
-			*segments = append(*segments, "\n")
-			return
-
-		case "b", "strong":
-			boldText := getNodeText(n)
-			if boldText != "" {
-				boldStyle := s.CommentText.Copy().Bold(true)
-				*segments = append(*segments, boldStyle.Render(boldText))
-			}
-			return
-
-		case "li":
-			*segments = append(*segments, "\n  - ")
-
-		case "ul", "ol":
-			*segments = append(*segments, "\n")
-
-		case "div", "p":
-			if len(*segments) > 0 {
-				*segments = append(*segments, "\n")
-			}
-		}
-	}
-
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		extractStyledSegments(child, segments, s)
-	}
-}
-
-func getNodeText(n *html.Node) string {
-	if n.Type == html.TextNode {
-		return n.Data
-	}
-
-	var text strings.Builder
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		text.WriteString(getNodeText(child))
-	}
-	return text.String()
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 func formatCommentDate(t time.Time) string {
-	now := time.Now()
-	diff := now.Sub(t)
-
+	diff := time.Since(t)
 	switch {
 	case diff < time.Minute:
 		return "just now"
 	case diff < time.Hour:
-		mins := int(diff.Minutes())
-		if mins == 1 {
-			return "1 minute ago"
-		}
-		return fmt.Sprintf("%d minutes ago", mins)
+		return plural(int(diff.Minutes()), "minute")
 	case diff < 24*time.Hour:
-		hours := int(diff.Hours())
-		if hours == 1 {
-			return "1 hour ago"
-		}
-		return fmt.Sprintf("%d hours ago", hours)
+		return plural(int(diff.Hours()), "hour")
+	case diff < 48*time.Hour:
+		return "yesterday"
 	case diff < 7*24*time.Hour:
-		days := int(diff.Hours() / 24)
-		if days == 1 {
-			return "yesterday"
-		}
-		return fmt.Sprintf("%d days ago", days)
+		return fmt.Sprintf("%d days ago", int(diff.Hours()/24))
 	default:
 		return t.Format("Jan 2, 2006")
 	}
+}
+
+func plural(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit + " ago"
+	}
+	return fmt.Sprintf("%d %ss ago", n, unit)
+}
+
+func RenderDiscussion(comments []models.Comment, width, selected int, me models.Identity) (string, []int) {
+	if len(comments) == 0 {
+		return "", nil
+	}
+	offsets := make([]int, len(comments))
+	blocks := make([]string, len(comments))
+	line := 0
+	for i, c := range comments {
+		bar := lipgloss.NewStyle().BorderStyle(lipgloss.HiddenBorder()).BorderLeft(true).PaddingLeft(1)
+		if i == selected {
+			bar = bar.BorderStyle(lipgloss.ThickBorder()).BorderForeground(styles.ColorPrimary)
+		}
+		blocks[i] = bar.Render(discussionComment(c, max(width-styles.CardChromeWidth, 1), i == selected, me.Owns(c)))
+		offsets[i] = line
+		line += lipgloss.Height(blocks[i]) + 1
+	}
+	return strings.Join(blocks, "\n\n"), offsets
+}
+
+func discussionComment(c models.Comment, width int, selected, mine bool) string {
+	name := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
+	if selected {
+		name = name.Foreground(styles.ColorPrimary)
+	}
+	avatar := lipgloss.NewStyle().Foreground(styles.AvatarColor(c.CreatedBy)).Bold(true).Render(widgets.Initials(c.CreatedBy))
+	header := avatar + " " + name.Render(c.CreatedBy)
+	if mine {
+		header += Muted(" " + youNote)
+	}
+	header += Muted(" · " + formatCommentDate(c.CreatedDate))
+	indent := lipgloss.NewStyle().PaddingLeft(styles.CommentIndent)
+	body := components.RenderMarkdown(components.CommentMarkdown(c), max(width-styles.CommentIndent, commentMinBodyLen))
+	parts := []string{Line(header, width), indent.Render(body)}
+	if !c.ModifiedDate.IsZero() && !c.ModifiedDate.Equal(c.CreatedDate) {
+		parts = append(parts, indent.Render(Muted(fmt.Sprintf("Edited by %s on %s", c.ModifiedBy, formatCommentDate(c.ModifiedDate)))))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }

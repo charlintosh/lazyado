@@ -91,7 +91,7 @@ func (w *WorkItemsPanel) KeyBindings() []key.Binding {
 	}
 	return []key.Binding{
 		w.keys.View, w.keys.ChangeState, w.keys.Assign, w.keys.CreateTask, w.keys.EditTask,
-		w.keys.AddComment, w.keys.CreateBranch, w.keys.Select, w.keys.DeleteTask, w.keys.Info,
+		w.keys.AddComment, w.keys.Select, w.keys.DeleteTask, w.keys.Info,
 	}
 }
 
@@ -340,6 +340,7 @@ func (w *WorkItemsPanel) SetSize(width, height int) {
 }
 
 func (w *WorkItemsPanel) applyColumns() {
+	cursor := w.table.Cursor()
 	w.columns = w.layoutColumns()
 	cols := make([]table.Column, len(w.columns))
 	for i, c := range w.columns {
@@ -350,9 +351,14 @@ func (w *WorkItemsPanel) applyColumns() {
 	w.table.SetWidth(w.width)
 	w.table.SetHeight(w.height)
 	w.syncRows()
+	w.table.SetCursor(w.clampCursor(cursor))
+	w.syncRows()
 }
 
 func (w *WorkItemsPanel) SetFocused(focused bool) {
+	if w.focused == focused {
+		return
+	}
 	w.focused = focused
 	if focused {
 		w.table.Focus()

@@ -46,6 +46,7 @@ type workItemFields struct {
 	ID           int    `json:"System.Id"`
 	Title        string `json:"System.Title"`
 	State        string `json:"System.State"`
+	Reason       string `json:"System.Reason"`
 	WorkItemType string `json:"System.WorkItemType"`
 	AssignedTo   *struct {
 		DisplayName string `json:"displayName"`
@@ -154,7 +155,7 @@ func (c *Client) GetWorkItems(ids []string) ([]models.WorkItem, error) {
 		}
 
 		batch := ids[i:end]
-		fields := "System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
+		fields := "System.Id,System.Title,System.State,System.Reason,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
 
 		endpoint := fmt.Sprintf("/wit/workitems?ids=%s&fields=%s", strings.Join(batch, ","), fields)
 		resp, err := c.get(endpoint)
@@ -250,7 +251,7 @@ func (c *Client) organizeHierarchy(items []models.WorkItem) {
 
 // GetWorkItem fetches a single work item by ID
 func (c *Client) GetWorkItem(id int) (*models.WorkItem, error) {
-	fields := "System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,System.CreatedDate,System.ChangedDate"
+	fields := "System.Id,System.Title,System.State,System.Reason,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
 
 	endpoint := fmt.Sprintf("/wit/workitems/%d?fields=%s", id, fields)
 	resp, err := c.get(endpoint)
@@ -287,6 +288,7 @@ func (c *Client) convertWorkItem(item workItemAPIItem) models.WorkItem {
 		Rev:                    item.Rev,
 		Title:                  item.Fields.Title,
 		State:                  models.WorkItemState(item.Fields.State),
+		Reason:                 item.Fields.Reason,
 		Type:                   models.WorkItemType(item.Fields.WorkItemType),
 		IterationPath:          item.Fields.IterationPath,
 		AreaPath:               item.Fields.AreaPath,
@@ -305,6 +307,7 @@ func (c *Client) convertWorkItem(item workItemAPIItem) models.WorkItem {
 
 	if item.Fields.AssignedTo != nil {
 		wi.AssignedTo = item.Fields.AssignedTo.DisplayName
+		wi.AssignedToUniqueName = item.Fields.AssignedTo.UniqueName
 	}
 
 	// Parse tags
@@ -821,7 +824,9 @@ func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 				TargetID     string `json:"targetId"`
 			} `json:"mentions,omitempty"`
 			CreatedBy struct {
+				ID          string `json:"id"`
 				DisplayName string `json:"displayName"`
+				UniqueName  string `json:"uniqueName"`
 			} `json:"createdBy"`
 			CreatedDate time.Time `json:"createdDate"`
 			ModifiedBy  struct {
@@ -849,15 +854,17 @@ func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 		}
 
 		comment := models.Comment{
-			ID:           c.ID,
-			Text:         stripHTML(html.UnescapeString(c.Text)),
-			RenderedText: html.UnescapeString(c.RenderedText),
-			Format:       c.Format,
-			Mentions:     mentions,
-			CreatedBy:    c.CreatedBy.DisplayName,
-			CreatedDate:  c.CreatedDate,
-			ModifiedBy:   c.ModifiedBy.DisplayName,
-			ModifiedDate: c.ModifiedDate,
+			ID:                  c.ID,
+			Text:                stripHTML(html.UnescapeString(c.Text)),
+			RenderedText:        html.UnescapeString(c.RenderedText),
+			Format:              c.Format,
+			Mentions:            mentions,
+			CreatedBy:           c.CreatedBy.DisplayName,
+			CreatedByID:         c.CreatedBy.ID,
+			CreatedByUniqueName: c.CreatedBy.UniqueName,
+			CreatedDate:         c.CreatedDate,
+			ModifiedBy:          c.ModifiedBy.DisplayName,
+			ModifiedDate:        c.ModifiedDate,
 		}
 		comments = append(comments, comment)
 	}

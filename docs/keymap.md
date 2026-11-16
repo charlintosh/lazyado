@@ -67,16 +67,17 @@ func (m MyComponent) Update(msg tea.Msg) (MyComponent, tea.Cmd) {
 
 3. Exposing help text
 
-- Use `binding := m.keys.Save.Help()` to get `{Key, Desc}` for assembling the instruction line shown in modals.
-- Prefer deriving help from the `KeyMap` rather than hardcoding key names inside views.
+- Build footers and status hints from bindings with `widgets.Hints(width, bindings...)`; it renders through the shared `help.Model`, so key labels always come from the `KeyMap`.
+- Use `widgets.Relabel(binding, "desc")` to give a binding a contextual description (for example `Esc` → "cancel") and `widgets.Combine("move", k.PickerUp, k.PickerDown)` to show related keys as one hint.
 
 Example assembly:
 
 ```go
-save := m.keys.Save.Help()
-back := m.keys.Back.Help()
-instr := fmt.Sprintf("%s: %s  %s: %s", save.Key, save.Desc, back.Key, back.Desc)
-view.WriteString(m.styles.ModalInstructions.Render(instr))
+footer := widgets.Hints(inner,
+    widgets.Combine("move", k.PickerUp, k.PickerDown),
+    widgets.Relabel(k.Select, "apply"),
+    widgets.Relabel(k.Back, "cancel"),
+)
 ```
 
 4. Adding new key bindings safely
@@ -84,7 +85,7 @@ view.WriteString(m.styles.ModalInstructions.Render(instr))
 - Add the binding to the `KeyMap` struct.
 - Provide a default in `DefaultKeyMap()`.
 - Update [README.md](README.md) and the in-app help so users can discover the change.
-  - Update [internal/components/panels/help.go](internal/components/panels/help.go) (the in-app help renderer) to include new bindings.
+  - Add new bindings to `KeyMap.FullHelp()` so the in-app help ([internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) lists them.
 
 5. Testing key handling
 
@@ -94,10 +95,10 @@ view.WriteString(m.styles.ModalInstructions.Render(instr))
 References
 
 - See the `KeyMap` implementation: [internal/keys/keymap.go](internal/keys/keymap.go)
-- Examples of `KeyMap` usage: [internal/components/modals/assign_modal.go](internal/components/modals/assign_modal.go) and [internal/components/modals/comment_modal.go](internal/components/modals/comment_modal.go)
+- Examples of `KeyMap` usage: [internal/components/modals/choice_modal.go](internal/components/modals/choice_modal.go) and [internal/components/modals/comment_modal.go](internal/components/modals/comment_modal.go)
 
 Notes
 
 - All keyboard input handling MUST use the centralized `KeyMap` (do not match raw strings in Update handlers).
 
-- When bindings change, update [README.md](README.md) and [internal/components/panels/help.go](internal/components/panels/help.go) to keep docs and UI in sync.
+- When bindings change, update [README.md](README.md) and `KeyMap.FullHelp()` (rendered by [internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) to keep docs and UI in sync.

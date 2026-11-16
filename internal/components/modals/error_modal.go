@@ -1,131 +1,72 @@
 package modals
 
 import (
-	"strings"
-
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charlintosh/lazyado/internal/keys"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
-// ErrorModal displays API errors in a copyable modal
 type ErrorModal struct {
-	visible bool
-	errMsg  string
-	styles  styles.Styles
-	keys    keys.KeyMap
-	width   int
-	height  int
+	env      Env
+	text     string
+	viewport viewport.Model
 }
 
-// NewErrorModal creates a new error modal
-func NewErrorModal(st styles.Styles, k keys.KeyMap) ErrorModal {
-	return ErrorModal{
-		styles: st,
-		keys:   k,
+func NewErrorModal(env Env, err error) ErrorModal {
+	text := "Unknown error"
+	if err != nil {
+		text = err.Error()
 	}
+	m := ErrorModal{env: env, text: text, viewport: widgets.NewViewport(env.Keys)}
+	m.layout()
+	return m
 }
 
-// Init initializes the modal
-func (m ErrorModal) Init() tea.Cmd {
-	return nil
-}
+func (m ErrorModal) Init() tea.Cmd { return nil }
 
-// Update handles messages
-func (m ErrorModal) Update(msg tea.Msg) (ErrorModal, tea.Cmd) {
-	if !m.visible {
-		return m, nil
-	}
-
+func (m ErrorModal) Update(msg tea.Msg) (Modal, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.env = m.env.resized(msg)
+		m.layout()
+		return m, nil
 	case tea.KeyPressMsg:
-		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Select) || key.Matches(msg, m.keys.Quit) {
-			m.visible = false
-			return m, func() tea.Msg { return ModalClosedMsg{} }
+		k := m.env.Keys
+		if key.Matches(msg, k.Back) || key.Matches(msg, k.Select) || key.Matches(msg, k.Quit) {
+			return m, closeModal
 		}
 	}
-
-	return m, nil
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
 }
 
-// View renders the modal
+func (m *ErrorModal) layout() {
+	inner := widgets.DialogInnerWidth(m.width())
+	content := lipgloss.NewStyle().Foreground(styles.ColorText).Width(inner).Render(m.text)
+	m.viewport.SetWidth(inner)
+	m.viewport.SetHeight(min(lipgloss.Height(content), widgets.DialogBodyHeight(m.env.Height, false)))
+	m.viewport.SetContent(content)
+}
+
+func (m ErrorModal) width() int {
+	return widgets.DialogWidth(styles.ModalWidthXXL, m.env.Width)
+}
+
 func (m ErrorModal) View() string {
-	if !m.visible {
-		return ""
+	k := m.env.Keys
+	bindings := []key.Binding{widgets.Combine("close", k.Select, k.Back)}
+	if m.viewport.TotalLineCount() > m.viewport.VisibleLineCount() {
+		bindings = append([]key.Binding{widgets.Relabel(k.Down, "scroll")}, bindings...)
 	}
-
-	// Modal dimensions
-	modalWidth := styles.ModalWidthXXL
-	modalHeight := styles.ModalHeightXL
-
-	// Build content
-	var b strings.Builder
-
-	// Title
-	title := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(styles.ColorError).
-		Render("Error")
-	b.WriteString(title)
-	b.WriteString("\n\n")
-
-	// Error message with wrapping
-	errorStyle := lipgloss.NewStyle().
-		Foreground(styles.ColorText).
-		Width(modalWidth - styles.ModalContentOffset).
-		MaxWidth(modalWidth - styles.ModalContentOffset)
-
-	b.WriteString(errorStyle.Render(m.errMsg))
-	b.WriteString("\n\n")
-
-	// Instructions
-	instructions := lipgloss.NewStyle().
-		Foreground(styles.ColorMuted).
-		Render("Press Enter/Esc to close   Select text to copy")
-	b.WriteString(instructions)
-
-	// Style the modal
-	content := lipgloss.NewStyle().
-		Width(modalWidth+styles.PanelBorderOffset).
-		Height(modalHeight+styles.PanelBorderOffset).
-		Padding(styles.ModalPaddingV, styles.ModalPaddingH).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(styles.ColorError).
-		Render(b.String())
-
-	// Center the modal
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		content,
-	)
-}
-
-// SetSize sets the modal container size
-func (m *ErrorModal) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-}
-
-// SetVisible sets the modal visibility
-func (m *ErrorModal) SetVisible(visible bool) {
-	m.visible = visible
-}
-
-// IsVisible returns whether the modal is visible
-func (m *ErrorModal) IsVisible() bool {
-	return m.visible
-}
-
-// SetError sets the error message to display
-func (m *ErrorModal) SetError(err error) {
-	if err != nil {
-		m.errMsg = err.Error()
-	} else {
-		m.errMsg = ""
-	}
+	return widgets.Dialog{
+		Title:  "Error",
+		Body:   m.viewport.View(),
+		Footer: widgets.Hints(widgets.DialogInnerWidth(m.width()), bindings...),
+		Width:  m.width(),
+		Accent: styles.ColorError,
+	}.View()
 }

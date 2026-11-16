@@ -2,123 +2,104 @@ package panels
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/components"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
-const dateFormat = "2006-01-02"
+const (
+	dateFormat     = "Jan 2"
+	dateFormatYear = "Jan 2, 2006"
+	typeGlyph      = "■"
+	stateGlyph     = "●"
+	closeGlyph     = "✕"
+	formGap        = "   "
+	peopleGap      = "    "
+)
 
-const fixedHeaderLines = 6
+type CloseDetailViewMsg struct{}
 
-// DetailView is the fullscreen detail view component.
+type OpenCommentModalMsg struct {
+	Item models.WorkItem
+}
+
 type DetailView struct {
-	item     *models.WorkItem
-	comments []models.Comment
-	viewport viewport.Model
-	styles   styles.Styles
-	keys     keys.KeyMap
-	width    int
-	height   int
-	ready    bool
-
-	commentCursor        int
-	commentFocused       bool
-	commentOffsets       []int
-	discussionBaseOffset int
+	item           *models.WorkItem
+	thread         CommentThread
+	loading        bool
+	viewport       viewport.Model
+	styles         styles.Styles
+	keys           keys.KeyMap
+	width          int
+	height         int
+	commentFocused bool
+	offsets        []int
+	discussionTop  int
 }
 
-// NewDetailView creates a new detail view.
-func NewDetailView(st styles.Styles, ks keys.KeyMap) DetailView {
+type headerAction struct {
+	label   string
+	binding key.Binding
+}
+
+func NewDetailView(st styles.Styles, k keys.KeyMap) DetailView {
 	return DetailView{
-		viewport: viewport.New(),
+		thread:   NewCommentThread(k),
+		viewport: widgets.NewViewport(k),
 		styles:   st,
-		keys:     ks,
+		keys:     k,
 	}
 }
 
-// Init initialises the detail view.
-func (d DetailView) Init() tea.Cmd { return nil }
-
-// Update handles incoming messages.
 func (d DetailView) Update(msg tea.Msg) (DetailView, tea.Cmd) {
-	var cmd tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch {
-		case key.Matches(msg, d.keys.Back):
-			if d.commentFocused {
-				d.commentFocused = false
-				d.updateViewportContent()
-				return d, nil
-			}
-			return d, func() tea.Msg { return CloseDetailViewMsg{} }
-		case key.Matches(msg, d.keys.Quit):
-			return d, func() tea.Msg { return CloseDetailViewMsg{} }
-		case key.Matches(msg, d.keys.AddComment):
-			if d.item != nil {
-				return d, func() tea.Msg { return OpenCommentModalMsg{Item: *d.item} }
-			}
-		case key.Matches(msg, d.keys.NextPanel):
-			if len(d.comments) > 0 {
-				d.commentFocused = !d.commentFocused
-				d.updateViewportContent()
-				if d.commentFocused {
-					d.scrollToComment()
-				}
-				return d, nil
-			}
-		default:
-			if d.commentFocused && len(d.comments) > 0 {
-				oldCursor := d.commentCursor
-				switch {
-				case key.Matches(msg, d.keys.Up):
-					if d.commentCursor > 0 {
-						d.commentCursor--
-					}
-				case key.Matches(msg, d.keys.Down):
-					if d.commentCursor < len(d.comments)-1 {
-						d.commentCursor++
-					}
-				case key.Matches(msg, d.keys.Top):
-					d.commentCursor = 0
-				case key.Matches(msg, d.keys.Bottom):
-					d.commentCursor = len(d.comments) - 1
-				case key.Matches(msg, d.keys.EditComment):
-					if d.commentCursor < len(d.comments) {
-						comment := d.comments[d.commentCursor]
-						return d, func() tea.Msg {
-							return EditCommentMsg{Comment: comment}
-						}
-					}
-				case key.Matches(msg, d.keys.DeleteComment):
-					if d.commentCursor < len(d.comments) {
-						comment := d.comments[d.commentCursor]
-						return d, func() tea.Msg {
-							return DeleteCommentMsg{Comment: comment}
-						}
-					}
-				}
-				if d.commentCursor != oldCursor {
-					d.updateViewportContent()
-					d.scrollToComment()
-				}
-				return d, nil
-			}
-			// Delegate all other key events to the viewport (j/k, up/down, page, …).
-			d.viewport, cmd = d.viewport.Update(msg)
-		}
-	default:
+	k, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		var cmd tea.Cmd
 		d.viewport, cmd = d.viewport.Update(msg)
+		return d, cmd
 	}
-
+	switch {
+	case key.Matches(k, d.keys.Back) && d.commentFocused:
+		d.commentFocused = false
+		d.render()
+		return d, nil
+	case key.Matches(k, d.keys.Back), key.Matches(k, d.keys.Quit):
+		return d, func() tea.Msg { return CloseDetailViewMsg{} }
+	case key.Matches(k, d.keys.AddComment):
+		if d.item == nil {
+			return d, nil
+		}
+		item := *d.item
+		return d, func() tea.Msg { return OpenCommentModalMsg{Item: item} }
+	case key.Matches(k, d.keys.NextPanel):
+		if d.thread.Len() > 0 {
+			d.commentFocused = !d.commentFocused
+			d.render()
+			d.revealComment()
+		}
+		return d, nil
+	case d.commentFocused:
+		before := d.thread.Cursor()
+		var cmd tea.Cmd
+		d.thread, cmd = d.thread.Update(k)
+		if d.thread.Cursor() != before {
+			d.render()
+			d.revealComment()
+		}
+		return d, cmd
+	}
+	var cmd tea.Cmd
+	d.viewport, cmd = d.viewport.Update(msg)
 	return d, cmd
 }
 
@@ -126,259 +107,417 @@ func (d DetailView) View() string {
 	if d.item == nil {
 		return Block("", d.width, d.height)
 	}
-	var body string
-	if d.ready {
-		body = d.viewport.View()
-	}
-	return Block(lipgloss.JoinVertical(lipgloss.Left, d.renderHeader(), body), d.width, d.height)
+	return Block(lipgloss.JoinVertical(lipgloss.Left, d.renderHeader(), d.viewport.View()), d.width, d.height)
 }
 
-func (d *DetailView) renderHeader() string {
-	item := d.item
-	inner := max(d.width-styles.CardChromeWidth, 1)
-	bg := styles.ColorSurfaceAlt
-	text := lipgloss.NewStyle().Background(bg).Foreground(styles.ColorText)
-	label := text.Foreground(styles.ColorTextMuted)
-	gap := text.Render("    ")
+func (d DetailView) Item() *models.WorkItem { return d.item }
 
-	badge := TypeBadge(string(item.Type), fmt.Sprintf("%s %d", styles.TypeLabel(string(item.Type)), item.ID))
-	title := text.Bold(true).Render(item.Title)
+func (d DetailView) CommentFocused() bool { return d.commentFocused }
 
-	assigned := text.Render(item.AssignedTo)
-	if item.AssignedTo == "" {
-		assigned = label.Render("Unassigned")
-	}
-	people := assigned + gap + label.Render(fmt.Sprintf("%d comments", len(d.comments)))
-	if len(item.Tags) > 0 {
-		people += gap + Chips(item.Tags)
-	}
-	fields := label.Render("State ") + text.Foreground(styles.StateColor(string(item.State))).Render(string(item.State)) +
-		gap + label.Render("Area ") + text.Render(item.AreaPath) +
-		gap + label.Render("Iteration ") + text.Render(item.IterationPath)
+func (d DetailView) Loading() bool { return d.loading }
 
-	line := text.Width(inner).MaxWidth(inner).Inline(true)
-	block := lipgloss.NewStyle().
-		Background(bg).
-		BorderStyle(lipgloss.ThickBorder()).
-		BorderLeft(true).
-		BorderForeground(styles.TypeColor(string(item.Type))).
-		BorderBackground(bg).
-		PaddingLeft(1).
-		Width(d.width).
-		Render(lipgloss.JoinVertical(lipgloss.Left, line.Render(badge), line.Render(title), line.Render(people), line.Render(fields)))
-
-	active := 0
-	if d.commentFocused {
-		active = 1
-	}
-	tabs := lipgloss.NewStyle().
-		Width(d.width).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		BorderForeground(styles.ColorBorder).
-		Render(Tabs([]string{"Details", fmt.Sprintf("Discussion %d", len(d.comments))}, active, true))
-	return lipgloss.JoinVertical(lipgloss.Left, block, tabs)
+func (d DetailView) stacked() bool {
+	return d.width < styles.DetailBreakpointSM
 }
 
-func (d *DetailView) KeyBindings() []key.Binding {
-	if d.commentFocused {
-		return []key.Binding{d.keys.Up, d.keys.EditComment, d.keys.DeleteComment, d.keys.AddComment, d.keys.NextPanel, d.keys.Back}
+func (d DetailView) headerHeight() int {
+	if d.stacked() {
+		return styles.DetailHeaderLinesStacked
 	}
-	return []key.Binding{d.keys.Up, d.keys.NextPanel, d.keys.AddComment, d.keys.Back}
+	return styles.DetailHeaderLines
 }
 
-// SetSize updates the component dimensions and refreshes the viewport.
 func (d *DetailView) SetSize(width, height int) {
-	if d.width == width && d.height == height && d.ready {
+	if d.width == width && d.height == height {
 		return
 	}
 	d.width = width
 	d.height = height
-	d.refreshViewport()
+	d.viewport.SetWidth(max(width-1, styles.DetailMinViewportWidth))
+	d.viewport.SetHeight(max(height-d.headerHeight(), styles.DetailMinViewportHeight))
+	d.render()
 }
 
-// SetItem sets the work item and rebuilds the viewport content.
 func (d *DetailView) SetItem(item *models.WorkItem) {
 	d.item = item
 	d.commentFocused = false
-	d.commentCursor = 0
+	d.loading = item != nil
+	id := 0
+	if item != nil {
+		id = item.ID
+	}
+	d.thread = d.thread.WithComments(id, nil)
 	d.viewport.GotoTop()
-	d.updateViewportContent()
+	d.render()
 }
 
-// SetComments sets the comments list and rebuilds the viewport content.
-func (d *DetailView) SetComments(comments []models.Comment) {
-	d.comments = comments
-	d.commentCursor = 0
-	d.updateViewportContent()
+func (d *DetailView) Refresh(item models.WorkItem) {
+	if d.item == nil || d.item.ID != item.ID {
+		return
+	}
+	d.item = &item
+	d.render()
 }
 
-// refreshViewport recalculates viewport dimensions from d.width / d.height.
-func (d *DetailView) refreshViewport() {
-	vpWidth := max(d.width-1, styles.DetailMinViewportWidth)
-	vpHeight := max(d.height-fixedHeaderLines, styles.DetailMinViewportHeight)
-	d.viewport.SetWidth(vpWidth)
-	d.viewport.SetHeight(vpHeight)
-	d.updateViewportContent()
+func (d *DetailView) SetComments(workItemID int, comments []models.Comment) {
+	if d.item == nil || d.item.ID != workItemID {
+		return
+	}
+	d.thread = d.thread.WithComments(workItemID, comments)
+	d.loading = false
+	if d.thread.Len() == 0 {
+		d.commentFocused = false
+	}
+	d.render()
 }
 
-func (d *DetailView) updateViewportContent() {
+func (d *DetailView) SetIdentity(me models.Identity) {
+	d.thread = d.thread.WithIdentity(me)
+	d.render()
+}
+
+func (d *DetailView) KeyBindings() []key.Binding {
+	if d.commentFocused {
+		bindings := []key.Binding{d.keys.Up}
+		if d.thread.CanModify() {
+			bindings = append(bindings, d.keys.EditComment, d.keys.DeleteComment)
+		}
+		return append(bindings, d.keys.AddComment, d.keys.NextPanel, d.keys.Back)
+	}
+	bindings := []key.Binding{d.keys.ChangeState, d.keys.Assign, d.keys.EditTask}
+	if d.item != nil && d.item.IsParentType() {
+		bindings = append(bindings, d.keys.CreateTask)
+	}
+	return append(bindings, d.keys.AddComment, d.keys.Info, d.keys.DeleteTask, d.keys.NextPanel, d.keys.Up, d.keys.Back)
+}
+
+func (d *DetailView) revealComment() {
+	if !d.commentFocused {
+		return
+	}
+	top, bottom := d.thread.Span(d.offsets, d.viewport.TotalLineCount()-d.discussionTop)
+	widgets.Reveal(&d.viewport, d.discussionTop+top, d.discussionTop+bottom)
+}
+
+func (d *DetailView) render() {
 	if d.item == nil || d.viewport.Width() <= 0 {
 		return
 	}
-	innerWidth := d.viewport.Width()
+	width := d.viewport.Width() - 1
+	pad := lipgloss.NewStyle().PaddingLeft(1)
+	if d.stacked() {
+		d.viewport.SetContent(pad.Render(d.mainColumn(width, d.sidebarSections(width))))
+		return
+	}
 	sidebarWidth := styles.DetailSidebarWidthDefault
-	switch {
-	case innerWidth > styles.DetailBreakpointLG:
+	if width > styles.DetailBreakpointLG {
 		sidebarWidth = styles.DetailSidebarWidthLG
-	case innerWidth < styles.DetailBreakpointSM:
-		sidebarWidth = styles.DetailSidebarWidthSM
 	}
-	mainWidth := innerWidth - sidebarWidth - 1
-	if mainWidth < styles.MinBottomRowWidth {
-		d.viewport.SetContent(d.renderSingleColumn(innerWidth))
-	} else {
-		left := d.renderMainContent(mainWidth)
-		right := d.renderSidebar(sidebarWidth)
-		d.viewport.SetContent(lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right))
-	}
-	d.ready = true
+	mainWidth := max(width-sidebarWidth-styles.DetailColumnGap, styles.DetailWrapMinWidth)
+	left := d.mainColumn(mainWidth, nil)
+	right := "\n" + strings.Join(d.sidebarSections(sidebarWidth), "\n\n")
+	d.viewport.SetContent(pad.Render(lipgloss.JoinHorizontal(lipgloss.Top, left, strings.Repeat(" ", styles.DetailColumnGap), right)))
 }
 
-func formSection(title, body string, width int, focused bool) string {
-	return Section(title, body, width, focused)
+func formHeading(title string, focused bool) string {
+	st := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
+	if focused {
+		st = st.Foreground(styles.ColorPrimary)
+	}
+	return st.Render(title)
 }
 
-func (d *DetailView) mainSections(width int) (string, int) {
-	wrap := max(width-styles.BoxPaddedSize, styles.DetailWrapMinWidth)
-	pre := []string{formSection(PaneTitle("", "Description", false), d.buildDescriptionBody(wrap), width, false)}
+func formSection(heading, accessory, body string, width int, focused bool) string {
+	rule := styles.ColorBorder
+	if focused {
+		rule = styles.ColorPrimary
+	}
+	gap := max(width-lipgloss.Width(heading)-lipgloss.Width(accessory), 1)
+	title := Line(heading+strings.Repeat(" ", gap)+accessory, width)
+	underline := lipgloss.NewStyle().Foreground(rule).Render(strings.Repeat("─", max(width, 0)))
+	return lipgloss.JoinVertical(lipgloss.Left, title, underline, body)
+}
+
+func keyLabel(b key.Binding) string {
+	return lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Render(b.Help().Key)
+}
+
+func (d *DetailView) mainColumn(width int, extra []string) string {
+	reading := min(max(width, styles.DetailWrapMinWidth), styles.DetailReadingWidth)
+	sections := []string{formSection(formHeading("Description", false), "", d.descriptionBody(reading), width, false)}
 	if d.item.AcceptanceCriteria != "" {
-		pre = append(pre, formSection(PaneTitle("", "Acceptance Criteria", false),
-			renderHTMLContent(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, wrap), width, false))
+		criteria := components.RenderHTML(d.item.AcceptanceCriteriaHTML, d.item.AcceptanceCriteria, reading)
+		sections = append(sections, formSection(formHeading("Acceptance Criteria", false), "", criteria, width, false))
 	}
-	preContent := strings.Join(pre, "\n")
-	return preContent, wrap
+	sections = append(sections, extra...)
+	pre := "\n" + strings.Join(sections, "\n\n")
+	discussion, listTop := d.discussionSection(width)
+	d.discussionTop = lipgloss.Height(pre) + 1 + listTop
+	return pre + "\n\n" + discussion
 }
 
-func (d *DetailView) discussionSection(preContent string, width, wrap int) string {
-	d.discussionBaseOffset = strings.Count(preContent, "\n") + styles.SectionBodyOffset
-	title := PaneTitle("", fmt.Sprintf("Discussion  %d", len(d.comments)), d.commentFocused)
-	hint := Button("Add a comment", d.keys.AddComment)
-	body := d.buildDiscussionBody(wrap)
-	return formSection(title, hint+"\n"+body, width, d.commentFocused)
-}
-
-func (d *DetailView) renderMainContent(width int) string {
-	preContent, wrap := d.mainSections(width)
-	return preContent + "\n" + d.discussionSection(preContent, width, wrap)
-}
-
-func (d *DetailView) buildDescriptionBody(wrapWidth int) string {
+func (d *DetailView) descriptionBody(width int) string {
 	if d.item.Description == "" {
 		return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Italic(true).Render("No description provided")
 	}
-	return renderHTMLContent(d.item.DescriptionHTML, d.item.Description, wrapWidth)
+	return components.RenderHTML(d.item.DescriptionHTML, d.item.Description, width)
 }
 
-// buildDiscussionBody returns the rendered comment list (or a placeholder).
-func (d *DetailView) buildDiscussionBody(wrapWidth int) string {
-	if len(d.comments) == 0 {
-		d.commentOffsets = nil
-		return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Italic(true).Render("No comments yet")
+func (d *DetailView) discussionSection(width int) (string, int) {
+	heading := formHeading("Discussion", d.commentFocused) + " " + Muted(strconv.Itoa(d.thread.Len()))
+	accessory := ""
+	if d.thread.Len() > 0 {
+		target := "discussion"
+		if d.commentFocused {
+			target = "details"
+		}
+		accessory = keyLabel(d.keys.NextPanel) + " " + Muted(target)
 	}
-	selected := -1
-	if d.commentFocused {
-		selected = d.commentCursor
-	}
-	content, offsets := RenderCommentList(d.comments, d.styles, CommentListConfig{
-		Width:      wrapWidth,
-		Selected:   selected,
-		ShowEdited: true,
-		ShowBoxes:  true,
-	})
-	d.commentOffsets = offsets
-	return strings.TrimRight(content, "\n")
+	box := d.commentBox(width)
+	body := box + "\n\n" + d.discussionBody(width)
+	return formSection(heading, accessory, body, width, d.commentFocused), 2 + lipgloss.Height(box) + 1
 }
 
-// scrollToComment scrolls the viewport so the selected comment is visible.
-func (d *DetailView) scrollToComment() {
-	if d.commentCursor < 0 || d.commentCursor >= len(d.commentOffsets) {
-		return
-	}
-
-	topLine := d.discussionBaseOffset + d.commentOffsets[d.commentCursor]
-
-	bottomLine := d.viewport.TotalLineCount() - 1
-	if d.commentCursor+1 < len(d.commentOffsets) {
-		bottomLine = d.discussionBaseOffset + d.commentOffsets[d.commentCursor+1] - 1
-	}
-
-	vpTop := d.viewport.YOffset()
-	vpBottom := vpTop + d.viewport.Height() - 1
-
-	if topLine < vpTop {
-		d.viewport.SetYOffset(topLine)
-	} else if bottomLine > vpBottom {
-		d.viewport.SetYOffset(bottomLine - d.viewport.Height() + 1)
-	}
+func (d *DetailView) commentBox(width int) string {
+	inner := max(width-styles.BoxPaddedSize, 1)
+	hint := Muted("Add a comment…")
+	shortcut := keyLabel(d.keys.AddComment)
+	gap := max(inner-lipgloss.Width(hint)-lipgloss.Width(shortcut), 1)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(styles.ColorBorder).
+		Padding(0, 1).
+		Width(width).
+		Render(Line(hint+strings.Repeat(" ", gap)+shortcut, inner))
 }
 
-func (d *DetailView) renderSidebar(width int) string {
-	return strings.Join(d.sidebarSections(width), "\n")
+func (d *DetailView) discussionBody(width int) string {
+	placeholder := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Italic(true)
+	switch {
+	case d.loading:
+		d.offsets = nil
+		return placeholder.Render("Loading comments...")
+	case d.thread.Len() == 0:
+		d.offsets = nil
+		return placeholder.Render("No comments yet")
+	}
+	content, offsets := d.thread.RenderFlat(width, d.commentFocused)
+	d.offsets = offsets
+	return content
 }
 
 func (d *DetailView) sidebarSections(width int) []string {
-	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFieldLabelW + 4)
-	value := lipgloss.NewStyle().Foreground(styles.ColorText)
-	row := func(l, v string) string { return label.Render(l) + value.Render(v) }
-
-	planning := []string{
-		row("Priority", orDash(d.item.Priority > 0, fmt.Sprintf("%d", d.item.Priority))),
+	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFormLabelW)
+	row := func(l, v string) string { return Line(label.Render(l)+v, width) }
+	planning := strings.Join([]string{
+		row("Priority", orDash(d.item.Priority > 0, strconv.Itoa(d.item.Priority))),
 		row("Effort", orDash(d.item.Effort > 0, formatEffort(d.item.Effort))),
-		row("Created", d.item.CreatedDate.Format(dateFormat)),
-		row("Updated", d.item.ChangedDate.Format(dateFormat)),
+	}, "\n")
+	return []string{
+		formSection(formHeading("Planning", false), "", planning, width, false),
+		formSection(formHeading("Related Work", false), "", d.relatedBody(width), width, false),
 	}
-	sections := []string{formSection(PaneTitle("", "Planning", false), strings.Join(planning, "\n"), width, false)}
+}
 
-	branch := Button("Create branch", d.keys.CreateBranch)
-	sections = append(sections, formSection(PaneTitle("", "Development", false), branch, width, false))
-
-	var related []string
+func (d *DetailView) relatedBody(width int) string {
+	var parts []string
 	if d.item.ParentID > 0 {
-		parent := fmt.Sprintf("%d", d.item.ParentID)
+		parent := strconv.Itoa(d.item.ParentID)
 		if d.item.ParentTitle != "" {
 			parent += " " + d.item.ParentTitle
 		}
-		related = append(related, Heading("Parent"), lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent))
+		parts = append(parts, Heading("Parent"), Line(lipgloss.NewStyle().Foreground(styles.ColorAccent).Render(parent), width))
 	}
-	if children := renderChildList(d.item, max(width-styles.BoxPaddedSize, 1)); children != "" {
-		if len(related) > 0 {
-			related = append(related, "")
+	if children := d.item.Children; len(children) > 0 {
+		if len(parts) > 0 {
+			parts = append(parts, "")
 		}
-		related = append(related, children)
+		done, total := DoneCount(children)
+		parts = append(parts,
+			Heading("Child items")+"  "+Muted(fmt.Sprintf("%d of %d done", done, total)),
+			newProgress(min(width, styles.DetailProgressBarW)).ViewAs(float64(done)/float64(total)),
+		)
+		state := lipgloss.NewStyle().Width(styles.DetailFormLabelW)
+		for _, c := range children {
+			id := lipgloss.NewStyle().Foreground(styles.ColorLight).Render(strconv.Itoa(c.ID))
+			parts = append(parts, Line(state.Render(StateText(string(c.State)))+id+" "+c.Title, width))
+		}
 	}
-	if len(related) == 0 {
-		related = append(related, Muted("No related work"))
+	if len(parts) == 0 {
+		return Muted("No related work")
 	}
-	sections = append(sections, formSection(PaneTitle("", "Related Work", false), strings.Join(related, "\n"), width, false))
-	return sections
+	return strings.Join(parts, "\n")
 }
 
-func (d *DetailView) renderSingleColumn(width int) string {
-	side := strings.Join(d.sidebarSections(width), "\n")
-	preContent, wrap := d.mainSections(width)
-	preContent = side + "\n" + preContent
-	return preContent + "\n" + d.discussionSection(preContent, width, wrap)
+func (d DetailView) renderHeader() string {
+	item := d.item
+	inner := max(d.width-styles.CardChromeWidth, 1)
+	lines := []string{
+		d.typeRow(inner),
+		d.titleRow(inner),
+		d.peopleRow(inner),
+		lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", max(inner-1, 0))),
+	}
+	lines = append(lines, d.bandRows(inner)...)
+	block := lipgloss.NewStyle().
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderLeft(true).
+		BorderForeground(styles.TypeColor(string(item.Type))).
+		PaddingLeft(1).
+		Render(strings.Join(lines, "\n"))
+	return lipgloss.JoinVertical(lipgloss.Left, "", block, d.tabRule(inner))
 }
 
-// CloseDetailViewMsg is sent when the detail view should be closed.
-type CloseDetailViewMsg struct{}
-
-// OpenCommentModalMsg is sent when the comment modal should be opened.
-type OpenCommentModalMsg struct {
-	Item models.WorkItem
+func edgeLine(left, right string, width int) string {
+	gap := max(width-1-lipgloss.Width(left)-lipgloss.Width(right), 1)
+	return Line(left+strings.Repeat(" ", gap)+right+" ", width)
 }
 
-func (d DetailView) Item() *models.WorkItem {
-	return d.item
+func formatFormDate(t time.Time) string {
+	if t.Year() == time.Now().Year() {
+		return t.Format(dateFormat)
+	}
+	return t.Format(dateFormatYear)
+}
+
+func (d DetailView) typeRow(width int) string {
+	item := d.item
+	left := lipgloss.NewStyle().Foreground(styles.TypeColor(string(item.Type))).Render(typeGlyph) + " " +
+		lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(styles.TypeLabel(string(item.Type))) + " " +
+		lipgloss.NewStyle().Foreground(styles.ColorLight).Render(strconv.Itoa(item.ID))
+	closeHint := Muted(closeGlyph) + " " + keyLabel(d.keys.Back)
+	var dates []string
+	if !item.ChangedDate.IsZero() {
+		dates = append(dates, Muted("Updated "+formatFormDate(item.ChangedDate)))
+	}
+	if !item.CreatedDate.IsZero() {
+		dates = append(dates, Muted("Created "+formatFormDate(item.CreatedDate)))
+	}
+	for n := len(dates); n > 0; n-- {
+		right := strings.Join(append(append([]string{}, dates[:n]...), closeHint), formGap)
+		if lipgloss.Width(left)+lipgloss.Width(right)+2 <= width {
+			return edgeLine(left, right, width)
+		}
+	}
+	return edgeLine(left, closeHint, width)
+}
+
+func (d DetailView) titleRow(width int) string {
+	id := lipgloss.NewStyle().Foreground(styles.ColorLight).Render(strconv.Itoa(d.item.ID))
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(d.item.Title)
+	return Line(id+"  "+title, width)
+}
+
+func (d DetailView) actions() []headerAction {
+	k := d.keys
+	out := []headerAction{{"Edit", k.EditTask}, {"State", k.ChangeState}, {"Assign", k.Assign}}
+	if d.item.IsParentType() {
+		out = append(out, headerAction{"New task", k.CreateTask})
+	}
+	return append(out, headerAction{"Comment", k.AddComment}, headerAction{"Info", k.Info}, headerAction{"Delete", k.DeleteTask})
+}
+
+func (d DetailView) peopleRow(width int) string {
+	item := d.item
+	assignee := Muted("Unassigned")
+	if item.AssignedTo != "" {
+		assignee = lipgloss.NewStyle().Foreground(styles.AvatarColor(item.AssignedTo)).Bold(true).Render(widgets.Initials(item.AssignedTo)) +
+			" " + lipgloss.NewStyle().Foreground(styles.ColorText).Render(item.AssignedTo)
+	}
+	comments := Muted("Loading comments")
+	if !d.loading {
+		comments = Muted(countLabel(d.thread.Len(), "comment"))
+	}
+	left := assignee + peopleGap + comments
+	if len(item.Tags) > 0 {
+		tags := make([]string, len(item.Tags))
+		for i, t := range item.Tags {
+			tags[i] = "[" + t + "]"
+		}
+		left += peopleGap + lipgloss.NewStyle().Foreground(styles.ColorLight).Render(strings.Join(tags, " "))
+	}
+	actions := d.actions()
+	for n := len(actions); n > 0; n-- {
+		parts := make([]string, n)
+		for i, a := range actions[:n] {
+			parts[i] = lipgloss.NewStyle().Foreground(styles.ColorText).Render(a.label) + " " + keyLabel(a.binding)
+		}
+		right := strings.Join(parts, formGap)
+		if lipgloss.Width(left)+lipgloss.Width(right)+3 <= width {
+			return edgeLine(left, right, width)
+		}
+	}
+	return Line(left, width)
+}
+
+func countLabel(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+func (d DetailView) tabLabels() []string {
+	return []string{"Details", "Discussion " + strconv.Itoa(d.thread.Len())}
+}
+
+func (d DetailView) activeTab() int {
+	if d.commentFocused {
+		return 1
+	}
+	return 0
+}
+
+func (d DetailView) tabsView() string {
+	labels := d.tabLabels()
+	out := make([]string, len(labels))
+	for i, l := range labels {
+		st := lipgloss.NewStyle().Foreground(styles.ColorTextMuted)
+		if i == d.activeTab() {
+			st = lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true)
+		}
+		out[i] = st.Render(l)
+	}
+	return strings.Join(out, formGap)
+}
+
+func (d DetailView) bandRows(width int) []string {
+	item := d.item
+	label := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(styles.DetailFieldLabelW)
+	light := lipgloss.NewStyle().Foreground(styles.ColorLight)
+	state := lipgloss.NewStyle().Foreground(styles.StateColor(string(item.State))).Render(stateGlyph) + " " +
+		lipgloss.NewStyle().Foreground(styles.ColorText).Render(string(item.State))
+	reason := light.Render(orDash(item.Reason != "", item.Reason))
+	field := func(name, value string, w int) string { return label.Render(name) + Line(value, max(w, 1)) }
+	tabs := d.tabsView()
+	rest := width - styles.DetailFieldLabelW
+	if d.stacked() {
+		return []string{
+			Line(field("State", state, rest), width),
+			Line(field("Reason", reason, rest), width),
+			Line(field("Area", item.AreaPath, rest), width),
+			edgeLine(field("Iteration", item.IterationPath, rest-lipgloss.Width(tabs)-len(formGap)-1), tabs, width),
+		}
+	}
+	valueW := min(styles.DetailBandValueW, (width-2*styles.DetailFieldLabelW)/2)
+	right := rest - valueW - styles.DetailFieldLabelW
+	return []string{
+		Line(field("State", state, valueW)+field("Area", item.AreaPath, right-1), width),
+		edgeLine(field("Reason", reason, valueW)+field("Iteration", item.IterationPath, right-lipgloss.Width(tabs)-len(formGap)-1), tabs, width),
+	}
+}
+
+func (d DetailView) tabRule(inner int) string {
+	labels := d.tabLabels()
+	tabsWidth := lipgloss.Width(strings.Join(labels, formGap))
+	start := styles.CardChromeWidth + inner - 1 - tabsWidth
+	for _, l := range labels[:d.activeTab()] {
+		start += lipgloss.Width(l) + len(formGap)
+	}
+	start = max(start, 0)
+	length := min(lipgloss.Width(labels[d.activeTab()]), max(d.width-start, 0))
+	rule := lipgloss.NewStyle().Foreground(styles.ColorBorder)
+	return rule.Render(strings.Repeat("─", start)) +
+		lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render(strings.Repeat("━", length)) +
+		rule.Render(strings.Repeat("─", max(d.width-start-length, 0)))
 }

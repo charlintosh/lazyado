@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/config"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -64,15 +65,22 @@ func sampleWorkItems() []models.WorkItem {
 
 func newTestApp(t *testing.T, width, height int) App {
 	t.Helper()
+	return newTestAppAs(t, width, height, models.Identity{})
+}
+
+func newTestAppAs(t *testing.T, width, height int, me models.Identity) App {
+	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	client := api.NewClient(&config.Config{Organization: "acme", Project: "storefront", Team: "Storefront Team"})
 	var m tea.Model = NewApp(client)
 	m, _ = m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 	m, _ = m.Update(dataLoadedMsg{
-		iterations: []models.Iteration{{Name: "Sprint 24", Path: "storefront\\Sprint 24", TimeFrame: "current"}},
-		areas:      []models.Area{{Name: "Checkout", Path: "storefront\\Checkout"}},
+		iterations:  []models.Iteration{{Name: "Sprint 24", Path: "storefront\\Sprint 24", TimeFrame: "current"}},
+		areas:       []models.Area{{Name: "Checkout", Path: "storefront\\Checkout"}},
+		teamMembers: []models.TeamMember{{DisplayName: "Dana Reyes"}, {DisplayName: "Lena Ortiz"}},
+		me:          me,
 	})
-	m, _ = m.Update(workItemsLoadedMsg{items: sampleWorkItems()})
+	m, _ = m.Update(workItemsLoadedMsg{seq: m.(App).loadSeq, items: sampleWorkItems()})
 	return m.(App)
 }
 
@@ -141,10 +149,71 @@ func TestWorkItemFormFitsTerminal(t *testing.T) {
 	}
 }
 
-func TestFilterRailFitsTerminal(t *testing.T) {
-	for _, sz := range [][2]int{{160, 40}, {80, 24}} {
-		var m tea.Model = newTestApp(t, sz[0], sz[1])
-		m, _ = m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
-		assertFits(t, m.(App).render(), sz[0], sz[1])
+func TestFilterPickersFitTerminal(t *testing.T) {
+	hubs := map[string]string{"backlog": "L", "board": "B", "sprint": "S"}
+	for name, hub := range hubs {
+		t.Run(name, func(t *testing.T) {
+			for _, sz := range [][2]int{{200, 50}, {160, 40}, {99, 30}, {80, 24}, {50, 14}} {
+				for _, group := range []string{"1", "2", "3", "4"} {
+					a := newTestAppAs(t, sz[0], sz[1], models.Identity{DisplayName: "Dana Reyes"})
+					a, _ = step(t, a, press(hub))
+					a, _ = step(t, a, press(group))
+					if !topIs[modals.FilterPickerModal](a.modals) {
+						t.Fatalf("%s did not open a filter picker at %dx%d", group, sz[0], sz[1])
+					}
+					assertFits(t, a.render(), sz[0], sz[1])
+				}
+			}
+		})
+	}
+}
+
+func TestFilterBarFitsTerminal(t *testing.T) {
+	for _, hub := range []string{"L", "B", "S"} {
+		for _, sz := range [][2]int{{200, 50}, {139, 40}, {90, 26}, {60, 20}, {50, 14}} {
+			a := newTestApp(t, sz[0], sz[1])
+			a, _ = step(t, a, press(hub))
+			a, _ = step(t, a, press("f"))
+			assertFits(t, a.render(), sz[0], sz[1])
+		}
+	}
+}
+
+func TestModalsFitTerminal(t *testing.T) {
+	openers := map[string][]tea.Msg{
+		"state":         {tea.KeyPressMsg{Code: 's', Text: "s"}},
+		"assign":        {tea.KeyPressMsg{Code: 'a', Text: "a"}},
+		"comment":       {tea.KeyPressMsg{Code: 'c', Text: "c"}},
+		"edit":          {tea.KeyPressMsg{Code: 'e', Text: "e"}},
+		"task":          {tea.KeyPressMsg{Code: 't', Text: "t"}},
+		"delete":        {tea.KeyPressMsg{Code: 'd', Text: "d"}},
+		"info":          {tea.KeyPressMsg{Code: 'i', Text: "i"}},
+		"help":          {tea.KeyPressMsg{Code: '?', Text: "?"}},
+		"quick_search":  {tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}},
+		"parent_type":   {tea.KeyPressMsg{Code: 'n', Text: "n"}},
+		"pbi_form":      {tea.KeyPressMsg{Code: 'n', Text: "n"}, tea.KeyPressMsg{Code: tea.KeyEnter}},
+		"bug_form":      {tea.KeyPressMsg{Code: 'n', Text: "n"}, tea.KeyPressMsg{Code: tea.KeyDown}, tea.KeyPressMsg{Code: tea.KeyEnter}},
+		"filter_picker": {tea.KeyPressMsg{Code: '1', Text: "1"}, tea.KeyPressMsg{Code: 'S', Text: "S"}},
+		"person_picker": {tea.KeyPressMsg{Code: 'S', Text: "S"}, tea.KeyPressMsg{Code: '2', Text: "2"}},
+		"error":         {errMsg{err: fmt.Errorf("TF401232: Work item 99 does not exist, or you do not have permissions to read it.")}},
+	}
+	for name, msgs := range openers {
+		t.Run(name, func(t *testing.T) {
+			for _, sz := range [][2]int{{160, 45}, {80, 24}, {50, 14}} {
+				var m tea.Model = newTestApp(t, sz[0], sz[1])
+				for _, msg := range msgs {
+					var cmd tea.Cmd
+					m, cmd = m.Update(msg)
+					for _, follow := range drain(cmd) {
+						m, _ = m.Update(follow)
+					}
+				}
+				app := m.(App)
+				if !app.modals.open() {
+					t.Fatalf("%s did not open a modal at %dx%d", name, sz[0], sz[1])
+				}
+				assertFits(t, app.render(), sz[0], sz[1])
+			}
+		})
 	}
 }
