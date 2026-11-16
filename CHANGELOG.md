@@ -6,14 +6,24 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-11-16
+
+Sprints taskboard release: drag and drop, optimistic task moves and collapsible rows.
+
 ### Added
 
-- perf: one mouse-motion event through the whole app went from ~10.4 ms / 10.8 MB to ~3.0 ms / 0.9 MB. Panels share one `*styles.Styles` instead of copying it (the model shrank from 227 KB to 66 KB), read-only `App` helpers take `*App`, layout and the page header are computed once per message, and `Block` / `Pane` skip Lip Gloss wrapping for content that already fits
-- feat: collapsible Sprints taskboard rows, like Azure DevOps — rows with pending tasks start open, rows whose tasks are all done (or whose backlog item is done) start collapsed to one line with per-column task counts; `h` / `l` on a backlog item, `C` for every row, or click `▸` / `▾` / the header
-- feat: drag-and-drop hints on the Sprints taskboard — hover lifts the card with a grip, a dashed ghost stays in the original slot, a chip beside the pointer names the destination, a dashed phantom card waits in the target cell, the target column is tinted and its header previews the counts; drops that change nothing say why
-- feat: optimistic task moves — a dropped (or `<` / `>` moved) task moves at once and shows Saving…, then ✓ Moved, or returns in red with the error in the top bar if Azure DevOps rejects it
-- perf: the drag chip is spliced into the affected rows instead of re-compositing the whole screen (`widgets.Splice`)
-- feat: drag and drop on the Sprints taskboard — drag a task card with the mouse onto another state column to change its state; the target column is highlighted, the card shows `→ <state>`, the status bar reads `MOVING`, and `Esc` cancels
+- feat: drag and drop on the Sprints taskboard — drag a task card onto another state column (any row of it, or its header) to change the task's state; `Esc` cancels (84219aa)
+- feat: drag-and-drop hints — hover lifts the card with a grip `⠿`, a dashed ghost keeps its original slot, a chip beside the pointer names the destination, a dashed phantom card waits in the target cell, the target column is tinted and its header previews the counts (`▸ Done 2 → 3`); drops that change nothing say why (84219aa)
+- feat: optimistic task moves — a dropped or `<` / `>` moved task moves at once and shows `Saving…`, then `✓ Moved`, or returns in red with the error in the top bar if Azure DevOps rejects it (84219aa)
+- feat: collapsible Sprints rows, like Azure DevOps — rows with pending tasks start open, rows whose tasks are all done (or whose backlog item is done) start collapsed to one line with per-column task counts; `h` / `l` on a backlog item, `C` for every row, or click `▸` / `▾` / the header (84219aa)
+- feat: `drag`, `release` and `C` in the help screen and status bar hints (84219aa)
+
+### Changed
+
+- perf: one drag motion event through the whole app went from ~10.4 ms / 10.8 MB to ~3.3 ms / 1.1 MB — panels share one `*styles.Styles` (the model shrank from 227 KB to 66 KB), read-only `App` helpers take `*App`, layout and the page header are computed once per message, `Block` / `Pane` skip Lip Gloss wrapping for content that already fits, and the drag chip is spliced into the rows it covers (`widgets.Splice`) (84219aa)
+- change: hover uses all-motion mouse tracking, only while the Sprints taskboard is focused with no dialog open (84219aa)
+- change: the first column header of the Sprints taskboard is now the `⊟ Collapse all` / `⊞ Expand all` control (84219aa)
+- change: a rejected task move on the Sprints taskboard shows a top-bar notice and returns the card instead of opening the error dialog; the Kanban board still uses the dialog (84219aa)
 
 ## [v1.0.0] - 2026-11-16
 
