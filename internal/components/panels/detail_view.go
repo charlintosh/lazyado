@@ -38,7 +38,7 @@ type DetailView struct {
 	thread         CommentThread
 	loading        bool
 	viewport       viewport.Model
-	styles         styles.Styles
+	styles         *styles.Styles
 	keys           keys.KeyMap
 	width          int
 	height         int
@@ -52,7 +52,7 @@ type headerAction struct {
 	binding key.Binding
 }
 
-func NewDetailView(st styles.Styles, k keys.KeyMap) DetailView {
+func NewDetailView(st *styles.Styles, k keys.KeyMap) DetailView {
 	return DetailView{
 		thread:   NewCommentThread(k),
 		viewport: widgets.NewViewport(k),

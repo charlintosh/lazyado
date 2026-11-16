@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"image/color"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/styles"
@@ -76,6 +77,26 @@ func Overlay(base, box string, width, height int) string {
 	x := max((width-lipgloss.Width(box))/2, 0)
 	y := max((height-lipgloss.Height(box))/2, 0)
 	return OverlayAt(base, box, x, y, width, height)
+}
+
+func Splice(base, box string, x, y, width, height int) string {
+	boxWidth, boxHeight := lipgloss.Width(box), lipgloss.Height(box)
+	x = max(min(x, width-boxWidth), 0)
+	y = max(min(y, height-boxHeight), 0)
+	lines := strings.Split(base, "\n")
+	for i, row := range strings.Split(box, "\n") {
+		n := y + i
+		if n >= len(lines) {
+			break
+		}
+		left := ansi.Truncate(lines[n], x, "")
+		if gap := x - ansi.StringWidth(left); gap > 0 {
+			left += strings.Repeat(" ", gap)
+		}
+		right := ansi.TruncateLeft(lines[n], x+ansi.StringWidth(row), "")
+		lines[n] = left + ansi.ResetStyle + row + ansi.ResetStyle + right
+	}
+	return strings.Join(lines, "\n")
 }
 
 func OverlayAt(base, box string, x, y, width, height int) string {

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/notification"
@@ -78,6 +80,19 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 			cmds = append(cmds, fetchDetailCmd(a.client, id))
 		}
 		return a, tea.Batch(cmds...), true
+	case workItemMovedMsg:
+		flash := a.taskboardPanel.MoveSaved(msg.id)
+		return a, tea.Batch(a.notify("State changed to "+msg.state), flash, a.reload()), true
+	case workItemMoveFailedMsg:
+		a.loading = false
+		if !a.taskboardPanel.HasPendingMove(msg.id) {
+			return a, a.openModal(modals.NewErrorModal(a.env(), msg.err)), true
+		}
+		flash := a.taskboardPanel.MoveFailed(msg.id)
+		var notice tea.Cmd
+		a.notification, notice = a.notification.Show(notification.NotificationError,
+			fmt.Sprintf("Couldn't move #%d to %s: %v", msg.id, msg.state, msg.err))
+		return a, tea.Batch(notice, flash), true
 	case detailFetchedMsg:
 		if _, loaded := a.loadedItem(msg.item.ID); !loaded && a.detailID() == msg.item.ID {
 			msg.item.Children = a.detailView.Item().Children
@@ -121,7 +136,10 @@ func (a App) handlePanelIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 	case panels.CommentReadOnlyMsg:
 		return a, a.commentReadOnly(), true
 	case panels.MoveWorkItemMsg:
-		return a, a.mutate(updateWorkItemStateCmd(a.client, msg.Item.ID, msg.NewState)), true
+		return a, a.mutate(moveWorkItemCmd(a.client, msg.Item.ID, msg.NewState)), true
+	case panels.MoveFlashExpiredMsg:
+		a.taskboardPanel.ExpireFlash(msg)
+		return a, nil, true
 	}
 	return a, nil, false
 }
@@ -162,7 +180,7 @@ func (a App) handleModalIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 	return a, nil, false
 }
 
-func (a App) mutationFor(msg tea.Msg) (tea.Cmd, bool) {
+func (a *App) mutationFor(msg tea.Msg) (tea.Cmd, bool) {
 	c := a.client
 	switch msg := msg.(type) {
 	case modals.StateChangeRequestMsg:
@@ -206,14 +224,14 @@ func (a *App) commentReadOnly() tea.Cmd {
 	return cmd
 }
 
-func (a App) detailID() int {
+func (a *App) detailID() int {
 	if item := a.detailView.Item(); item != nil && a.viewMode == ViewDetail {
 		return item.ID
 	}
 	return 0
 }
 
-func (a App) loadedItem(id int) (models.WorkItem, bool) {
+func (a *App) loadedItem(id int) (models.WorkItem, bool) {
 	for i := range a.workItems {
 		if a.workItems[i].ID == id {
 			return a.workItems[i], true
@@ -250,7 +268,7 @@ func (a *App) clearFilters() tea.Cmd {
 	return a.applyFilters()
 }
 
-func (a App) formData() modals.FormData {
+func (a *App) formData() modals.FormData {
 	area, iteration := a.createDefaults()
 	return modals.FormData{
 		Members:          a.teamMembers,
@@ -260,7 +278,7 @@ func (a App) formData() modals.FormData {
 	}
 }
 
-func (a App) createDefaults() (string, string) {
+func (a *App) createDefaults() (string, string) {
 	var area, iteration string
 	if len(a.workItems) > 0 {
 		area, iteration = a.workItems[0].AreaPath, a.workItems[0].IterationPath
@@ -275,7 +293,7 @@ func (a App) createDefaults() (string, string) {
 	return area, iteration
 }
 
-func (a App) withCreateDefaults(req modals.ParentCreateRequestMsg) modals.ParentCreateRequestMsg {
+func (a *App) withCreateDefaults(req modals.ParentCreateRequestMsg) modals.ParentCreateRequestMsg {
 	area, iteration := a.createDefaults()
 	if req.AreaPath == "" {
 		req.AreaPath = area

@@ -16,7 +16,7 @@ type CommentsPanel struct {
 	thread   CommentThread
 	viewport viewport.Model
 	offsets  []int
-	styles   styles.Styles
+	styles   *styles.Styles
 	keys     keys.KeyMap
 	width    int
 	height   int
@@ -24,7 +24,7 @@ type CommentsPanel struct {
 	loading  bool
 }
 
-func NewCommentsPanel(st styles.Styles, k keys.KeyMap) CommentsPanel {
+func NewCommentsPanel(st *styles.Styles, k keys.KeyMap) CommentsPanel {
 	return CommentsPanel{
 		thread:   NewCommentThread(k),
 		viewport: widgets.NewViewport(k),

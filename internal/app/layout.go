@@ -15,7 +15,7 @@ type shellLayout struct {
 	paneWidth    int
 }
 
-func (a App) layout() shellLayout {
+func (a *App) layout() shellLayout {
 	l := shellLayout{
 		bodyHeight:   max(a.height-styles.TopBarHeight-styles.StatusBarHeight, 0),
 		headerHeight: styles.PageHeaderHeight,
@@ -35,9 +35,6 @@ func (a App) layout() shellLayout {
 		rest -= l.paneWidth
 	}
 	l.mainWidth = max(rest, 0)
-	if a.filterBar {
-		l.headerHeight = a.pageHeader(l.mainWidth).Height
-	}
 	return l
 }
 
@@ -50,10 +47,14 @@ func (a *App) syncLayout() {
 		return
 	}
 	l := a.layout()
+	a.header = a.pageHeader(l.mainWidth)
+	l.headerHeight = a.header.Height
+	a.shell = l
 	cw, ch := panels.PaneContentSize(l.mainWidth, l.mainHeight())
 	a.workItemsPanel.SetSize(cw, ch)
 	a.boardPanel.SetSize(cw, ch)
 	a.taskboardPanel.SetSize(cw, ch)
+	a.taskboardPanel.SetOrigin(l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY)
 
 	pw, ph := cw, ch
 	if l.showPane {
@@ -77,6 +78,6 @@ func (a *App) syncFocus() {
 	}
 }
 
-func (a App) isPanePanel() bool {
+func (a *App) isPanePanel() bool {
 	return a.activePanel == PanelDetails || a.activePanel == PanelComments
 }

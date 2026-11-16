@@ -55,7 +55,7 @@ type WorkItemsPanel struct {
 	flattenedView []workItemViewEntry
 	table         table.Model
 	columns       []columnSpec
-	styles        styles.Styles
+	styles        *styles.Styles
 	keys          keys.KeyMap
 	width         int
 	height        int
@@ -71,7 +71,7 @@ type workItemViewEntry struct {
 	index    int
 }
 
-func NewWorkItemsPanel(s styles.Styles, k keys.KeyMap) WorkItemsPanel {
+func NewWorkItemsPanel(s *styles.Styles, k keys.KeyMap) WorkItemsPanel {
 	t := table.New(
 		table.WithStyles(tableStyles()),
 		table.WithKeyMap(tableKeyMap(k)),

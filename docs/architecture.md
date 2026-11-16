@@ -31,11 +31,27 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 2. `reconcile` derives child state from the root state after every message: panel focus from `activePanel`/`hub`, panel sizes from the terminal size, the details pane and comment loading from the current selection, and whether the shared spinner must tick. Child setters are no-ops when nothing changed, so this is cheap and there is exactly one place that keeps children in sync.
 3. `View` only renders. Values that are derived at render time (header breadcrumbs, spinner frame, notification text) are passed as props, for example `panels.RenderHeader(panels.HeaderProps{...})`.
 
+## Keeping Update and View cheap
+
+Bubble Tea calls `View` after every `Update`, and some messages arrive in bursts (mouse motion while dragging, cursor blinks, spinner ticks), so both run on every one of them.
+
+- `Update` and `View` keep value receivers: Bubble Tea's contract is unchanged, `Update` returns a new model and never mutates the old one. Every other method on `App` takes `*App`, so helpers never copy the model. Methods that only read state stay read-only.
+- Immutable configuration is shared, not copied: every panel holds the one `*styles.Styles` from `styles.DefaultStyles()`. The model was 227 KB when each panel carried its own copy, and copies of more than 64 KB go to the heap.
+- Derived layout is computed once per message in `reconcile` (`a.shell` and the page header `a.header`). `View`, the picker anchor and the panels read those values instead of recomputing them.
+- Child state that changes during a gesture is a plain value (`taskDrag`), never a pointer shared between model copies, and it refers to items by ID and state name rather than by index, so a reload during the gesture cannot point it at the wrong item.
+- Panels re-render their content only when something visible changed (a drag re-renders the board when the drop column changes, not on every motion event).
+- `panels.Block` and `panels.Pane` skip Lip Gloss wrapping when content already fits, and fall back to Lip Gloss otherwise, with identical output (`frame_test.go`). Use them for content that is already laid out.
+- Hover needs `tea.MouseModeAllMotion`, which reports every pointer move; `View` only asks for it while the Sprints taskboard is focused with no dialog open, and uses cell motion everywhere else.
+- Small overlays that move with the pointer (the drag chip) use `widgets.Splice`, which rewrites only the rows they cover. `OverlayAt` re-composites the whole screen and is meant for dialogs.
+- Optimistic task moves live in the taskboard as a copy-on-write map of pending moves keyed by task ID; a reload that still has the old state does not snap the card back, and flash timers carry a sequence number so an older timer never ends a newer flash.
+- `BenchmarkDragMotion` and `BenchmarkHoverMotion` measure one motion event through the whole app with the filter bar open; run `go test ./internal/app -run '^$' -bench DragMotion` after changing the render path.
+
 ## Commands and stale results
 
 - Commands capture plain values, never pointers into the model (`queryFor(filters, me)` is evaluated in `Update`, not inside the goroutine).
 - Iteration, State and Area go to the server (WIQL). Person and keyword filter the loaded items locally with `models.FilterTree`, which keeps the parents of matching children; `applyFilters` only reloads when the server query changed. When the current user cannot be resolved, `@Me` falls back to `@me` in WIQL.
 - Every side effect is a command: HTTP calls, saving filters, opening the browser, copying to the clipboard.
+- Mouse events reach only the focused main panel. The taskboard knows its content origin on screen (`SetOrigin`, set next to `SetSize` in `syncLayout`) and maps a pointer to a card or state column with the same widths it renders with, including the viewport scroll offset. A drag ends in the existing `MoveWorkItemMsg`, so it uses the same state-change path as `<` / `>`.
 - Work item reloads carry a sequence number (`loadSeq`); outdated responses are dropped.
 - The signed-in user is the identity behind the PAT, read once from `_apis/connectionData` (`authenticatedUser`, falling back to `authorizedUser`) into `App.me`. `models.Identity.Owns` decides comment ownership by identity ID, then by unique name, and never by display name. `CommentThread` only emits edit/delete intents for owned comments, and `handlePanelIntent` checks again before opening a modal. An unknown identity makes comments read-only; `Ctrl+r` retries it.
 - Comment loads carry the work item ID and are debounced (`commentsDueMsg`) while the cursor moves; responses for another item are ignored by both the Discussion tab and the detail view.

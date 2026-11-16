@@ -92,7 +92,7 @@ func (t CommentThread) modify(edit bool) tea.Cmd {
 	return func() tea.Msg { return msg }
 }
 
-func (t CommentThread) Render(s styles.Styles, width int, focused bool) (string, []int) {
+func (t CommentThread) Render(s *styles.Styles, width int, focused bool) (string, []int) {
 	selected := -1
 	if focused {
 		selected = t.cursor

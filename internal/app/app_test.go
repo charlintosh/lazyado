@@ -54,7 +54,7 @@ func drain(cmd tea.Cmd) []tea.Msg {
 	}
 }
 
-func step(t *testing.T, a App, msg tea.Msg) (App, []tea.Msg) {
+func step(t testing.TB, a App, msg tea.Msg) (App, []tea.Msg) {
 	t.Helper()
 	m, cmd := a.Update(msg)
 	return m.(App), drain(cmd)
@@ -300,13 +300,13 @@ func TestRailCollapsesAndHides(t *testing.T) {
 		{60, 0, false},
 	}
 	for _, c := range cases {
-		l := newTestApp(t, c.width, 30).layout()
+		l := newTestApp(t, c.width, 30).shell
 		if l.railWidth != c.rail || l.compactRail != c.compact {
 			t.Errorf("width %d: rail %d compact %v, want %d %v", c.width, l.railWidth, l.compactRail, c.rail, c.compact)
 		}
 	}
 	a, _ := step(t, newTestApp(t, 160, 45), press("z"))
-	if a.layout().railWidth != 0 {
+	if a.shell.railWidth != 0 {
 		t.Error("z must hide the rail")
 	}
 }
@@ -321,7 +321,7 @@ func TestSprintPivotSwitchesToTheBacklogList(t *testing.T) {
 	if a.mainView() != viewList || a.selectedItem() == nil {
 		t.Fatal("] must switch Sprints to its backlog list")
 	}
-	if !a.layout().showPane {
+	if !a.shell.showPane {
 		t.Error("the sprint backlog list shows the details pane like Backlogs")
 	}
 	a, _ = step(t, a, press("["))

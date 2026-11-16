@@ -20,17 +20,35 @@ func (a App) View() tea.View {
 	v := tea.NewView(a.render())
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	if a.tracksHover() {
+		v.MouseMode = tea.MouseModeAllMotion
+	}
 	return v
 }
 
-func (a App) render() string {
+func (a *App) tracksHover() bool {
+	return a.viewMode == ViewMain && a.mainView() == viewTaskboard && a.activePanel == PanelWorkItems && !a.modals.open()
+}
+
+func (a *App) withDragChip(base string) string {
+	if a.viewMode != ViewMain || a.mainView() != viewTaskboard {
+		return base
+	}
+	chip, x, y, ok := a.taskboardPanel.DragChip()
+	if !ok {
+		return base
+	}
+	return widgets.Splice(base, chip, x, y, a.width, a.height-styles.StatusBarHeight)
+}
+
+func (a *App) render() string {
 	if a.width == 0 || a.height == 0 {
 		return "Loading..."
 	}
 	if a.showSplash() {
 		return a.splashScreen.View()
 	}
-	base := a.renderBase()
+	base := a.withDragChip(a.renderBase())
 	m, ok := a.modals.top()
 	if !ok {
 		return base
@@ -43,7 +61,7 @@ func (a App) render() string {
 	return widgets.Overlay(base, m.View(), a.width, a.height)
 }
 
-func (a App) renderBase() string {
+func (a *App) renderBase() string {
 	switch {
 	case a.width < styles.ShellMinWidth || a.height < styles.ShellMinHeight:
 		return a.renderTooSmall()
@@ -54,13 +72,13 @@ func (a App) renderBase() string {
 	}
 }
 
-func (a App) renderTooSmall() string {
+func (a *App) renderTooSmall() string {
 	msg := a.styles.TextMuted.Render(fmt.Sprintf("Terminal too small (%dx%d).\nResize to at least %dx%d.",
 		a.width, a.height, styles.ShellMinWidth, styles.ShellMinHeight))
 	return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, msg)
 }
 
-func (a App) renderHeader(crumbs ...string) string {
+func (a *App) renderHeader(crumbs ...string) string {
 	return panels.RenderHeader(panels.HeaderProps{
 		Width:        a.width,
 		Organization: a.client.Organization(),
@@ -73,8 +91,8 @@ func (a App) renderHeader(crumbs ...string) string {
 	})
 }
 
-func (a App) renderMainView() string {
-	l := a.layout()
+func (a *App) renderMainView() string {
+	l := a.shell
 	var cols []string
 	if l.railWidth > 0 {
 		cols = append(cols, panels.RenderRail(panels.RailProps{
@@ -94,7 +112,7 @@ func (a App) renderMainView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, a.renderHeader("Boards", a.hub.Name()), body, a.renderStatusBar())
 }
 
-func (a App) renderMainColumn(l shellLayout) string {
+func (a *App) renderMainColumn(l shellLayout) string {
 	var box string
 	if a.isPanePanel() && !l.showPane {
 		box = a.renderPane(l.mainWidth, l.mainHeight())
@@ -103,11 +121,11 @@ func (a App) renderMainColumn(l shellLayout) string {
 		title, content := a.mainPanelView()
 		box = panels.Pane(panels.PaneTitle(a.keys.Panel5.Help().Key, title, focused), content, l.mainWidth, l.mainHeight(), focused)
 	}
-	header := panels.Block(a.pageHeader(l.mainWidth).View, l.mainWidth, l.headerHeight)
+	header := panels.Block(a.header.View, l.mainWidth, l.headerHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, box)
 }
 
-func (a App) mainPanelView() (string, string) {
+func (a *App) mainPanelView() (string, string) {
 	switch a.mainView() {
 	case viewBoard:
 		return a.boardPanel.Title(), a.boardPanel.View()
@@ -118,7 +136,7 @@ func (a App) mainPanelView() (string, string) {
 	}
 }
 
-func (a App) currentIteration() *models.Iteration {
+func (a *App) currentIteration() *models.Iteration {
 	selected := a.filters.GetSelectedSprint()
 	for i := range a.iterations {
 		if a.iterations[i].Path == selected {
@@ -128,14 +146,14 @@ func (a App) currentIteration() *models.Iteration {
 	return nil
 }
 
-func (a App) sprintName() string {
+func (a *App) sprintName() string {
 	if it := a.currentIteration(); it != nil {
 		return it.Name
 	}
 	return allIterations
 }
 
-func (a App) sprintDates() string {
+func (a *App) sprintDates() string {
 	it := a.currentIteration()
 	if it == nil || it.StartDate.IsZero() || it.FinishDate.IsZero() {
 		return ""
@@ -157,7 +175,7 @@ func workingDaysLeft(from, to time.Time) int {
 	return days
 }
 
-func (a App) renderPane(width, height int) string {
+func (a *App) renderPane(width, height int) string {
 	focused := a.isPanePanel()
 	discussion := "Discussion"
 	if n := a.commentsPanel.Count(); n > 0 {
@@ -180,8 +198,8 @@ func (a App) renderPane(width, height int) string {
 	return panels.Pane(title, content, width, height, focused)
 }
 
-func (a App) renderDetailView() string {
-	l := a.layout()
+func (a *App) renderDetailView() string {
+	l := a.shell
 	id := ""
 	if item := a.detailView.Item(); item != nil {
 		id = strconv.Itoa(item.ID)
@@ -190,12 +208,14 @@ func (a App) renderDetailView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, a.renderHeader("Boards", a.hub.Name(), id), body, a.renderStatusBar())
 }
 
-func (a App) modeLabel() string {
+func (a *App) modeLabel() string {
 	switch {
 	case a.viewMode == ViewDetail:
 		return "WORK ITEM"
 	case a.keyword.Focused():
 		return "FILTER"
+	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
+		return "MOVING"
 	case a.activePanel == PanelDetails:
 		return "DETAILS"
 	case a.activePanel == PanelComments:
@@ -205,7 +225,7 @@ func (a App) modeLabel() string {
 	}
 }
 
-func (a App) renderStatusBar() string {
+func (a *App) renderStatusBar() string {
 	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(styles.ColorPrimary).Bold(true).
 		Padding(0, 1).Render(a.modeLabel())
 	rightItems := panels.HelpItems(a.statusHelp, []key.Binding{a.keys.Help, a.keys.Quit})
@@ -218,7 +238,7 @@ func (a App) renderStatusBar() string {
 		Render(left + strings.Repeat(" ", gap) + right + " ")
 }
 
-func (a App) statusBindings() []key.Binding {
+func (a *App) statusBindings() []key.Binding {
 	switch {
 	case a.viewMode == ViewDetail:
 		return a.detailView.KeyBindings()

@@ -40,7 +40,7 @@ func AnimateCmd() tea.Cmd {
 }
 
 type SplashScreen struct {
-	styles  styles.Styles
+	styles  *styles.Styles
 	width   int
 	height  int
 	spinner spinner.Model
@@ -56,7 +56,7 @@ type SplashScreen struct {
 	barHVel [numBars]float64
 }
 
-func NewSplashScreen(st styles.Styles) SplashScreen {
+func NewSplashScreen(st *styles.Styles) SplashScreen {
 	sp := spinner.New()
 	sp.Style = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	sp.Spinner = spinner.MiniDot

@@ -32,6 +32,8 @@ var (
 	ColorSurfaceAlt   = lipgloss.Color("#201F1E")
 	ColorChip         = lipgloss.Color("#323130")
 	ColorOnAccent     = lipgloss.Color("#1B1A19")
+	ColorDropTint     = lipgloss.Color("#1A2633")
+	ColorPhantom      = lipgloss.Color("#1E3247")
 	ColorTypePBI      = lipgloss.Color("#2AB0E0")
 	ColorTypeTask     = lipgloss.Color("#F2CB1D")
 	ColorTypeBug      = lipgloss.Color("#E0475B")
@@ -160,8 +162,8 @@ type Styles struct {
 	StateBadge func(string) lipgloss.Style
 }
 
-func DefaultStyles() Styles {
-	return Styles{
+func DefaultStyles() *Styles {
+	return &Styles{
 		App: lipgloss.NewStyle(),
 
 		Title: lipgloss.NewStyle().

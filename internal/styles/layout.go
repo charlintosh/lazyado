@@ -19,6 +19,8 @@ const (
 	ShellMinHeight       = 14
 	BoxPaddedSize        = 4
 	PaneChromeHeight     = 4
+	PaneContentInsetX    = 2
+	PaneContentInsetY    = 3
 )
 
 const (
@@ -48,12 +50,14 @@ const (
 	TaskCardHeight       = 2
 	TaskCardGap          = 1
 	TaskParentHeight     = 2
+	TaskCollapsedHeight  = 1
 	TaskCellPadding      = 2
 	TaskTableHeaderLines = 3
 	TaskStateMinWidth    = 18
 	TaskLaneMinWidth     = 22
 	TaskLaneMaxWidth     = 44
 	TaskLaneWidthRatio   = 0.30
+	DragChipWidth        = 40
 )
 
 // ── Panel height minimums ─────────────────────────────────────────────────

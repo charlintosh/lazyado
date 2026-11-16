@@ -12,7 +12,7 @@ A terminal user interface (TUI) for Azure DevOps Boards.
 
 - **Azure DevOps layout** — Top bar with `org / project / Boards / hub` breadcrumb, a left navigation rail (project, then Boards › Boards / Backlogs / Sprints) that collapses to hub keys on narrow terminals, a hub header with view pivots on the left and the scope pickers and filter funnel on the right, and a status bar with the active mode and contextual keys — laid out like the Azure DevOps web UI.
 - **Filters where Azure DevOps puts them** — Sprints shows `Sprint ▾` and `Person ▾` in the header; every other filter lives in the filter bar under the pivots (`f`), with a keyword box (`/`) and a count on the funnel when filters are active. The Person / Assigned to list is built from the people actually assigned in the loaded sprint, team and area (with counts), plus team members with nothing assigned, `@Me` and `Unassigned`.
-- **Three Boards hubs** — Backlog grid (`L`), Kanban board (`B`) and sprint taskboard (`S`); move cards between workflow columns with `<` / `>`.
+- **Three Boards hubs** — Backlog grid (`L`), Kanban board (`B`) and sprint taskboard (`S`); move cards between workflow columns with `<` / `>`, or drag a task to another state column with the mouse on the Sprints taskboard.
 - **Work items** — Browse, search and filter by sprint, state, assigned, area, tags; sort by ID / Type / State.
 - **Quick search** — Instantly jump to any work item by ID using Ctrl+F.
 - **Hierarchical view** — PBIs / Bugs with expandable child tasks.
@@ -144,6 +144,19 @@ Note: keys `1`, `2`, `3` are also used for sorting in some contexts (see Sort se
 | `j` / `k` | Next / previous card (board) or lane (sprint)  |
 | `<`       | Move the card to the previous workflow state   |
 | `>`       | Move the card to the next workflow state       |
+| `h` / `l` | On a backlog item (Sprints): collapse / expand its row |
+| `C`       | Collapse / expand every row (Sprints)          |
+
+Sprints taskboard rows collapse like Azure DevOps. When a row first appears it is open if any of its tasks is still pending, and collapsed if every task is done (or the backlog item itself is done). A collapsed row is one line: `▸`, the backlog item, its done count, and a task count under each state column. Click `▸` / `▾`, a collapsed row, or the `⊟ Collapse all` header to toggle with the mouse. Your choices last for the session, and a row is never collapsed under you because its last task finished. You can still drop a dragged task on a collapsed row's column.
+
+On the Sprints taskboard you can also use the mouse: drag a task card and drop it on another state column (any row of that column, or its header) to change the task's state — drop it on **Done** and the task becomes Done.
+
+- **Hover**: the card under the pointer lifts and shows a grip `⠿`; the status bar offers `drag  move <id>`.
+- **While dragging**: the original slot stays as a dashed ghost marked `moving…`; a chip next to the pointer names the destination; a dashed phantom card waits in the target cell; the target column is tinted and its header previews the counts (`▸ Done 2 → 3`, `To Do 2 → 1`); the status bar reads `MOVING  release move to Done  Esc cancel`.
+- **Drops that change nothing** (its own column, the backlog item column, outside the board) show no phantom; the chip says why, and release just cancels.
+- **After the drop** the card moves right away and shows `Saving to Done…`, then `✓ Moved to Done`. If Azure DevOps rejects the change, the card goes back in red (`✕ Not saved`) and the top bar shows the error. `<` / `>` moves get the same Saving / Moved / Not saved feedback.
+
+A plain click selects a card. Dragging is only available on the Sprints taskboard, and only between the state columns currently on screen. Hover needs a terminal that reports mouse motion (most do); lazyado only asks for it while the Sprints taskboard is showing.
 
 #### Actions
 

@@ -131,6 +131,15 @@ func commentCmd(workItemID int, notice string, run func() error) tea.Cmd {
 	}
 }
 
+func moveWorkItemCmd(client *api.Client, id int, state string) tea.Cmd {
+	return func() tea.Msg {
+		if err := client.UpdateWorkItemState(id, state); err != nil {
+			return workItemMoveFailedMsg{id: id, state: state, err: err}
+		}
+		return workItemMovedMsg{id: id, state: state}
+	}
+}
+
 func updateWorkItemStateCmd(client *api.Client, id int, state string) tea.Cmd {
 	return workItemCmd("State changed to "+state, func() error {
 		return client.UpdateWorkItemState(id, state)

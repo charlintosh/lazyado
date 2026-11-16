@@ -200,7 +200,7 @@ func (a *App) runAction(action itemAction, item models.WorkItem) tea.Cmd {
 	return nil
 }
 
-func (a App) actionFor(msg tea.KeyPressMsg) itemAction {
+func (a *App) actionFor(msg tea.KeyPressMsg) itemAction {
 	k := a.keys
 	bindings := []struct {
 		binding key.Binding
@@ -223,7 +223,7 @@ func (a App) actionFor(msg tea.KeyPressMsg) itemAction {
 	return actionNone
 }
 
-func (a App) allows(action itemAction) bool {
+func (a *App) allows(action itemAction) bool {
 	for _, allowed := range panelActions[a.activePanel] {
 		if allowed == action {
 			return true
@@ -232,7 +232,7 @@ func (a App) allows(action itemAction) bool {
 	return false
 }
 
-func (a App) editForm(item models.WorkItem) modals.Modal {
+func (a *App) editForm(item models.WorkItem) modals.Modal {
 	if item.HasAdvancedFields() {
 		return modals.NewEditWorkItemForm(a.env(), item, a.teamMembers)
 	}

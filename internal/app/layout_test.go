@@ -63,12 +63,12 @@ func sampleWorkItems() []models.WorkItem {
 	return items
 }
 
-func newTestApp(t *testing.T, width, height int) App {
+func newTestApp(t testing.TB, width, height int) App {
 	t.Helper()
 	return newTestAppAs(t, width, height, models.Identity{})
 }
 
-func newTestAppAs(t *testing.T, width, height int, me models.Identity) App {
+func newTestAppAs(t testing.TB, width, height int, me models.Identity) App {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	client := api.NewClient(&config.Config{Organization: "acme", Project: "storefront", Team: "Storefront Team"})
@@ -130,7 +130,8 @@ func TestHubLayoutsFitTerminal(t *testing.T) {
 			for _, sz := range [][2]int{{180, 46}, {110, 30}, {90, 26}, {70, 22}, {55, 18}} {
 				var m tea.Model = newTestApp(t, sz[0], sz[1])
 				m, _ = m.Update(k)
-				assertFits(t, m.(App).render(), sz[0], sz[1])
+				app := m.(App)
+				assertFits(t, app.render(), sz[0], sz[1])
 			}
 		})
 	}
@@ -145,7 +146,8 @@ func TestWorkItemFormFitsTerminal(t *testing.T) {
 			t.Fatal("no selected item")
 		}
 		m, _ = m.Update(panels.ViewWorkItemMsg{Item: *item})
-		assertFits(t, m.(App).render(), sz[0], sz[1])
+		app = m.(App)
+		assertFits(t, app.render(), sz[0], sz[1])
 	}
 }
 

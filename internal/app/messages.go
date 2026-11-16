@@ -37,6 +37,17 @@ type workItemChangedMsg struct {
 	deletedID int
 }
 
+type workItemMovedMsg struct {
+	id    int
+	state string
+}
+
+type workItemMoveFailedMsg struct {
+	id    int
+	state string
+	err   error
+}
+
 type identityLoadedMsg struct {
 	me models.Identity
 }

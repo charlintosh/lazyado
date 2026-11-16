@@ -19,7 +19,7 @@ import (
 type DetailsPanel struct {
 	item     *models.WorkItem
 	viewport viewport.Model
-	styles   styles.Styles
+	styles   *styles.Styles
 	keys     keys.KeyMap
 	width    int
 	height   int
@@ -27,7 +27,7 @@ type DetailsPanel struct {
 	focused  bool
 }
 
-func NewDetailsPanel(st styles.Styles, k keys.KeyMap) DetailsPanel {
+func NewDetailsPanel(st *styles.Styles, k keys.KeyMap) DetailsPanel {
 	return DetailsPanel{
 		viewport: widgets.NewViewport(k),
 		styles:   st,

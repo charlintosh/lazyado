@@ -39,18 +39,18 @@ var (
 	}
 )
 
-func (a App) filterKeys() []key.Binding {
+func (a *App) filterKeys() []key.Binding {
 	return []key.Binding{a.keys.Panel1, a.keys.Panel2, a.keys.Panel3, a.keys.Panel4}
 }
 
-func (a App) barFilters() []models.FilterType {
+func (a *App) barFilters() []models.FilterType {
 	if a.hub == panels.HubSprint {
 		return sprintBarFilters
 	}
 	return allFilters
 }
 
-func (a App) inBar(t models.FilterType) bool {
+func (a *App) inBar(t models.FilterType) bool {
 	for _, b := range a.barFilters() {
 		if b == t {
 			return true
@@ -59,14 +59,14 @@ func (a App) inBar(t models.FilterType) bool {
 	return false
 }
 
-func (a App) filterName(t models.FilterType) string {
+func (a *App) filterName(t models.FilterType) string {
 	if name, ok := sprintFilterName[t]; ok && a.hub == panels.HubSprint {
 		return name
 	}
 	return barFilterName[t]
 }
 
-func (a App) groupIndex(t models.FilterType) int {
+func (a *App) groupIndex(t models.FilterType) int {
 	for i, g := range a.filters.Groups {
 		if g.Type == t {
 			return i
@@ -75,7 +75,7 @@ func (a App) groupIndex(t models.FilterType) int {
 	return -1
 }
 
-func (a App) pickerOpen(group int) bool {
+func (a *App) pickerOpen(group int) bool {
 	m, ok := a.modals.top()
 	if !ok {
 		return false
@@ -84,7 +84,7 @@ func (a App) pickerOpen(group int) bool {
 	return ok && p.Group() == group
 }
 
-func (a App) filterControl(t models.FilterType, prefix string) panels.HeaderControl {
+func (a *App) filterControl(t models.FilterType, prefix string) panels.HeaderControl {
 	i := a.groupIndex(t)
 	if i < 0 || i >= len(a.filterKeys()) {
 		return panels.HeaderControl{Group: -1}
@@ -105,7 +105,7 @@ func (a App) filterControl(t models.FilterType, prefix string) panels.HeaderCont
 	}
 }
 
-func (a App) activeFilterCount() int {
+func (a *App) activeFilterCount() int {
 	n := a.filters.ActiveCount(a.barFilters()...)
 	if a.keyword.Value() != "" {
 		n++
@@ -113,7 +113,7 @@ func (a App) activeFilterCount() int {
 	return n
 }
 
-func (a App) funnelControl() panels.HeaderControl {
+func (a *App) funnelControl() panels.HeaderControl {
 	c := panels.HeaderControl{Label: filterIdleIcon + " Filter", Short: filterIdleIcon, Key: a.keys.FilterBar, Open: a.filterBar, Group: -1}
 	if n := a.activeFilterCount(); n > 0 {
 		count := strconv.Itoa(n)
@@ -122,11 +122,11 @@ func (a App) funnelControl() panels.HeaderControl {
 	return c
 }
 
-func (a App) plainControl(label string, b key.Binding) panels.HeaderControl {
+func (a *App) plainControl(label string, b key.Binding) panels.HeaderControl {
 	return panels.HeaderControl{Label: label, Key: b, Group: -1}
 }
 
-func (a App) pageHeader(width int) panels.PageHeader {
+func (a *App) pageHeader(width int) panels.PageHeader {
 	p := panels.PageHeaderProps{
 		Width:      width,
 		Title:      a.headerTitle(),
@@ -166,7 +166,7 @@ func (a App) pageHeader(width int) panels.PageHeader {
 	return panels.RenderPageHeader(p)
 }
 
-func (a App) headerTitle() string {
+func (a *App) headerTitle() string {
 	team := a.client.Team()
 	if team == "" {
 		team = a.client.Project()
@@ -179,9 +179,9 @@ func (a App) headerTitle() string {
 	return title + panels.Muted(titleSeparator) + bold.Render(a.sprintName()) + panels.Muted(a.sprintDates())
 }
 
-func (a App) pickerAnchor(group int) (int, int, bool) {
-	l := a.layout()
-	anchor, ok := a.pageHeader(l.mainWidth).Anchor(group)
+func (a *App) pickerAnchor(group int) (int, int, bool) {
+	l := a.shell
+	anchor, ok := a.header.Anchor(group)
 	if !ok {
 		return 0, 0, false
 	}

@@ -103,7 +103,7 @@ type boardColumn struct {
 
 type BoardPanel struct {
 	columns []*boardColumn
-	styles  styles.Styles
+	styles  *styles.Styles
 	keys    keys.KeyMap
 	col     int
 	width   int
@@ -111,7 +111,7 @@ type BoardPanel struct {
 	focused bool
 }
 
-func NewBoardPanel(st styles.Styles, k keys.KeyMap) BoardPanel {
+func NewBoardPanel(st *styles.Styles, k keys.KeyMap) BoardPanel {
 	return BoardPanel{styles: st, keys: k}
 }
 

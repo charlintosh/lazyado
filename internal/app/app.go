@@ -65,6 +65,8 @@ type App struct {
 	keyword        textinput.Model
 	filters        *models.FilterState
 	loadedQuery    workItemQuery
+	shell          shellLayout
+	header         panels.PageHeader
 
 	activePanel     Panel
 	rightTab        Panel
@@ -87,7 +89,7 @@ type App struct {
 	me           models.Identity
 
 	client *api.Client
-	styles styles.Styles
+	styles *styles.Styles
 	keys   keys.KeyMap
 	width  int
 	height int
@@ -251,15 +253,15 @@ func (a *App) ensureSpinner() tea.Cmd {
 	return a.spinner.Tick
 }
 
-func (a App) busy() bool {
+func (a *App) busy() bool {
 	return a.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading())
 }
 
-func (a App) showSplash() bool {
+func (a *App) showSplash() bool {
 	return a.loading && len(a.workItems) == 0 && !a.initialLoadDone
 }
 
-func (a App) env() modals.Env {
+func (a *App) env() modals.Env {
 	return modals.Env{Keys: a.keys, Width: a.width, Height: a.height}
 }
 
@@ -298,7 +300,7 @@ func (a *App) applyView() {
 	a.taskboardPanel.SetItems(items, a.statesByType)
 }
 
-func (a App) visibleItems() []models.WorkItem {
+func (a *App) visibleItems() []models.WorkItem {
 	person := a.filters.GetSelectedAssigned()
 	keyword := a.keyword.Value()
 	everyone := person == models.FilterAll || (person == models.AssignedMe && !a.me.Known())
@@ -310,7 +312,7 @@ func (a App) visibleItems() []models.WorkItem {
 	})
 }
 
-func (a App) mainView() mainView {
+func (a *App) mainView() mainView {
 	switch {
 	case a.hub == panels.HubBoard:
 		return viewBoard
@@ -325,7 +327,7 @@ func (a *App) mutate(cmd tea.Cmd) tea.Cmd {
 	return cmd
 }
 
-func (a App) selectedItem() *models.WorkItem {
+func (a *App) selectedItem() *models.WorkItem {
 	switch a.mainView() {
 	case viewBoard:
 		return a.boardPanel.SelectedItem()

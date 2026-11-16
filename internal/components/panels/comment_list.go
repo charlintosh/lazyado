@@ -26,7 +26,7 @@ type CommentListConfig struct {
 	Me       models.Identity
 }
 
-func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentListConfig) (string, []int) {
+func RenderCommentList(comments []models.Comment, s *styles.Styles, cfg CommentListConfig) (string, []int) {
 	if len(comments) == 0 {
 		return "", nil
 	}
@@ -45,7 +45,7 @@ func RenderCommentList(comments []models.Comment, s styles.Styles, cfg CommentLi
 	return strings.Join(boxes, "\n"), offsets
 }
 
-func renderComment(c models.Comment, s styles.Styles, width int, mine bool) string {
+func renderComment(c models.Comment, s *styles.Styles, width int, mine bool) string {
 	author := s.CommentAuthor.Render(c.CreatedBy)
 	if mine {
 		author += s.TextMuted.Render(" " + youNote)

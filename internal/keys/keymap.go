@@ -57,6 +57,9 @@ type KeyMap struct {
 	FilterBar     key.Binding
 	ClearFilters  key.Binding
 	Fullscreen    key.Binding
+	ToggleRows    key.Binding
+	DragTask      key.Binding
+	DropTask      key.Binding
 	MoveItemLeft  key.Binding
 	MoveItemRight key.Binding
 	HalfPageUp    key.Binding
@@ -262,6 +265,18 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("z"),
 			key.WithHelp("z", "full screen"),
 		),
+		ToggleRows: key.NewBinding(
+			key.WithKeys("C"),
+			key.WithHelp("C", "collapse / expand all rows"),
+		),
+		DragTask: key.NewBinding(
+			key.WithKeys("drag"),
+			key.WithHelp("drag", "move a task (Sprints)"),
+		),
+		DropTask: key.NewBinding(
+			key.WithKeys("release"),
+			key.WithHelp("release", "drop on a state column"),
+		),
 		MoveItemLeft: key.NewBinding(
 			key.WithKeys("<"),
 			key.WithHelp("<", "move left"),
@@ -288,6 +303,6 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
-		{k.MoveItemLeft, k.MoveItemRight, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
+		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 	}
 }
