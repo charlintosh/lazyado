@@ -159,18 +159,71 @@ func TestClickingSelectsWithoutMoving(t *testing.T) {
 	}
 }
 
-func TestDragAndDropOnlyWorksOnTheSprintTaskboard(t *testing.T) {
-	for _, hub := range []string{"B", "L"} {
-		a := newTestApp(t, 160, 45)
-		a, _ = step(t, a, press(hub))
-		x, y, ok := locate(t, a, "1043 ")
-		if !ok {
-			t.Fatalf("%s: 1043 is not on screen", hub)
+func TestDragAndDropDoesNothingOnTheBacklogGrid(t *testing.T) {
+	a := newTestApp(t, 160, 45)
+	a, _ = step(t, a, press("L"))
+	x, y, ok := locate(t, a, "1043 ")
+	if !ok {
+		t.Fatal("1043 is not on screen")
+	}
+	_, msgs := dragTo(t, a, x+2, y, x+40, y)
+	if _, ok := find[panels.MoveWorkItemMsg](msgs); ok {
+		t.Fatal("dragging must not change state on the backlog grid")
+	}
+}
+
+func boardTarget(t *testing.T, a App, from string) (string, int, int) {
+	t.Helper()
+	for _, state := range []string{"Done", "Committed", "Approved", "New", "Active", "Resolved", "Closed"} {
+		if state == from {
+			continue
 		}
-		_, msgs := dragTo(t, a, x+2, y, x+40, y)
-		if _, ok := find[panels.MoveWorkItemMsg](msgs); ok {
-			t.Fatalf("%s: dragging must not change state outside Sprints", hub)
+		if x, y, ok := locate(t, a, "│ "+state+"  "); ok {
+			return state, x + 3, y + 8
 		}
+	}
+	t.Fatalf("no other column is on screen:\n%s", ansi.Strip(a.render()))
+	return "", 0, 0
+}
+
+func TestDraggingABoardCardToAnotherColumnChangesItsState(t *testing.T) {
+	a := newTestApp(t, 160, 45)
+	a, _ = step(t, a, press("B"))
+	item, _ := a.loadedItem(1043)
+	x, y, ok := locate(t, a, "1043 ")
+	if !ok {
+		t.Fatalf("1043 is not on the board:\n%s", ansi.Strip(a.render()))
+	}
+	state, tx, ty := boardTarget(t, a, string(item.State))
+	a, _ = step(t, a, tea.MouseClickMsg(mouse(x+1, y)))
+	a, _ = step(t, a, tea.MouseMotionMsg(mouse(tx, ty)))
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"MOVING", "↳ drop to set " + state, "moving…", "→ " + state} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dragging over %s should show %q:\n%s", state, want, out)
+		}
+	}
+	a, msgs := step(t, a, tea.MouseReleaseMsg(mouse(tx, ty)))
+	move, ok := find[panels.MoveWorkItemMsg](msgs)
+	if !ok || move.Item.ID != 1043 || move.NewState != state {
+		t.Fatalf("dropping on %s produced %v", state, msgs)
+	}
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "◌ Saving to "+state+"…") {
+		t.Fatalf("the card must move at once and show it is saving:\n%s", out)
+	}
+}
+
+func TestEscCancelsABoardDrag(t *testing.T) {
+	a := newTestApp(t, 160, 45)
+	a, _ = step(t, a, press("B"))
+	x, y, _ := locate(t, a, "1043 ")
+	a, _ = step(t, a, tea.MouseClickMsg(mouse(x+1, y)))
+	if !a.boardPanel.Dragging() {
+		t.Fatal("pressing on a card must pick it up")
+	}
+	a, _ = step(t, a, special(tea.KeyEscape))
+	if a.boardPanel.Dragging() {
+		t.Fatal("esc must cancel the drag")
 	}
 }
 
@@ -212,16 +265,16 @@ func BenchmarkDragMotion(b *testing.B) {
 	}
 }
 
-func TestHoverTrackingOnlyRunsOnTheSprintTaskboard(t *testing.T) {
+func TestHoverTrackingOnlyRunsOnTheBoards(t *testing.T) {
 	a := taskboardApp(t, 160, 45)
 	if a.View().MouseMode != tea.MouseModeAllMotion {
 		t.Fatal("the Sprints taskboard needs pointer motion for hover")
 	}
-	for _, k := range []string{"B", "L"} {
-		other, _ := step(t, a, press(k))
-		if other.View().MouseMode != tea.MouseModeCellMotion {
-			t.Fatalf("%s should only report motion while a button is held", k)
-		}
+	if board, _ := step(t, a, press("B")); board.View().MouseMode != tea.MouseModeAllMotion {
+		t.Fatal("the Board needs pointer motion for hover and drag")
+	}
+	if grid, _ := step(t, a, press("L")); grid.View().MouseMode != tea.MouseModeCellMotion {
+		t.Fatal("the backlog grid should only report motion while a button is held")
 	}
 	withModal, _ := step(t, a, press("?"))
 	if withModal.View().MouseMode != tea.MouseModeCellMotion {

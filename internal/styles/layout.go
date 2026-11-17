@@ -42,11 +42,16 @@ const (
 )
 
 const (
-	BoardCardHeight      = 4
+	BoardCardHeight      = 5
 	CardChromeWidth      = 2
 	BoardCardGap         = 1
-	BoardColumnMinWidth  = 24
+	BoardCardChrome      = 3
+	BoardColumnMinWidth  = 30
 	BoardColumnGap       = 1
+	BoardColumnPadding   = 1
+	BoardColumnHeader    = 3
+	BoardEdgeZone        = 2
+	BoardTagChips        = 2
 	TaskCardHeight       = 2
 	TaskCardGap          = 1
 	TaskParentHeight     = 2

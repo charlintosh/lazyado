@@ -39,7 +39,6 @@ type PageHeaderProps struct {
 	Action     HeaderControl
 	Pivots     []string
 	Pivot      int
-	Link       *HeaderControl
 	Controls   []HeaderControl
 	ShowBar    bool
 	Keyword    string
@@ -147,19 +146,13 @@ func (p PageHeaderProps) pivotLabels() []string {
 
 func (p PageHeaderProps) pivotRow() (string, []HeaderAnchor) {
 	pivots := strings.Join(p.pivotLabels(), headerGap)
-	link := ""
-	if p.Link != nil {
-		link = headerGap + p.Link.view(false)
-	}
 	controls := p.Controls
 	for {
 		for _, short := range []bool{false, true} {
 			right, offsets := joinControls(controls, short)
-			for _, l := range []string{link, ""} {
-				if fits(p.Width, pivots, l, " ", right) {
-					x := p.Width - 1 - lipgloss.Width(right)
-					return spread(p.Width, pivots+l, right), anchorsFor(controls, offsets, x, headerPivotY)
-				}
+			if fits(p.Width, pivots, " ", right) {
+				x := p.Width - 1 - lipgloss.Width(right)
+				return spread(p.Width, pivots, right), anchorsFor(controls, offsets, x, headerPivotY)
 			}
 		}
 		if len(controls) == 0 {

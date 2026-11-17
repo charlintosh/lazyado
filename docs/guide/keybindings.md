@@ -124,7 +124,8 @@ Backlogs, Boards and Sprints. See [Boards](boards.md) for details.
 | `<` / `>` | Move the card to the previous / next state |
 | `h` / `l` | Previous / next column (board), or collapse / expand a row (taskboard) |
 | `C` | Collapse / expand every taskboard row |
-| Drag and drop | Move a task to another state column (Sprints taskboard) |
+| Drag and drop | Move a card to another column (Board) or a task to another state column (Sprints taskboard); `esc` cancels |
+| Double click | Open a Board card's work item form |
 
 ## Work item form
 

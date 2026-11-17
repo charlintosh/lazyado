@@ -27,14 +27,25 @@ func (a App) View() tea.View {
 }
 
 func (a *App) tracksHover() bool {
-	return a.viewMode == ViewMain && a.mainView() == viewTaskboard && a.activePanel == PanelWorkItems && !a.modals.open()
+	view := a.mainView()
+	return a.viewMode == ViewMain && (view == viewTaskboard || view == viewBoard) && a.activePanel == PanelWorkItems && !a.modals.open()
 }
 
 func (a *App) withDragChip(base string) string {
-	if a.viewMode != ViewMain || a.mainView() != viewTaskboard {
+	if a.viewMode != ViewMain {
 		return base
 	}
-	chip, x, y, ok := a.taskboardPanel.DragChip()
+	var (
+		chip string
+		x, y int
+		ok   bool
+	)
+	switch a.mainView() {
+	case viewTaskboard:
+		chip, x, y, ok = a.taskboardPanel.DragChip()
+	case viewBoard:
+		chip, x, y, ok = a.boardPanel.DragChip()
+	}
 	if !ok {
 		return base
 	}
@@ -158,21 +169,22 @@ func (a *App) renderMainColumn(l shellLayout) string {
 	default:
 		focused := a.activePanel == PanelWorkItems
 		title, content := a.mainPanelView()
-		box = panels.Pane(panels.PaneTitle(a.mainPaneKey(), title, focused), content, l.mainWidth, l.mainHeight(), focused)
+		box = panels.Pane(panels.PaneTitle("", title, focused), content, l.mainWidth, l.mainHeight(), focused)
 	}
 	header := panels.Block(a.header.View, l.mainWidth, l.headerHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, box)
 }
 
-func (a *App) mainPaneKey() string {
-	switch a.hub {
-	case panels.HubBacklog, panels.HubBoard, panels.HubSprint:
-		return a.keys.Panel5.Help().Key
+func (a *App) mainPanelView() (string, string) {
+	title, content := a.mainPanelContent()
+	if a.hub == panels.HubSprint && a.viewMode == ViewMain {
+		other := sprintPivots[(a.sprintView+1)%len(sprintPivots)]
+		title += panels.Muted(fmt.Sprintf("  %s/%s %s", a.keys.PrevView.Help().Key, a.keys.NextView.Help().Key, strings.ToLower(other)))
 	}
-	return ""
+	return title, content
 }
 
-func (a *App) mainPanelView() (string, string) {
+func (a *App) mainPanelContent() (string, string) {
 	switch a.mainView() {
 	case viewBoard:
 		return a.boardPanel.Title(), a.boardPanel.View()
@@ -279,7 +291,8 @@ func (a *App) modeLabel() string {
 		return "FILTER"
 	case a.searchingPullRequests(), a.searchingPipelines(), a.searchingReleases(), a.searchingCommits(), a.searchingBranches(), a.searchingTags():
 		return "SEARCH"
-	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
+	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging(),
+		a.mainView() == viewBoard && a.boardPanel.Dragging():
 		return "MOVING"
 	case a.activePanel == PanelDetails:
 		return "DETAILS"

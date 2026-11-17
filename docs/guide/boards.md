@@ -8,7 +8,7 @@ The *Boards* section has three hubs, matching Azure DevOps:
 | **Boards** | `B` | The Kanban board: one column per workflow state |
 | **Sprints** | `S` | The sprint taskboard, plus a sprint backlog view (`[` / `]` switch between them) |
 
-The hub header also links Backlogs and Boards to each other (*View as Board* / *View as Backlog*).
+Switch hubs with `L`, `B` and `S`. On Sprints, `[` / `]` switch between the taskboard and the sprint backlog; the pane title names the other view.
 
 - [Filtering](#filtering)
 - [Working with work items](#working-with-work-items)
@@ -19,7 +19,7 @@ The hub header also links Backlogs and Boards to each other (*View as Board* / *
 
 ## Filtering
 
-Filters sit where Azure DevOps puts them. On **Sprints**, the sprint and person pickers are in the hub header. Everything else is in the **filter bar** under the pivots, which `f` shows and hides.
+Filters sit where Azure DevOps puts them. On **Sprints**, the sprint and person pickers are in the hub header. Everything else is in the **filter bar** under the hub header, which `f` shows and hides.
 
 | Key | Filter |
 | --- | ------ |
@@ -102,7 +102,17 @@ Likes show as `♥ 2`, or `♥ 2 · you` when one of them is yours. On anyone el
 
 On the **Boards** and **Sprints** hubs, `<` and `>` move the selected card to the previous or next workflow state. On the board, `h` / `l` move between columns and `j` / `k` between cards.
 
-On the Sprints taskboard the card moves right away and shows *Saving…*, then *✓ Moved*. If Azure DevOps rejects the change, the card goes back, marked *✕ Not saved*, and the error appears in the top bar.
+You can also **drag a card with the mouse** onto another column, on the Board and on the Sprints taskboard:
+
+- Under the pointer a card lightens and shows a ⠿ grip.
+- While you drag, the card's place shows a dotted outline (*moving…*), the column under the pointer is tinted with a dashed preview of the card at its top (*↳ drop to set Committed*), the column counts show the change (`2 → 3`), and a label follows the pointer. The status bar reads **MOVING**.
+- Releasing over the card's own column, outside any column, or over a state the item's type doesn't have (for example a Bug over a column only Product Backlog Items use) does nothing; the label says why.
+- On the Board, when not every column fits, hold the pointer at the left or right edge for half a second to scroll to the hidden columns.
+- `esc` cancels a drag. On the Board, a double click opens the work item form.
+
+The card moves right away and shows *Saving…*, then *✓ Moved*. If Azure DevOps rejects the change, the card goes back, marked *✕ Not saved*, and the error appears in the top bar.
+
+Board cards show the ID and type with the effort, the title on two lines, up to two tags, and the assignee with the task progress. The column already names the state, so the card doesn't repeat it.
 
 ## The Sprints taskboard
 

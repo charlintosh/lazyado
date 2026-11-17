@@ -20,7 +20,6 @@ const (
 	filterIdleIcon     = "▽"
 	filterSetIcon      = "▼"
 	fullscreenIcon     = "⤢"
-	viewAsIcon         = "⇄ "
 	clearIcon          = "✕"
 	newIcon            = "+ "
 	titleSeparator     = "  /  "
@@ -149,7 +148,6 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 		if a.sprintView == sprintBacklog {
 			p.Action = a.plainControl(newIcon+"New Work Item", a.keys.CreateParent)
 		}
-		p.Pivots, p.Pivot = sprintPivots, a.sprintView
 		sprint := a.filterControl(models.FilterTypeSprint, "")
 		sprint.Label, sprint.Set = sprintIcon+sprint.Label, false
 		p.Controls = []panels.HeaderControl{sprint, a.filterControl(models.FilterTypeAssigned, "Person: "), a.funnelControl(), fullscreen}
@@ -192,15 +190,9 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 		p.Controls = []panels.HeaderControl{fullscreen}
 	case panels.HubBoard:
 		p.Action = a.plainControl(newIcon+"New item", a.keys.CreateParent)
-		p.Pivots = []string{"Board"}
-		link := a.plainControl(viewAsIcon+"View as Backlog", a.keys.HubBacklog)
-		p.Link = &link
 		p.Controls = []panels.HeaderControl{a.funnelControl(), fullscreen}
 	default:
 		p.Action = a.plainControl(newIcon+"New Work Item", a.keys.CreateParent)
-		p.Pivots = []string{"Backlog"}
-		link := a.plainControl(viewAsIcon+"View as Board", a.keys.HubBoard)
-		p.Link = &link
 		p.Controls = []panels.HeaderControl{a.funnelControl(), fullscreen}
 	}
 	return panels.RenderPageHeader(p)

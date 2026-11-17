@@ -61,7 +61,7 @@ lazyado is laid out like the Azure DevOps web UI.
 | ---- | ------------- |
 | **Top bar** | `organization / project / section / hub`, the quick search hint, and whether data is syncing. Notifications appear on the right. |
 | **Navigation rail** (left) | *Boards* → Boards (`B`), Backlogs (`L`), Sprints (`S`), *Repos* → Pull requests (`P`), and *Pipelines* → Builds (`D`), Releases (`R`). On narrow terminals it shrinks to the hub keys; `z` hides it. |
-| **Hub header** | The team (and sprint, on Sprints), the view pivots on the left, and the pickers and filter funnel on the right. |
+| **Hub header** | The team (and sprint, on Sprints), the view pivots on the left (Pull requests, Builds, Releases and Repos hubs), and the pickers and filter funnel on the right. |
 | **Content** | The backlog grid, board, taskboard, pull request list or pipeline list, with a details or preview pane on wide terminals. |
 | **Status bar** (bottom) | The current mode and the keys that work right now. |
 

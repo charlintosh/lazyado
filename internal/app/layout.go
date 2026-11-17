@@ -62,7 +62,9 @@ func (a *App) syncLayout() {
 	a.syncCommitsLayout(l.mainWidth, l.mainHeight())
 	a.syncBranchesLayout(l.mainWidth, l.mainHeight())
 	a.syncTagsLayout(l.mainWidth, l.mainHeight())
-	a.taskboardPanel.SetOrigin(l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY)
+	originX, originY := l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY
+	a.taskboardPanel.SetOrigin(originX, originY)
+	a.boardPanel.SetOrigin(originX, originY)
 
 	pw, ph := cw, ch
 	if l.showPane {

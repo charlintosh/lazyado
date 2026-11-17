@@ -10,6 +10,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func press(text string) tea.KeyPressMsg {
@@ -87,10 +88,11 @@ func TestBoardMoveCardRequestsNextState(t *testing.T) {
 		t.Fatalf("got item %d → %q, want 1 → Committed", msg.Item.ID, msg.NewState)
 	}
 
-	b, _ = b.Update(press("l"))
-	b, _ = b.Update(press("j"))
-	if sel := b.SelectedItem(); sel == nil || sel.ID != 3 {
-		t.Fatalf("selected %v, want item 3", sel)
+	if sel := b.SelectedItem(); sel == nil || sel.ID != 1 || b.columns[b.col].state != "Committed" {
+		t.Fatalf("the moved card must follow into Committed and stay selected, got %v in %q", sel, b.columns[b.col].state)
+	}
+	if out := ansi.Strip(b.View()); !strings.Contains(out, savingNote+"Committed…") {
+		t.Fatalf("the moved card must show it is saving:\n%s", out)
 	}
 	if _, cmd := b.Update(press(">")); cmd != nil {
 		t.Fatal("moving past the last column must do nothing")
@@ -144,5 +146,120 @@ func TestWorkItemsPanelKeepsSelectionAcrossResize(t *testing.T) {
 	w.SetSize(80, 20)
 	if sel := w.SelectedItem(); sel == nil || sel.ID != 2 {
 		t.Fatalf("selection after resize = %v, want item 2", sel)
+	}
+}
+
+func dragStates() map[string][]models.WorkItemStateInfo {
+	return map[string][]models.WorkItemStateInfo{
+		"Product Backlog Item": {{Name: "New"}, {Name: "Approved"}, {Name: "Committed"}, {Name: "Done"}},
+		"Bug":                  {{Name: "New"}, {Name: "Committed"}, {Name: "Done"}},
+	}
+}
+
+func dragBoardPanel(t *testing.T, width int) BoardPanel {
+	t.Helper()
+	b := NewBoardPanel(styles.DefaultStyles(), keys.DefaultKeyMap())
+	b.SetSize(width, 30)
+	b.SetOrigin(0, 0)
+	b.SetFocused(true)
+	b.SetItems(boardFixture(), dragStates())
+	return b
+}
+
+func locateOnBoard(t *testing.T, b BoardPanel, text string) (int, int) {
+	t.Helper()
+	for y, line := range strings.Split(ansi.Strip(b.View()), "\n") {
+		if i := strings.Index(line, text); i >= 0 {
+			return ansi.StringWidth(line[:i]), y
+		}
+	}
+	t.Fatalf("%q is not on the board:\n%s", text, ansi.Strip(b.View()))
+	return 0, 0
+}
+
+func TestBoardRefusesAStateTheItemTypeLacks(t *testing.T) {
+	b := dragBoardPanel(t, 140)
+	x, y := locateOnBoard(t, b, "3 BUG")
+	hx, hy := locateOnBoard(t, b, "Approved  ")
+	b, _ = b.Update(tea.MouseClickMsg(at(x, y)))
+	b, _ = b.Update(tea.MouseMotionMsg(at(hx, hy+6)))
+	if got := b.Title(); got != "Board  moving 3 · Bug has no Approved state" {
+		t.Fatalf("got title %q", got)
+	}
+	if chip, _, _, _ := b.DragChip(); !strings.Contains(ansi.Strip(chip), "✕ Bug has no Approved state") {
+		t.Fatalf("the label must say why:\n%s", ansi.Strip(chip))
+	}
+	if _, cmd := b.Update(tea.MouseReleaseMsg(at(hx, hy+6))); cmd != nil {
+		t.Fatal("dropping on a state the type lacks must not move it")
+	}
+}
+
+func TestBoardScrollsToHiddenColumnsAtTheEdge(t *testing.T) {
+	b := dragBoardPanel(t, 63)
+	if start, count, _ := b.window(); start != 0 || count != 2 {
+		t.Fatalf("expected two of four columns to fit, got start %d count %d", start, count)
+	}
+	x, y := locateOnBoard(t, b, "1 PBI")
+	b, _ = b.Update(tea.MouseClickMsg(at(x, y)))
+	b, cmd := b.Update(tea.MouseMotionMsg(at(62, y)))
+	if cmd == nil {
+		t.Fatal("holding at the right edge must schedule a scroll")
+	}
+	b.EdgeScroll(BoardEdgeScrollMsg{Seq: b.edgeSeq})
+	if start, _, _ := b.window(); start != 1 {
+		t.Fatalf("the board must scroll one column right, start is %d", start)
+	}
+	if chip, _, _, _ := b.DragChip(); !strings.Contains(ansi.Strip(chip), edgeNoteRight+"Done") {
+		t.Fatalf("the label must name the next hidden column:\n%s", ansi.Strip(chip))
+	}
+	b.EdgeScroll(BoardEdgeScrollMsg{Seq: b.edgeSeq - 1})
+	if start, _, _ := b.window(); start != 1 {
+		t.Fatal("a stale scroll tick must be ignored")
+	}
+}
+
+func TestBoardFailedMoveGoesBack(t *testing.T) {
+	b := dragBoardPanel(t, 140)
+	b, _ = b.Update(press(">"))
+	if b.columns[b.col].state != "Approved" {
+		t.Fatalf("the card must move at once, it is in %q", b.columns[b.col].state)
+	}
+	b.MoveFailed(1)
+	if b.columns[0].state != "New" || len(b.columns[0].items) != 1 || b.columns[0].items[0].ID != 1 {
+		t.Fatal("a failed move must put the card back in New")
+	}
+	if out := ansi.Strip(b.View()); !strings.Contains(out, failedNote+"New") {
+		t.Fatalf("the card must say it was not saved:\n%s", out)
+	}
+}
+
+func TestBoardDoubleClickOpensTheWorkItem(t *testing.T) {
+	b := dragBoardPanel(t, 140)
+	x, y := locateOnBoard(t, b, "2 PBI")
+	b, _ = b.Update(tea.MouseClickMsg(at(x, y)))
+	b, _ = b.Update(tea.MouseReleaseMsg(at(x, y)))
+	_, cmd := b.Update(tea.MouseClickMsg(at(x, y)))
+	if cmd == nil {
+		t.Fatal("a double click must open the work item")
+	}
+	if view, ok := cmd().(ViewWorkItemMsg); !ok || view.Item.ID != 2 {
+		t.Fatalf("got %#v", cmd())
+	}
+}
+
+func TestBoardCardsAreFiveRowsWithTheirDetails(t *testing.T) {
+	items := []models.WorkItem{{ID: 7, Type: models.WorkItemTypePBI, Title: "Guest checkout behind a feature flag for every store and every region we run today", State: "New",
+		AssignedTo: "Dana Reyes", Effort: 5, Tags: []string{"checkout", "eu", "beta"}}}
+	b := NewBoardPanel(styles.DefaultStyles(), keys.DefaultKeyMap())
+	b.SetSize(40, 20)
+	b.SetItems(items, nil)
+	out := ansi.Strip(b.View())
+	for _, want := range []string{"┃ 7 PBI", "Effort 5", "Guest checkout behind a", "…", "checkout", "+1", "DR  Dana Reyes"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("card is missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Count(out, "┃") != styles.BoardCardHeight {
+		t.Errorf("a card must be %d rows tall:\n%s", styles.BoardCardHeight, out)
 	}
 }

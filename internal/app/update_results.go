@@ -103,14 +103,14 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, tea.Batch(cmds...), true
 	case workItemMovedMsg:
-		flash := a.taskboardPanel.MoveSaved(msg.id)
+		flash := tea.Batch(a.taskboardPanel.MoveSaved(msg.id), a.boardPanel.MoveSaved(msg.id))
 		return a, tea.Batch(a.notify("State changed to "+msg.state), flash, a.reload()), true
 	case workItemMoveFailedMsg:
 		a.loading = false
-		if !a.taskboardPanel.HasPendingMove(msg.id) {
+		if !a.taskboardPanel.HasPendingMove(msg.id) && !a.boardPanel.HasPendingMove(msg.id) {
 			return a, a.openModal(modals.NewErrorModal(a.env(), msg.err)), true
 		}
-		flash := a.taskboardPanel.MoveFailed(msg.id)
+		flash := tea.Batch(a.taskboardPanel.MoveFailed(msg.id), a.boardPanel.MoveFailed(msg.id))
 		var notice tea.Cmd
 		a.notification, notice = a.notification.Show(notification.NotificationError,
 			fmt.Sprintf("Couldn't move #%d to %s: %v", msg.id, msg.state, msg.err))
@@ -168,6 +168,11 @@ func (a App) handlePanelIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 	case panels.MoveFlashExpiredMsg:
 		a.taskboardPanel.ExpireFlash(msg)
 		return a, nil, true
+	case panels.BoardFlashExpiredMsg:
+		a.boardPanel.ExpireFlash(msg)
+		return a, nil, true
+	case panels.BoardEdgeScrollMsg:
+		return a, a.boardPanel.EdgeScroll(msg), true
 	}
 	return a, nil, false
 }
