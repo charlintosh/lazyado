@@ -495,3 +495,24 @@ func TestIdentityResolvedLaterUnlocksOwnComments(t *testing.T) {
 		t.Fatalf("after the identity resolves e must edit my comment, got %v", msgs)
 	}
 }
+
+func TestWorkItemViewLikesSomeoneElsesComment(t *testing.T) {
+	a := newTestAppAs(t, 160, 45, models.Identity{ID: "dana-id", DisplayName: "Dana Reyes"})
+	item := sampleWorkItems()[4]
+	a, _ = step(t, a, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
+	a, _ = step(t, a, modals.QuickSearchSuccessMsg{Item: &item})
+	a, _ = step(t, a, commentsLoadedMsg{workItemID: item.ID, comments: []models.Comment{{ID: 9, Text: "Looks right", CreatedBy: "Ben Okafor", CreatedByID: "ben"}}})
+	a, _ = step(t, a, special(tea.KeyTab))
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "╭─ BO Ben Okafor") || !strings.Contains(out, "╰─ + like") {
+		t.Fatalf("the focused comment must be a card offering a like:\n%s", out)
+	}
+	a, msgs := step(t, a, press("+"))
+	like, ok := find[panels.LikeCommentMsg](msgs)
+	if !ok || !like.Like || like.WorkItemID != item.ID || like.Comment.ID != 9 {
+		t.Fatalf("got %+v, want a like of comment 9 on %d", like, item.ID)
+	}
+	a, _ = step(t, a, like)
+	if !a.loading {
+		t.Fatal("a like must start the update")
+	}
+}

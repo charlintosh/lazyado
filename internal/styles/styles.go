@@ -34,6 +34,9 @@ var (
 	ColorOnAccent     = lipgloss.Color("#1B1A19")
 	ColorDropTint     = lipgloss.Color("#1A2633")
 	ColorPhantom      = lipgloss.Color("#1E3247")
+	ColorDiffAdd      = lipgloss.Color("#16301F")
+	ColorDiffDelete   = lipgloss.Color("#3A1A20")
+	ColorDiffHunk     = lipgloss.Color("#1F3A57")
 	ColorTypePBI      = lipgloss.Color("#2AB0E0")
 	ColorTypeTask     = lipgloss.Color("#F2CB1D")
 	ColorTypeBug      = lipgloss.Color("#E0475B")
@@ -148,13 +151,6 @@ type Styles struct {
 	DetailDescription  lipgloss.Style
 	DetailTag          lipgloss.Style
 
-	CommentBox         lipgloss.Style
-	CommentBoxSelected lipgloss.Style
-	CommentHeader      lipgloss.Style
-	CommentAuthor      lipgloss.Style
-	CommentDate        lipgloss.Style
-	CommentEdited      lipgloss.Style
-
 	TextMuted lipgloss.Style
 	Selected  lipgloss.Style
 
@@ -263,36 +259,6 @@ func DefaultStyles() *Styles {
 			Background(ColorChip).
 			Padding(0, 1).
 			MarginRight(1),
-
-		CommentBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorBorder).
-			Padding(0, 1).
-			MarginBottom(1),
-
-		CommentBoxSelected: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorPrimary).
-			Padding(0, 1).
-			MarginBottom(1),
-
-		CommentHeader: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorText).
-			MarginBottom(0),
-
-		CommentAuthor: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorText),
-
-		CommentDate: lipgloss.NewStyle().
-			Foreground(ColorTextMuted).
-			Italic(true),
-
-		CommentEdited: lipgloss.NewStyle().
-			Foreground(ColorMuted).
-			Italic(true).
-			MarginTop(0),
 
 		TextMuted: lipgloss.NewStyle().
 			Foreground(ColorTextMuted),

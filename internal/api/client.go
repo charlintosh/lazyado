@@ -26,6 +26,7 @@ type Client struct {
 	organization string
 	project      string
 	team         string
+	maxFileBytes int64
 }
 
 // NewClient creates a new Azure DevOps API client
@@ -44,6 +45,7 @@ func NewClient(cfg *config.Config) *Client {
 		organization: cfg.Organization,
 		project:      cfg.Project,
 		team:         cfg.Team,
+		maxFileBytes: cfg.DiffLimits().MaxFileBytes(),
 	}
 }
 

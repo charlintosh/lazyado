@@ -3,9 +3,9 @@ package panels
 import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
-	"github.com/charlintosh/lazyado/internal/styles"
 )
 
 type EditCommentMsg struct {
@@ -16,6 +16,12 @@ type EditCommentMsg struct {
 type DeleteCommentMsg struct {
 	WorkItemID int
 	Comment    models.Comment
+}
+
+type LikeCommentMsg struct {
+	WorkItemID int
+	Comment    models.Comment
+	Like       bool
 }
 
 type CommentReadOnlyMsg struct {
@@ -53,6 +59,42 @@ func (t CommentThread) CanModify() bool {
 	return t.cursor >= 0 && t.cursor < len(t.comments) && t.me.Owns(t.comments[t.cursor])
 }
 
+func (t CommentThread) selected() (models.Comment, bool) {
+	if t.cursor < 0 || t.cursor >= len(t.comments) {
+		return models.Comment{}, false
+	}
+	return t.comments[t.cursor], true
+}
+
+func (t CommentThread) CanLike() bool {
+	c, ok := t.selected()
+	return ok && t.me.Known() && !t.me.Owns(c)
+}
+
+func (t CommentThread) Actions() []key.Binding {
+	c, ok := t.selected()
+	switch {
+	case !ok:
+		return nil
+	case t.CanModify():
+		return []key.Binding{widgets.Relabel(t.keys.EditComment, "edit"), widgets.Relabel(t.keys.DeleteComment, "delete")}
+	case t.CanLike() && c.LikedByMe:
+		return []key.Binding{widgets.Relabel(t.keys.LikeComment, "unlike")}
+	case t.CanLike():
+		return []key.Binding{widgets.Relabel(t.keys.LikeComment, "like")}
+	}
+	return nil
+}
+
+func (t CommentThread) like() tea.Cmd {
+	if !t.CanLike() {
+		return nil
+	}
+	c, _ := t.selected()
+	msg := LikeCommentMsg{WorkItemID: t.workItemID, Comment: c, Like: !c.LikedByMe}
+	return func() tea.Msg { return msg }
+}
+
 func (t CommentThread) WorkItemID() int { return t.workItemID }
 
 func (t CommentThread) Len() int { return len(t.comments) }
@@ -74,6 +116,8 @@ func (t CommentThread) Update(msg tea.KeyPressMsg) (CommentThread, tea.Cmd) {
 		t.cursor = len(t.comments) - 1
 	case key.Matches(msg, t.keys.EditComment), key.Matches(msg, t.keys.DeleteComment):
 		return t, t.modify(key.Matches(msg, t.keys.EditComment))
+	case key.Matches(msg, t.keys.LikeComment):
+		return t, t.like()
 	}
 	return t, nil
 }
@@ -92,20 +136,14 @@ func (t CommentThread) modify(edit bool) tea.Cmd {
 	return func() tea.Msg { return msg }
 }
 
-func (t CommentThread) Render(s *styles.Styles, width int, focused bool) (string, []int) {
+func (t CommentThread) Render(width int, focused bool) (string, []int) {
 	selected := -1
+	hints := ""
 	if focused {
 		selected = t.cursor
+		hints = widgets.Hints(max(width-boxChrome-2, 1), t.Actions()...)
 	}
-	return RenderCommentList(t.comments, s, CommentListConfig{Width: width, Selected: selected, Me: t.me})
-}
-
-func (t CommentThread) RenderFlat(width int, focused bool) (string, []int) {
-	selected := -1
-	if focused {
-		selected = t.cursor
-	}
-	return RenderDiscussion(t.comments, width, selected, t.me)
+	return RenderComments(t.comments, CommentListConfig{Width: width, Selected: selected, Me: t.me, Hints: hints})
 }
 
 func (t CommentThread) Span(offsets []int, totalLines int) (int, int) {
@@ -123,8 +161,5 @@ func (t CommentThread) KeyBindings() []key.Binding {
 	if len(t.comments) == 0 {
 		return []key.Binding{t.keys.AddComment}
 	}
-	if !t.CanModify() {
-		return []key.Binding{t.keys.Up, t.keys.AddComment}
-	}
-	return []key.Binding{t.keys.Up, t.keys.AddComment, t.keys.EditComment, t.keys.DeleteComment}
+	return append([]key.Binding{t.keys.Up, t.keys.AddComment}, t.Actions()...)
 }

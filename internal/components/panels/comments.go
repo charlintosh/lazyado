@@ -121,7 +121,7 @@ func (c *CommentsPanel) render() {
 	if c.viewport.Width() <= 0 {
 		return
 	}
-	content, offsets := c.thread.Render(c.styles, c.viewport.Width(), c.focused)
+	content, offsets := c.thread.Render(c.viewport.Width(), c.focused)
 	c.offsets = offsets
 	c.viewport.SetContent(content)
 }

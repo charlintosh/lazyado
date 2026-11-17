@@ -15,6 +15,12 @@ type Comment struct {
 	CreatedDate         time.Time        `json:"createdDate"`
 	ModifiedBy          string           `json:"modifiedBy,omitempty"`
 	ModifiedDate        time.Time        `json:"modifiedDate,omitempty"`
+	Likes               int              `json:"likes,omitempty"`
+	LikedByMe           bool             `json:"likedByMe,omitempty"`
+}
+
+func (c Comment) Edited() bool {
+	return !c.ModifiedDate.IsZero() && !c.ModifiedDate.Equal(c.CreatedDate)
 }
 
 // CommentMention represents a mention in a comment

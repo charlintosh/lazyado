@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/spf13/viper"
 )
 
@@ -16,6 +17,20 @@ type Config struct {
 	PAT          string   `mapstructure:"pat"`
 	Theme        string   `mapstructure:"theme"`
 	Defaults     Defaults `mapstructure:"defaults"`
+	Diff         Diff     `mapstructure:"diff"`
+}
+
+// Diff holds the limits for showing pull request diffs
+type Diff struct {
+	MaxChangedLines int      `mapstructure:"max_changed_lines"`
+	MaxFileLines    int      `mapstructure:"max_file_lines"`
+	MaxFileKB       int      `mapstructure:"max_file_kb"`
+	Collapse        []string `mapstructure:"collapse"`
+}
+
+// DiffLimits returns the diff limits with defaults applied
+func (c *Config) DiffLimits() models.DiffLimits {
+	return models.DiffLimits{MaxChangedLines: c.Diff.MaxChangedLines, MaxFileLines: c.Diff.MaxFileLines, MaxFileKB: c.Diff.MaxFileKB, Collapse: c.Diff.Collapse}.WithDefaults()
 }
 
 // Defaults holds default filter settings
@@ -45,6 +60,9 @@ func Load() (*Config, error) {
 	v.SetDefault("defaults.sprint", "current")
 	v.SetDefault("defaults.state", "all")
 	v.SetDefault("defaults.assigned", "me")
+	v.SetDefault("diff.max_changed_lines", models.DefaultMaxChangedLines)
+	v.SetDefault("diff.max_file_lines", models.DefaultMaxFileLines)
+	v.SetDefault("diff.max_file_kb", models.DefaultMaxFileKB)
 
 	// Read config file (ignore if not found)
 	if err := v.ReadInConfig(); err != nil {

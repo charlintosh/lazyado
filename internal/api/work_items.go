@@ -833,6 +833,11 @@ func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 				DisplayName string `json:"displayName"`
 			} `json:"modifiedBy,omitempty"`
 			ModifiedDate time.Time `json:"modifiedDate,omitempty"`
+			Reactions    []struct {
+				Type                 string `json:"type"`
+				Count                int    `json:"count"`
+				IsCurrentUserEngaged bool   `json:"isCurrentUserEngaged"`
+			} `json:"reactions,omitempty"`
 		} `json:"comments"`
 	}
 
@@ -865,6 +870,11 @@ func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 			CreatedDate:         c.CreatedDate,
 			ModifiedBy:          c.ModifiedBy.DisplayName,
 			ModifiedDate:        c.ModifiedDate,
+		}
+		for _, r := range c.Reactions {
+			if r.Type == likeReaction {
+				comment.Likes, comment.LikedByMe = r.Count, r.IsCurrentUserEngaged
+			}
 		}
 		comments = append(comments, comment)
 	}
@@ -923,6 +933,21 @@ func (c *Client) UpdateComment(workItemID, commentID int, text string) error {
 	}
 
 	return nil
+}
+
+const likeReaction = "like"
+
+func (c *Client) LikeComment(workItemID, commentID int, like bool) error {
+	method := "PUT"
+	if !like {
+		method = "DELETE"
+	}
+	target := fmt.Sprintf("%s/wit/workItems/%d/comments/%d/reactions/%s?api-version=%s-preview.1", c.baseURL, workItemID, commentID, likeReaction, apiVersion)
+	resp, err := c.doRequest(method, target, nil)
+	if err != nil {
+		return fmt.Errorf("liking comment: %w", err)
+	}
+	return resp.Body.Close()
 }
 
 // DeleteComment deletes a comment from a work item

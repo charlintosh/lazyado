@@ -1,9 +1,9 @@
 package modals
 
 import (
-	"strconv"
+	"fmt"
+	"path"
 	"strings"
-	"unicode"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
@@ -13,14 +13,24 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/x/ansi"
+)
+
+const (
+	quickSearchTitle       = "Quick search"
+	quickSearchPrompt      = "Search: "
+	quickSearchPlaceholder = "ID, !PR, #work item or link"
+	quickSearchChoiceGap   = 6
+	pullRequestKind        = "PR"
 )
 
 type QuickSearchRequestMsg struct {
-	ID int
+	Query models.SearchQuery
 }
 
 type QuickSearchSuccessMsg struct {
-	Item *models.WorkItem
+	Item        *models.WorkItem
+	PullRequest *models.PullRequest
 }
 
 type QuickSearchErrorMsg struct {
@@ -31,15 +41,18 @@ type QuickSearchModal struct {
 	env     Env
 	input   textinput.Model
 	spinner spinner.Model
+	query   models.SearchQuery
+	choices []QuickSearchSuccessMsg
+	cursor  int
 	loading bool
 	err     string
 }
 
 func NewQuickSearchModal(env Env) QuickSearchModal {
 	in := textinput.New()
-	in.Placeholder = "Enter work item ID..."
-	in.CharLimit = styles.InputCharLimitSM
-	in.Prompt = "ID: "
+	in.Placeholder = quickSearchPlaceholder
+	in.CharLimit = styles.SearchCharLimit
+	in.Prompt = quickSearchPrompt
 	st := in.Styles()
 	st.Focused.Prompt = lipgloss.NewStyle().Foreground(styles.ColorPrimary)
 	st.Focused.Text = lipgloss.NewStyle().Foreground(styles.ColorText)
@@ -48,7 +61,7 @@ func NewQuickSearchModal(env Env) QuickSearchModal {
 	m := QuickSearchModal{
 		env:     env,
 		input:   in,
-		spinner: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary))),
+		spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot), spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary))),
 	}
 	m.layout()
 	return m
@@ -77,8 +90,13 @@ func (m QuickSearchModal) Update(msg tea.Msg) (Modal, tea.Cmd) {
 		m.loading = false
 		m.err = friendlyLookupError(msg.Err)
 		return m, m.input.Focus()
+	case QuickSearchSuccessMsg:
+		m.loading = false
+		m.choices, m.cursor = []QuickSearchSuccessMsg{{PullRequest: msg.PullRequest}, {Item: msg.Item}}, 0
+		return m, nil
 	case tea.PasteMsg:
-		msg.Content = digits(msg.Content)
+		msg.Content = strings.TrimSpace(msg.Content)
+		m.reset()
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		return m, cmd
@@ -88,40 +106,48 @@ func (m QuickSearchModal) Update(msg tea.Msg) (Modal, tea.Cmd) {
 	return m, cmd
 }
 
+func (m *QuickSearchModal) reset() {
+	m.err, m.choices, m.cursor = "", nil, 0
+}
+
 func (m QuickSearchModal) handleKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
-	if key.Matches(msg, m.env.Keys.Back) {
+	k := m.env.Keys
+	if key.Matches(msg, k.Back) {
 		return m, closeModal
 	}
 	if m.loading {
 		return m, nil
 	}
-	if key.Matches(msg, m.env.Keys.Select) {
-		return m.submit()
-	}
-	if msg.Text != "" && digits(msg.Text) != msg.Text {
+	navigating := len(m.choices) > 0 && msg.Text == ""
+	switch {
+	case navigating && key.Matches(msg, k.Up):
+		m.cursor = max(m.cursor-1, 0)
 		return m, nil
+	case navigating && key.Matches(msg, k.Down):
+		m.cursor = min(m.cursor+1, len(m.choices)-1)
+		return m, nil
+	case key.Matches(msg, k.Select) && len(m.choices) > 0:
+		return m, send(m.choices[m.cursor])
+	case key.Matches(msg, k.Select):
+		return m.submit()
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
-	m.err = ""
+	m.reset()
 	return m, cmd
 }
 
 func (m QuickSearchModal) submit() (Modal, tea.Cmd) {
-	value := strings.TrimSpace(m.input.Value())
-	if value == "" {
-		m.err = "Please enter a work item ID"
+	query, err := models.ParseSearchQuery(m.input.Value())
+	if err != nil {
+		m.err = err.Error()
 		return m, nil
 	}
-	id, err := strconv.Atoi(value)
-	if err != nil || id <= 0 {
-		m.err = "ID must be a positive number"
-		return m, nil
-	}
-	m.err = ""
+	m.reset()
+	m.query = query
 	m.loading = true
 	m.input.Blur()
-	return m, tea.Batch(send(QuickSearchRequestMsg{ID: id}), m.spinner.Tick)
+	return m, tea.Batch(send(QuickSearchRequestMsg{Query: query}), m.spinner.Tick)
 }
 
 func (m *QuickSearchModal) layout() {
@@ -129,31 +155,56 @@ func (m *QuickSearchModal) layout() {
 	m.input.SetWidth(max(inner-lipgloss.Width(m.input.Prompt)-1, 1))
 }
 
+func (m QuickSearchModal) choiceRows(width int) string {
+	rows := []string{lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(fmt.Sprintf("%d matches", len(m.choices)))}
+	for i, c := range m.choices {
+		bar, base := " ", lipgloss.NewStyle()
+		if i == m.cursor {
+			bar, base = "▌", base.Background(styles.ColorHighlight)
+		}
+		kind, id, title, detail := choiceText(c)
+		head := base.Foreground(styles.ColorPrimary).Bold(true).Render(bar) + kind + base.Render(" ") +
+			base.Foreground(styles.ColorAccent).Bold(true).Render(id) + base.Render(" ") + base.Foreground(styles.ColorText).Bold(true).Render(title)
+		sub := base.Render(strings.Repeat(" ", quickSearchChoiceGap)) + base.Foreground(styles.ColorTextMuted).Render(detail)
+		rows = append(rows,
+			base.Width(width).Render(ansi.Truncate(head, width, "…")),
+			base.Width(width).Render(ansi.Truncate(sub, width, "…")))
+	}
+	return strings.Join(rows, "\n")
+}
+
+func choiceText(c QuickSearchSuccessMsg) (string, string, string, string) {
+	if pr := c.PullRequest; pr != nil {
+		kind := lipgloss.NewStyle().Foreground(styles.ColorViolet).Bold(true).Render(pullRequestKind)
+		return kind, fmt.Sprintf("!%d", pr.ID), pr.Title, fmt.Sprintf("%s · %s → %s", pr.RepositoryName, pr.SourceBranch, pr.TargetBranch)
+	}
+	item := c.Item
+	kind := lipgloss.NewStyle().Foreground(styles.TypeColor(string(item.Type))).Bold(true).Render(item.ShortType())
+	detail := string(item.State)
+	if item.IterationPath != "" {
+		detail += " · " + path.Base(strings.ReplaceAll(item.IterationPath, `\`, "/"))
+	}
+	return kind, fmt.Sprintf("#%d", item.ID), item.Title, detail
+}
+
 func (m QuickSearchModal) View() string {
 	width := widgets.DialogWidth(styles.ModalWidthMD, m.env.Width)
 	inner := widgets.DialogInnerWidth(width)
 	body := m.input.View()
-	if m.loading {
-		body = m.spinner.View() + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render(" Fetching work item...")
+	k := m.env.Keys
+	footer := widgets.Hints(inner, widgets.Relabel(k.Select, "search"), widgets.Relabel(k.Back, "cancel"))
+	switch {
+	case m.loading:
+		body = m.spinner.View() + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Render(" Looking up "+m.query.Label())
+		footer = widgets.Hints(inner, widgets.Relabel(k.Back, "cancel"))
+	case len(m.choices) > 0:
+		body += "\n\n" + m.choiceRows(inner)
+		footer = widgets.Hints(inner, widgets.Combine("choose", k.Up, k.Down), widgets.Relabel(k.Select, "open"), widgets.Relabel(k.Back, "cancel"))
 	}
 	if m.err != "" {
 		body += "\n\n" + lipgloss.NewStyle().Foreground(styles.ColorError).Width(inner).Render("Error: "+m.err)
 	}
-	k := m.env.Keys
-	footer := widgets.Hints(inner, widgets.Relabel(k.Select, "open"), widgets.Relabel(k.Back, "cancel"))
-	if m.loading {
-		footer = widgets.Hints(inner, widgets.Relabel(k.Back, "cancel"))
-	}
-	return widgets.Dialog{Title: "Quick search work item", Body: body, Footer: footer, Width: width}.View()
-}
-
-func digits(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsDigit(r) {
-			return r
-		}
-		return -1
-	}, s)
+	return widgets.Dialog{Title: quickSearchTitle, Body: body, Footer: footer, Width: width}.View()
 }
 
 func friendlyLookupError(err error) string {

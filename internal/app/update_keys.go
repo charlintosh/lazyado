@@ -51,6 +51,11 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, a.keys.Refresh):
 		return a, a.refresh()
 	}
+	if a.reviewing() {
+		var cmd tea.Cmd
+		a.pr.view, cmd = a.pr.view.Update(msg)
+		return a, cmd
+	}
 	if a.viewMode == ViewDetail {
 		if cmd, ok := a.handleDetailAction(msg); ok {
 			return a, cmd
@@ -58,6 +63,9 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		var cmd tea.Cmd
 		a.detailView, cmd = a.detailView.Update(msg)
 		return a, cmd
+	}
+	if a.inPullRequests() {
+		return a.handlePullRequestKey(msg)
 	}
 	if next, cmd, ok := a.handleNavigationKey(msg); ok {
 		return next, cmd
@@ -100,6 +108,8 @@ func (a App) handleNavigationKey(msg tea.KeyPressMsg) (App, tea.Cmd, bool) {
 		a.switchHub(panels.HubBoard)
 	case key.Matches(msg, k.HubSprint):
 		a.switchHub(panels.HubSprint)
+	case key.Matches(msg, k.HubPullRequests):
+		return a, a.openPullRequests(), true
 	case key.Matches(msg, k.PrevView):
 		a.cycleView(-1)
 	case key.Matches(msg, k.NextView):
@@ -132,6 +142,12 @@ func (a App) handleNavigationKey(msg tea.KeyPressMsg) (App, tea.Cmd, bool) {
 }
 
 func (a *App) refresh() tea.Cmd {
+	if a.reviewing() {
+		return a.refreshReview()
+	}
+	if a.inPullRequests() {
+		return a.refreshPullRequests()
+	}
 	if !a.me.Known() {
 		return tea.Batch(a.reload(), loadIdentityCmd(a.client))
 	}

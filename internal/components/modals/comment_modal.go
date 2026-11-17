@@ -226,8 +226,11 @@ func processMentions(text string, members []models.TeamMember) string {
 }
 
 func replaceMention(text string, member models.TeamMember) string {
-	mention := "@" + member.DisplayName
 	anchor := fmt.Sprintf(`<a href="#" data-vss-mention="version:2.0,%s">%s</a>`, member.ID, member.DisplayName)
+	return replaceMentionWith(text, "@"+member.DisplayName, anchor)
+}
+
+func replaceMentionWith(text, mention, anchor string) string {
 	var b strings.Builder
 	for {
 		idx := strings.Index(text, mention)

@@ -23,3 +23,17 @@ func TestIdentityOwnsOnlyItsOwnComments(t *testing.T) {
 		}
 	}
 }
+
+func TestReviewerNameDropsTheGroupScope(t *testing.T) {
+	cases := map[string]string{
+		`[DLLG]\Release Approvers`: "Release Approvers",
+		"[storefront]/Web Team":    "Web Team",
+		"Dana Reyes":               "Dana Reyes",
+		"[TEAM FOUNDATION]":        "[TEAM FOUNDATION]",
+	}
+	for in, want := range cases {
+		if got := (Reviewer{DisplayName: in}).Name(); got != want {
+			t.Errorf("%q: got %q, want %q", in, got, want)
+		}
+	}
+}

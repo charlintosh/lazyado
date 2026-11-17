@@ -57,6 +57,14 @@ Bubble Tea calls `View` after every `Update`, and some messages arrive in bursts
 - Comment loads carry the work item ID and are debounced (`commentsDueMsg`) while the cursor moves; responses for another item are ignored by both the Discussion tab and the detail view.
 - Notification timers carry the notification ID, so an older timer never hides a newer toast.
 
+## Pull requests
+
+- The Repos › Pull requests hub is a fourth `panels.Hub`. Its state lives in `App.pr` (`internal/app/pull_requests.go`): the list panel, the loaded status, and the policies of the selected row, which load debounced like comments. Mine and Active share one `active` load; Mine filters locally by the PAT identity.
+- `ViewPullRequest` shows `panels.PullRequestView` (`internal/app/pull_request_review.go`). Opening it loads threads, policy evaluations plus pull request statuses, the pull request itself, linked work items and the latest iteration's changes in parallel; every result carries the pull request ID and is dropped if another one is open.
+- Azure DevOps has no diff endpoint, so the Files tab fetches both versions of a file (merge base and source commit of the latest iteration) through the Items API the first time the file is selected and diffs them with `internal/diff` (Myers, unified hunks). `reconcile` asks the view which file it still needs (`WantedFile`), so file loads stay commands.
+- Diff rows are rendered once per file and only the two rows under the old and new cursor are re-rendered on a move.
+- The view never calls the API. It emits intents (`VotePullRequestMsg`, `CommentPullRequestMsg`, `ReplyPullRequestMsg`, `ResolvePullRequestThreadMsg`); the app opens the dialog or runs the command, then reloads threads, the pull request and its policies.
+
 ## Modals
 
 ```go

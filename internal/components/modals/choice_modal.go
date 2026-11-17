@@ -21,6 +21,7 @@ type choiceSpec struct {
 	nouns       string
 	width       int
 	rows        int
+	hints       []key.Binding
 	choose      func(widgets.Option) tea.Msg
 }
 
@@ -108,8 +109,8 @@ func (m ChoiceModal) View() string {
 	if action == "" {
 		action = "select"
 	}
-	footer := widgets.Hints(widgets.DialogInnerWidth(width),
-		widgets.Combine("move", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, action), widgets.Relabel(k.Back, "cancel"))
+	hints := append([]key.Binding{widgets.Combine("move", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, action)}, m.spec.hints...)
+	footer := widgets.Hints(widgets.DialogInnerWidth(width), append(hints, widgets.Relabel(k.Back, "cancel"))...)
 	return widgets.Dialog{
 		Title:    m.spec.title,
 		Subtitle: m.spec.subtitle,

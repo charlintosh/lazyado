@@ -15,6 +15,9 @@ func (a App) handleResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	if next, cmd, ok := a.handleData(msg); ok {
 		return next, cmd, true
 	}
+	if next, cmd, ok := a.handlePullRequestResult(msg); ok {
+		return next, cmd, true
+	}
 	if next, cmd, ok := a.handlePanelIntent(msg); ok {
 		return next, cmd, true
 	}
@@ -28,12 +31,16 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.areas = msg.areas
 		a.statesByType = msg.statesByType
 		a.teamMembers = msg.teamMembers
+		a.pr.view.SetMembers(a.teamMembers)
 		registerWorkflowColors(a.statesByType)
 		filters := models.NewFilterState(a.iterations, a.areas, a.statesByType)
 		if s := msg.savedFilters; s != nil {
 			filters.ApplySavedSelections(s.Sprint, s.State, s.Assigned, s.Area)
 		}
 		a.filters = filters
+		if s := msg.savedFilters; s != nil {
+			a.pr.savedRepo, a.pr.favorites = s.Repository, s.FavoriteRepositories
+		}
 		a.setIdentity(msg.me)
 		return a, a.reload(), true
 	case identityLoadedMsg:
@@ -120,6 +127,10 @@ func (a App) handlePanelIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, a.openDetail(msg.Item), true
 	case panels.CloseDetailViewMsg:
 		a.viewMode = ViewMain
+		if a.detailFromPR {
+			a.viewMode = ViewPullRequest
+		}
+		a.detailFromPR = false
 		return a, nil, true
 	case panels.OpenCommentModalMsg:
 		return a, a.openModal(modals.NewCommentModal(a.env(), msg.Item, a.teamMembers)), true
@@ -137,6 +148,8 @@ func (a App) handlePanelIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, a.commentReadOnly(), true
 	case panels.MoveWorkItemMsg:
 		return a, a.mutate(moveWorkItemCmd(a.client, msg.Item.ID, msg.NewState)), true
+	case panels.LikeCommentMsg:
+		return a, a.mutate(likeCommentCmd(a.client, msg.WorkItemID, msg.Comment, msg.Like)), true
 	case panels.MoveFlashExpiredMsg:
 		a.taskboardPanel.ExpireFlash(msg)
 		return a, nil, true
@@ -150,12 +163,19 @@ func (a App) handleModalIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.closeModal()
 		return a, nil, true
 	case modals.QuickSearchRequestMsg:
-		return a, quickSearchWorkItemCmd(a.client, msg.ID), true
+		return a, quickSearchCmd(a.client, msg.Query), true
 	case modals.QuickSearchSuccessMsg:
-		if !topIs[modals.QuickSearchModal](a.modals) {
+		switch {
+		case !topIs[modals.QuickSearchModal](a.modals):
 			return a, nil, true
+		case msg.Item != nil && msg.PullRequest != nil:
+			next, cmd := a.updateModal(msg)
+			return next, cmd, true
 		}
 		a.closeModal()
+		if msg.PullRequest != nil {
+			return a, a.openReview(*msg.PullRequest), true
+		}
 		return a, a.openDetail(*msg.Item), true
 	case modals.FilterOptionChosenMsg:
 		a.closeModal()
@@ -211,6 +231,9 @@ func (a *App) setIdentity(me models.Identity) {
 	a.me = me
 	a.commentsPanel.SetIdentity(me)
 	a.detailView.SetIdentity(me)
+	a.pr.panel.SetIdentity(me)
+	a.pr.view.SetIdentity(me)
+	a.applyPullRequests()
 }
 
 func (a *App) commentReadOnly() tea.Cmd {
@@ -241,6 +264,7 @@ func (a *App) loadedItem(id int) (models.WorkItem, bool) {
 }
 
 func (a *App) openDetail(item models.WorkItem) tea.Cmd {
+	a.detailFromPR = a.reviewing()
 	a.viewMode = ViewDetail
 	a.detailView.SetItem(&item)
 	return loadCommentsCmd(a.client, item.ID)
@@ -248,17 +272,25 @@ func (a *App) openDetail(item models.WorkItem) tea.Cmd {
 
 func (a *App) applyFilters() tea.Cmd {
 	fs := a.filters
-	save := saveFiltersCmd(config.FilterState{
-		Sprint:   fs.GetSelectedSprint(),
-		State:    fs.GetSelectedState(),
-		Assigned: fs.GetSelectedAssigned(),
-		Area:     fs.GetSelectedArea(),
-	})
+	save := saveFiltersCmd(a.savedState())
 	if queryFor(fs, a.me) != a.loadedQuery {
 		return tea.Batch(save, a.reload())
 	}
 	a.applyView()
 	return save
+}
+
+func (a *App) savedState() config.FilterState {
+	fs := a.filters
+	return config.FilterState{
+		Sprint:     fs.GetSelectedSprint(),
+		State:      fs.GetSelectedState(),
+		Assigned:   fs.GetSelectedAssigned(),
+		Area:       fs.GetSelectedArea(),
+		Repository: a.pr.savedScope(),
+
+		FavoriteRepositories: a.pr.favorites,
+	}
 }
 
 func (a *App) clearFilters() tea.Cmd {

@@ -64,6 +64,21 @@ type KeyMap struct {
 	MoveItemRight key.Binding
 	HalfPageUp    key.Binding
 	HalfPageDown  key.Binding
+
+	HubPullRequests key.Binding
+	OpenBrowser     key.Binding
+	Vote            key.Binding
+	Reply           key.Binding
+	LikeComment     key.Binding
+	ResolveThread   key.Binding
+	NextFile        key.Binding
+	PrevFile        key.Binding
+	NextChange      key.Binding
+	PrevChange      key.Binding
+	Repository      key.Binding
+	ToggleFavorite  key.Binding
+	SelectLines     key.Binding
+	LinkedWorkItems key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -293,16 +308,73 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("ctrl+d", "pgdown"),
 			key.WithHelp("Ctrl+d", "page down"),
 		),
+		HubPullRequests: key.NewBinding(
+			key.WithKeys("P"),
+			key.WithHelp("P", "pull requests"),
+		),
+		OpenBrowser: key.NewBinding(
+			key.WithKeys("o"),
+			key.WithHelp("o", "open in browser"),
+		),
+		Vote: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "vote"),
+		),
+		Reply: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reply"),
+		),
+		LikeComment: key.NewBinding(
+			key.WithKeys("+"),
+			key.WithHelp("+", "like/unlike"),
+		),
+		ResolveThread: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "resolve/reopen"),
+		),
+		NextFile: key.NewBinding(
+			key.WithKeys("J"),
+			key.WithHelp("J", "next file"),
+		),
+		PrevFile: key.NewBinding(
+			key.WithKeys("K"),
+			key.WithHelp("K", "previous file"),
+		),
+		NextChange: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "next change"),
+		),
+		LinkedWorkItems: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "work items"),
+		),
+		SelectLines: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "select lines"),
+		),
+		ToggleFavorite: key.NewBinding(
+			key.WithKeys("ctrl+t"),
+			key.WithHelp("Ctrl+t", "favorite"),
+		),
+		Repository: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "repository"),
+		),
+		PrevChange: key.NewBinding(
+			key.WithKeys("N"),
+			key.WithHelp("N", "previous change"),
+		),
 	}
 }
 
 // FullHelp returns all key bindings for the help panel
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.HubBoard, k.HubBacklog, k.HubSprint, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
+		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
 		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
+		{k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
 	}
 }

@@ -72,7 +72,7 @@ func newTestAppAs(t testing.TB, width, height int, me models.Identity) App {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	client := api.NewClient(&config.Config{Organization: "acme", Project: "storefront", Team: "Storefront Team"})
-	var m tea.Model = NewApp(client)
+	var m tea.Model = NewApp(client, models.DiffLimits{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 	m, _ = m.Update(dataLoadedMsg{
 		iterations:  []models.Iteration{{Name: "Sprint 24", Path: "storefront\\Sprint 24", TimeFrame: "current"}},

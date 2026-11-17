@@ -178,10 +178,7 @@ func (d *DetailView) SetIdentity(me models.Identity) {
 
 func (d *DetailView) KeyBindings() []key.Binding {
 	if d.commentFocused {
-		bindings := []key.Binding{d.keys.Up}
-		if d.thread.CanModify() {
-			bindings = append(bindings, d.keys.EditComment, d.keys.DeleteComment)
-		}
+		bindings := append([]key.Binding{d.keys.Up}, d.thread.Actions()...)
 		return append(bindings, d.keys.AddComment, d.keys.NextPanel, d.keys.Back)
 	}
 	bindings := []key.Binding{d.keys.ChangeState, d.keys.Assign, d.keys.EditTask}
@@ -301,7 +298,7 @@ func (d *DetailView) discussionBody(width int) string {
 		d.offsets = nil
 		return placeholder.Render("No comments yet")
 	}
-	content, offsets := d.thread.RenderFlat(width, d.commentFocused)
+	content, offsets := d.thread.Render(width, d.commentFocused)
 	d.offsets = offsets
 	return content
 }

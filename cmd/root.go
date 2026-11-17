@@ -27,7 +27,7 @@ func Execute() error {
 
 	client := api.NewClient(cfg)
 
-	app := ui.NewApp(client)
+	app := ui.NewApp(client, cfg.DiffLimits())
 
 	p := tea.NewProgram(app)
 

@@ -43,7 +43,7 @@ func (a *App) withDragChip(base string) string {
 
 func (a *App) render() string {
 	if a.width == 0 || a.height == 0 {
-		return "Loading..."
+		return ""
 	}
 	if a.showSplash() {
 		return a.splashScreen.View()
@@ -58,6 +58,11 @@ func (a *App) render() string {
 			return widgets.OverlayAt(base, m.View(), x, y, a.width, a.height-styles.StatusBarHeight)
 		}
 	}
+	if _, ok := m.(modals.RepositoryPickerModal); ok && a.viewMode == ViewMain {
+		if x, y, ok := a.pickerAnchor(repositoryGroup); ok {
+			return widgets.OverlayAt(base, m.View(), x, y, a.width, a.height-styles.StatusBarHeight)
+		}
+	}
 	return widgets.Overlay(base, m.View(), a.width, a.height)
 }
 
@@ -65,6 +70,8 @@ func (a *App) renderBase() string {
 	switch {
 	case a.width < styles.ShellMinWidth || a.height < styles.ShellMinHeight:
 		return a.renderTooSmall()
+	case a.reviewing():
+		return a.renderReview()
 	case a.viewMode == ViewDetail:
 		return a.renderDetailView()
 	default:
@@ -84,7 +91,7 @@ func (a *App) renderHeader(crumbs ...string) string {
 		Organization: a.client.Organization(),
 		Project:      a.client.Project(),
 		Crumbs:       crumbs,
-		Loading:      a.loading,
+		Loading:      a.loading || a.pr.loading,
 		Spinner:      a.spinner.View(),
 		Notice:       a.notification.View(),
 		SearchKey:    a.keys.QuickSearch.Help().Key,
@@ -109,7 +116,15 @@ func (a *App) renderMainView() string {
 		cols = append(cols, a.renderPane(l.paneWidth, l.bodyHeight))
 	}
 	body := panels.Block(lipgloss.JoinHorizontal(lipgloss.Top, cols...), a.width, l.bodyHeight)
-	return lipgloss.JoinVertical(lipgloss.Left, a.renderHeader("Boards", a.hub.Name()), body, a.renderStatusBar())
+	return lipgloss.JoinVertical(lipgloss.Left, a.renderHeader(a.hubCrumbs()...), body, a.renderStatusBar())
+}
+
+func (a *App) hubCrumbs() []string {
+	crumbs := []string{a.hub.Section(), a.hub.Name()}
+	if a.inPullRequests() && a.pr.repo.ID != "" {
+		crumbs = append(crumbs, a.pr.repo.Name)
+	}
+	return crumbs
 }
 
 func (a *App) renderMainColumn(l shellLayout) string {
@@ -131,6 +146,8 @@ func (a *App) mainPanelView() (string, string) {
 		return a.boardPanel.Title(), a.boardPanel.View()
 	case viewTaskboard:
 		return a.taskboardPanel.Title(), a.taskboardPanel.View()
+	case viewPullRequests:
+		return a.pr.panel.Title(), a.pr.panel.View()
 	default:
 		return a.workItemsPanel.Title(), a.workItemsPanel.View()
 	}
@@ -176,6 +193,9 @@ func workingDaysLeft(from, to time.Time) int {
 }
 
 func (a *App) renderPane(width, height int) string {
+	if a.inPullRequests() {
+		return a.renderPullRequestPane(width, height)
+	}
 	focused := a.isPanePanel()
 	discussion := "Discussion"
 	if n := a.commentsPanel.Count(); n > 0 {
@@ -188,7 +208,7 @@ func (a *App) renderPane(width, height int) string {
 		content = a.commentsPanel.View()
 		if a.commentsPanel.Loading() {
 			cw, ch := panels.PaneContentSize(width, height)
-			content = panels.Block(a.spinner.View()+" "+panels.Muted("Loading discussion..."), cw, ch)
+			content = panels.Block(panels.Loading(a.spinner.View(), "Loading discussion"), cw, ch)
 		}
 	}
 	title := panels.Tabs([]string{
@@ -210,6 +230,8 @@ func (a *App) renderDetailView() string {
 
 func (a *App) modeLabel() string {
 	switch {
+	case a.reviewing():
+		return a.pr.view.Mode()
 	case a.viewMode == ViewDetail:
 		return "WORK ITEM"
 	case a.keyword.Focused():
@@ -240,6 +262,8 @@ func (a *App) renderStatusBar() string {
 
 func (a *App) statusBindings() []key.Binding {
 	switch {
+	case a.reviewing():
+		return a.pr.view.KeyBindings()
 	case a.viewMode == ViewDetail:
 		return a.detailView.KeyBindings()
 	case a.keyword.Focused():
@@ -254,6 +278,8 @@ func (a *App) statusBindings() []key.Binding {
 		return a.boardPanel.KeyBindings()
 	case viewTaskboard:
 		return a.taskboardPanel.KeyBindings()
+	case viewPullRequests:
+		return a.pr.panel.KeyBindings()
 	default:
 		return a.workItemsPanel.KeyBindings()
 	}

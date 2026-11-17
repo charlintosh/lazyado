@@ -10,6 +10,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
+
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -24,7 +25,7 @@ func richComment() models.Comment {
 }
 
 func TestCommentsRenderRichMarkdown(t *testing.T) {
-	out, offsets := RenderCommentList([]models.Comment{richComment()}, styles.DefaultStyles(), CommentListConfig{Width: 60, Selected: -1})
+	out, offsets := RenderComments([]models.Comment{richComment()}, CommentListConfig{Width: 60, Selected: -1})
 	plain := ansi.Strip(out)
 	for _, want := range []string{"@Dana Reyes can you check this?", "• first bold", "• second", "go test ./..."} {
 		if !strings.Contains(plain, want) {
@@ -139,15 +140,72 @@ func TestCommentThreadOnlyModifiesOwnComments(t *testing.T) {
 	}
 }
 
-func TestOwnCommentsAreMarkedInBothViews(t *testing.T) {
+func TestWorkItemCommentsUseTheSharedCard(t *testing.T) {
 	me := models.Identity{ID: "me"}
-	comments := []models.Comment{{ID: 1, Text: "mine", CreatedBy: "Dana Kim", CreatedByID: "me"}, {ID: 2, Text: "theirs", CreatedBy: "Ben Okafor", CreatedByID: "ben"}}
-	flat, _ := RenderDiscussion(comments, 80, -1, me)
-	boxed, _ := RenderCommentList(comments, styles.DefaultStyles(), CommentListConfig{Width: 80, Selected: -1, Me: me})
-	for name, out := range map[string]string{"work item view": flat, "discussion pane": boxed} {
+	now := time.Now()
+	comments := []models.Comment{
+		{ID: 1, Text: "mine", CreatedBy: "Dana Kim", CreatedByID: "me", CreatedDate: now, ModifiedDate: now.Add(time.Minute)},
+		{ID: 2, Text: "theirs", CreatedBy: "Ben Okafor", CreatedByID: "ben", CreatedDate: now, Likes: 2, LikedByMe: true},
+	}
+	for _, width := range []int{80, 44} {
+		out, offsets := RenderComments(comments, CommentListConfig{Width: width, Selected: 1, Me: me, Hints: "+ unlike"})
 		plain := ansi.Strip(out)
-		if !strings.Contains(plain, "Dana Kim you") || strings.Contains(plain, "Ben Okafor you") {
-			t.Errorf("%s marks the wrong author:\n%s", name, plain)
+		for _, want := range []string{"╭─ DK Dana Kim (you) · just now · edited", "╭─ BO Ben Okafor · just now", "♥ 2 · you ─╮", "╰─ + unlike"} {
+			if !strings.Contains(plain, want) {
+				t.Errorf("at %d columns the discussion is missing %q:\n%s", width, want, plain)
+			}
+		}
+		if strings.Contains(plain, "Ben Okafor (you)") {
+			t.Errorf("at %d columns someone else's comment is marked as yours", width)
+		}
+		lines := strings.Split(plain, "\n")
+		if offsets[1] >= len(lines) || !strings.Contains(lines[offsets[1]], "Ben Okafor") {
+			t.Errorf("at %d columns offset %d does not start the second card", width, offsets[1])
 		}
 	}
+	narrow := ansi.Strip(renderCommentsAt(comments, minBoxedWidth-1))
+	if strings.Contains(narrow, "╭") || !strings.Contains(narrow, "│ BO Ben Okafor") {
+		t.Errorf("narrower than %d columns the discussion must use the rail:\n%s", minBoxedWidth, narrow)
+	}
+}
+
+func renderCommentsAt(comments []models.Comment, width int) string {
+	out, _ := RenderComments(comments, CommentListConfig{Width: width, Selected: -1})
+	return out
+}
+
+func TestCommentThreadLikesOnlyOtherPeoplesComments(t *testing.T) {
+	me := models.Identity{ID: "me"}
+	comments := []models.Comment{
+		{ID: 1, CreatedBy: "Dana Kim", CreatedByID: "me"},
+		{ID: 2, CreatedBy: "Ben Okafor", CreatedByID: "ben"},
+		{ID: 3, CreatedBy: "Ben Okafor", CreatedByID: "ben", Likes: 1, LikedByMe: true},
+	}
+	thread := NewCommentThread(keys.DefaultKeyMap()).WithIdentity(me).WithComments(42, comments)
+	if _, cmd := thread.Update(press("+")); cmd != nil {
+		t.Fatalf("liking my own comment produced %#v", cmd())
+	}
+	thread, _ = thread.Update(press("j"))
+	_, cmd := thread.Update(press("+"))
+	if msg, ok := cmd().(LikeCommentMsg); !ok || !msg.Like || msg.WorkItemID != 42 || msg.Comment.ID != 2 {
+		t.Fatalf("got %#v, want a like of comment 2 on work item 42", cmd())
+	}
+	if out := ansi.Strip(mustRender(thread)); !strings.Contains(out, "╰─ + like") {
+		t.Fatalf("the focused comment must offer a like:\n%s", out)
+	}
+	thread, _ = thread.Update(press("j"))
+	_, cmd = thread.Update(press("+"))
+	if msg, ok := cmd().(LikeCommentMsg); !ok || msg.Like {
+		t.Fatalf("got %#v, want the like removed", cmd())
+	}
+	stranger := NewCommentThread(keys.DefaultKeyMap()).WithComments(42, comments)
+	stranger, _ = stranger.Update(press("j"))
+	if _, cmd := stranger.Update(press("+")); cmd != nil {
+		t.Fatal("without an identity nothing can be liked")
+	}
+}
+
+func mustRender(thread CommentThread) string {
+	out, _ := thread.Render(80, true)
+	return out
 }

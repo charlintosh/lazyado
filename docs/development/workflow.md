@@ -10,7 +10,7 @@ go build -o lazyado .
 Config setup
 
 - First run creates default config at `~/.config/lazyado/config.yaml`.
-- Requires Azure DevOps PAT with `Work Items (Read)` and `Project and Team (Read)` scopes.
+- Token scopes are listed in [docs/guide/configuration.md](../guide/configuration.md#personal-access-token).
 
 Dependencies
 

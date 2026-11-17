@@ -44,6 +44,9 @@ func (a *App) filterKeys() []key.Binding {
 }
 
 func (a *App) barFilters() []models.FilterType {
+	if a.inPullRequests() {
+		return nil
+	}
 	if a.hub == panels.HubSprint {
 		return sprintBarFilters
 	}
@@ -130,7 +133,7 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 	p := panels.PageHeaderProps{
 		Width:      width,
 		Title:      a.headerTitle(),
-		ShowBar:    a.filterBar,
+		ShowBar:    a.filterBar && !a.inPullRequests(),
 		Keyword:    panels.Line(a.keyword.View(), styles.KeywordInputWidth),
 		KeywordKey: a.keys.Search,
 		Clear:      panels.HeaderControl{Label: clearIcon + " Clear", Short: clearIcon, Key: a.keys.ClearFilters, Group: -1},
@@ -150,6 +153,15 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 		sprint := a.filterControl(models.FilterTypeSprint, "")
 		sprint.Label, sprint.Set = sprintIcon+sprint.Label, false
 		p.Controls = []panels.HeaderControl{sprint, a.filterControl(models.FilterTypeAssigned, "Person: "), a.funnelControl(), fullscreen}
+	case panels.HubPullRequests:
+		p.Action = a.plainControl("Open in browser", a.keys.OpenBrowser)
+		p.Pivots, p.Pivot = a.pullRequestPivotLabels(), a.pr.pivot
+		_, open := a.repositoryPicker()
+		repo := panels.HeaderControl{
+			Prefix: "Repo: ", Label: a.pr.scopeLabel() + caret, Short: a.pr.scopeLabel() + caret,
+			Key: a.keys.Repository, Set: a.pr.scoped(), Open: open, Group: repositoryGroup,
+		}
+		p.Controls = []panels.HeaderControl{repo, fullscreen}
 	case panels.HubBoard:
 		p.Action = a.plainControl(newIcon+"New item", a.keys.CreateParent)
 		p.Pivots = []string{"Board"}
@@ -177,6 +189,15 @@ func (a *App) headerTitle() string {
 		return title
 	}
 	return title + panels.Muted(titleSeparator) + bold.Render(a.sprintName()) + panels.Muted(a.sprintDates())
+}
+
+func (a *App) repositoryPicker() (modals.RepositoryPickerModal, bool) {
+	m, ok := a.modals.top()
+	if !ok {
+		return modals.RepositoryPickerModal{}, false
+	}
+	p, ok := m.(modals.RepositoryPickerModal)
+	return p, ok
 }
 
 func (a *App) pickerAnchor(group int) (int, int, bool) {

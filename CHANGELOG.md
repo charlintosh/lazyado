@@ -6,6 +6,36 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- feat: Repos › Pull requests hub (`P`) — Mine / Active / Completed / Abandoned views with reviewer votes per row and a preview pane (policies, reviewers, description)
+- feat: the Pull requests hub lists one repository at a time — `r` opens a searchable repository picker (with an explicit "All repositories" option), the choice is saved in `state.json`, and a project with a single repository selects it automatically
+- feat: favorite repositories — repositories starred in Azure DevOps and local favorites (`Ctrl+t` in the picker, saved in `state.json`) are listed first
+- feat: pull request review screen — description, merge and policy status, policies and custom status checks, reviewers, linked work items, tags and comment threads
+- feat: Files tab — changed-file list and an inline diff computed locally from the two file versions, with threads shown under the lines they belong to
+- feat: multi-line comments in the Files tab — `v` starts a selection, `j` / `k` extend it within the hunk, `c` comments on the range; range threads show under their last line with the covered lines marked
+- feat: `@` mentions in pull request comments and replies, with the same team member picker as work item comments; mentions in threads show the person's name
+- feat: `w` in the review opens a linked work item in the work item view and `Esc` returns to the review
+- feat: edit (`e`) and delete (`d`) your own pull request comments; `j` / `k` on the Overview now move comment by comment and mark the focused one
+- fix: every thread on a file shows in the Files tab — the diff now includes the lines that carry a thread even when they are far from a change, thread positions are tracked to the latest update, and file-level or stale threads are listed above the diff instead of after its last line
+- feat: vote, comment (on the pull request or on a diff line), reply, and resolve or reopen threads
+- feat: `P`, `o`, `a`, `r`, `s`, `J` / `K` and `n` / `N` in the help screen and status bar hints
+- feat: quick search (`Ctrl+f`) finds pull requests too — `1234` looks up a work item and a pull request in parallel and lets you choose when both exist, `!1234` and `#1234` pick one kind, and pasted `dev.azure.com` / `visualstudio.com` links open the work item or pull request (links from another organization or project are refused with an explanation)
+- feat: every pull request comment is its own focus stop, on Overview and in the Files diff (`j` / `k` step from a code line into the comments under it and back out); the focused comment lists only the actions you can take on it
+- feat: like or unlike other people's pull request comments with `+`; likes show as `♥ n`
+- feat: `r` replies to the focused comment, and `o` with a comment focused opens its thread in the browser
+- feat: resolved and closed threads fold to a single bordered row until `enter` expands them
+- change: threads are labelled by their anchor (`file:line`, `Line 42`, `Lines 42-48` or `General comment`) instead of "Thread", and every comment gets its own rounded border instead of one box per thread: the author, date and likes sit in the top edge, the focused comment's border turns blue with its actions in the bottom edge, and replies are indented; under 60 columns comments fall back to a thin rail
+- change: pull request loading states (list, comments, policies, files, diff) use the shared Bubbles spinner, and the app uses one spinner style (`MiniDot`) everywhere
+- fix: `e` / `d` in the Files diff act on the focused comment instead of your latest comment in the thread
+- feat: work item comments use the same bordered card as pull request comments, in the Discussion pane and the work item view; edited comments say `edited` in the card's top edge
+- feat: like or unlike other people's work item comments with `+`; likes show as `♥ n` (`♥ n · you` when one is yours)
+- feat: very large files in a pull request (`package-lock.json` and the like) show "This file is too large to show" instead of a diff, with `enter` to load it anyway and `o` to open the file in the browser; the file list marks them "too large". The limits live in `config.yaml` (`diff.max_file_lines`, `diff.max_changed_lines`, `diff.max_file_kb`) with no file names hardcoded
+- feat: files the repository's `.gitattributes` marks `linguist-generated`, `-diff` or `binary` are collapsed in the Files tab, and `diff.collapse` in `config.yaml` adds your own patterns
+- fix: files over the download limit are no longer silently cut off, which produced a wrong diff
+- change: comments keep their border down to 36 columns (was 60) before falling back to the rail, so cards fit the Discussion side pane
+- docs: the README is now a short overview; the user guide moved to `docs/guide/` (getting started, configuration, boards, pull requests, keybindings, troubleshooting), contributor docs to `docs/development/`, and build, test and review conventions to `CONTRIBUTING.md`
+
 ## [v1.1.0] - 2026-11-16
 
 Sprints taskboard release: drag and drop, optimistic task moves and collapsible rows.

@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -226,12 +228,57 @@ func deleteCommentCmd(client *api.Client, workItemID, commentID int) tea.Cmd {
 	})
 }
 
-func quickSearchWorkItemCmd(client *api.Client, id int) tea.Cmd {
-	return func() tea.Msg {
-		item, err := client.GetWorkItem(id)
-		if err != nil {
-			return modals.QuickSearchErrorMsg{Err: err}
-		}
-		return modals.QuickSearchSuccessMsg{Item: item}
+func likeCommentCmd(client *api.Client, workItemID int, comment models.Comment, like bool) tea.Cmd {
+	notice := "Liked " + comment.CreatedBy + "'s comment"
+	if !like {
+		notice = "Like removed"
 	}
+	return commentCmd(workItemID, notice, func() error {
+		return client.LikeComment(workItemID, comment.ID, like)
+	})
+}
+
+func quickSearchCmd(client *api.Client, q models.SearchQuery) tea.Cmd {
+	organization, project := client.Organization(), client.Project()
+	return func() tea.Msg {
+		if q.Foreign(organization, project) {
+			return modals.QuickSearchErrorMsg{Err: fmt.Errorf("this link is for %s / %s, but lazyado is connected to %s / %s", q.Organization, q.Project, organization, project)}
+		}
+		var (
+			wg      sync.WaitGroup
+			item    *models.WorkItem
+			pr      *models.PullRequest
+			itemErr error
+			prErr   error
+		)
+		if q.WantsWorkItem() {
+			wg.Go(func() { item, itemErr = client.GetWorkItem(q.ID) })
+		}
+		if q.WantsPullRequest() {
+			wg.Go(func() {
+				found, err := client.GetPullRequest(q.ID)
+				if err == nil {
+					pr = &found
+				}
+				prErr = err
+			})
+		}
+		wg.Wait()
+		switch {
+		case item != nil || pr != nil:
+			return modals.QuickSearchSuccessMsg{Item: item, PullRequest: pr}
+		case q.Kind == models.SearchAny:
+			return modals.QuickSearchErrorMsg{Err: fmt.Errorf("no work item or pull request %d", q.ID)}
+		case q.Kind == models.SearchPullRequest:
+			return modals.QuickSearchErrorMsg{Err: pullRequestLookupError(q.ID, prErr)}
+		}
+		return modals.QuickSearchErrorMsg{Err: itemErr}
+	}
+}
+
+func pullRequestLookupError(id int, err error) error {
+	if strings.Contains(err.Error(), "API error") {
+		return fmt.Errorf("pull request %d not found or you don't have permissions", id)
+	}
+	return err
 }

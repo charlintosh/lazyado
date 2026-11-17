@@ -28,7 +28,8 @@ func (a *App) layout() shellLayout {
 		l.railWidth, l.compactRail = styles.RailCompactWidth, true
 	}
 	rest := a.width - l.railWidth
-	l.showPane = a.mainView() == viewList && a.width >= styles.RightPaneShowWidth
+	view := a.mainView()
+	l.showPane = (view == viewList || view == viewPullRequests) && a.width >= styles.RightPaneShowWidth
 	if l.showPane {
 		pw := int(float64(a.width) * styles.RightPaneWidthRatio)
 		l.paneWidth = max(min(pw, styles.RightPaneMaxWidth), styles.RightPaneMinWidth)
@@ -54,6 +55,7 @@ func (a *App) syncLayout() {
 	a.workItemsPanel.SetSize(cw, ch)
 	a.boardPanel.SetSize(cw, ch)
 	a.taskboardPanel.SetSize(cw, ch)
+	a.pr.panel.SetSize(cw, ch)
 	a.taskboardPanel.SetOrigin(l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY)
 
 	pw, ph := cw, ch
@@ -63,6 +65,7 @@ func (a *App) syncLayout() {
 	a.detailsPanel.SetSize(pw, ph)
 	a.commentsPanel.SetSize(pw, ph)
 	a.detailView.SetSize(a.width, l.bodyHeight)
+	a.pr.view.SetSize(a.width, l.bodyHeight)
 }
 
 func (a *App) syncFocus() {
@@ -71,6 +74,7 @@ func (a *App) syncFocus() {
 	a.workItemsPanel.SetFocused(main && view == viewList)
 	a.boardPanel.SetFocused(main && view == viewBoard)
 	a.taskboardPanel.SetFocused(main && view == viewTaskboard)
+	a.pr.panel.SetFocused(main && view == viewPullRequests)
 	a.detailsPanel.SetFocused(a.activePanel == PanelDetails)
 	a.commentsPanel.SetFocused(a.activePanel == PanelComments)
 	if a.isPanePanel() {

@@ -18,7 +18,15 @@ const (
 	HubBacklog Hub = iota
 	HubBoard
 	HubSprint
+	HubPullRequests
 )
+
+func (h Hub) Section() string {
+	if h == HubPullRequests {
+		return "Repos"
+	}
+	return "Boards"
+}
 
 func (h Hub) Name() string {
 	switch h {
@@ -26,6 +34,8 @@ func (h Hub) Name() string {
 		return "Boards"
 	case HubSprint:
 		return "Sprints"
+	case HubPullRequests:
+		return "Pull requests"
 	default:
 		return "Backlogs"
 	}
@@ -37,6 +47,8 @@ func (h Hub) Mode() string {
 		return "BOARD"
 	case HubSprint:
 		return "SPRINT"
+	case HubPullRequests:
+		return "PULL REQUESTS"
 	default:
 		return "BACKLOG"
 	}
@@ -197,6 +209,13 @@ func Chips(tags []string) string {
 
 func Muted(s string) string {
 	return lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Render(s)
+}
+
+func Loading(spinner, label string) string {
+	if spinner == "" {
+		return Muted(label)
+	}
+	return spinner + " " + Muted(label)
 }
 
 func Heading(s string) string {

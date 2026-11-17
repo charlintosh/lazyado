@@ -81,6 +81,7 @@ const (
 
 const (
 	InputCharLimitSM   = 10
+	SearchCharLimit    = 500
 	TitleCharLimit     = 255
 	ContentCharLimitLG = 2000
 	PriorityCharLimit  = 1
@@ -119,4 +120,23 @@ const (
 	FilterPickerWidth  = 44
 	FilterPickerRows   = 12
 	FilterPickerChrome = 7
+)
+
+const (
+	PullRequestRowHeight      = 2
+	PullRequestRowGap         = 1
+	PullRequestColID          = 6
+	PullRequestColReviewers   = 14
+	PullRequestColAge         = 13
+	PullRequestMaxChips       = 3
+	PullRequestReviewersWidth = 70
+	PullRequestAgeWidth       = 56
+	PullRequestCheckLabel     = 5
+	PullRequestSidebarWidth   = 46
+	PullRequestSidebarShow    = 110
+	PullRequestTreeWidth      = 38
+	PullRequestTreeShow       = 100
+	DiffGutterWidth           = 5
+	DiffContextLines          = 3
+	DiffTabWidth              = 4
 )

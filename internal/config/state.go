@@ -12,6 +12,9 @@ type FilterState struct {
 	State    string `json:"state"`
 	Assigned string `json:"assigned"`
 	Area     string `json:"area"`
+
+	Repository           string   `json:"repository,omitempty"`
+	FavoriteRepositories []string `json:"favorite_repositories,omitempty"`
 }
 
 // getStatePath returns the path to the state file

@@ -34,6 +34,7 @@ const (
 	viewList mainView = iota
 	viewBoard
 	viewTaskboard
+	viewPullRequests
 )
 
 const (
@@ -48,6 +49,7 @@ type ViewMode int
 const (
 	ViewMain ViewMode = iota
 	ViewDetail
+	ViewPullRequest
 )
 
 type App struct {
@@ -57,6 +59,7 @@ type App struct {
 	detailsPanel   panels.DetailsPanel
 	commentsPanel  panels.CommentsPanel
 	detailView     panels.DetailView
+	pr             pullRequestState
 	splashScreen   screens.SplashScreen
 	notification   notification.Notification
 	statusHelp     help.Model
@@ -79,6 +82,7 @@ type App struct {
 	spinning        bool
 	loadSeq         int
 	commentsFor     int
+	detailFromPR    bool
 	initialLoadDone bool
 
 	iterations   []models.Iteration
@@ -95,7 +99,7 @@ type App struct {
 	height int
 }
 
-func NewApp(client *api.Client) App {
+func NewApp(client *api.Client, limits models.DiffLimits) App {
 	st := styles.DefaultStyles()
 	k := keys.DefaultKeyMap()
 	keyword := widgets.SearchInput(keywordPrompt, keywordPlaceholder)
@@ -109,10 +113,11 @@ func NewApp(client *api.Client) App {
 		detailsPanel:   panels.NewDetailsPanel(st, k),
 		commentsPanel:  panels.NewCommentsPanel(st, k),
 		detailView:     panels.NewDetailView(st, k),
+		pr:             pullRequestState{panel: panels.NewPullRequestsPanel(k), view: panels.NewPullRequestView(k, limits)},
 		splashScreen:   screens.NewSplashScreen(st),
 		statusHelp:     widgets.NewHelp(),
 		spinner: spinner.New(
-			spinner.WithSpinner(spinner.Line),
+			spinner.WithSpinner(spinner.MiniDot),
 			spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary)),
 		),
 		activePanel: PanelWorkItems,
@@ -178,6 +183,8 @@ func (a App) handleMouse(msg tea.MouseMsg) (App, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	switch {
+	case a.reviewing():
+		a.pr.view, cmd = a.pr.view.Update(msg)
 	case a.viewMode == ViewDetail:
 		a.detailView, cmd = a.detailView.Update(msg)
 	case a.activePanel == PanelWorkItems:
@@ -223,7 +230,15 @@ func (a *App) reconcile() tea.Cmd {
 	a.syncFocus()
 	a.syncLayout()
 	selection := a.syncSelection()
-	return tea.Batch(selection, a.ensureSpinner())
+	checks := a.syncPullRequestSelection()
+	a.syncSpinner()
+	return tea.Batch(selection, checks, a.syncReviewFile(), a.ensureSpinner())
+}
+
+func (a *App) syncSpinner() {
+	frame := a.spinner.View()
+	a.pr.panel.SetSpinner(frame)
+	a.pr.view.SetSpinner(frame)
 }
 
 func (a *App) syncSelection() tea.Cmd {
@@ -254,7 +269,8 @@ func (a *App) ensureSpinner() tea.Cmd {
 }
 
 func (a *App) busy() bool {
-	return a.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading())
+	return a.loading || a.pr.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading()) ||
+		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded)
 }
 
 func (a *App) showSplash() bool {
@@ -314,6 +330,8 @@ func (a *App) visibleItems() []models.WorkItem {
 
 func (a *App) mainView() mainView {
 	switch {
+	case a.hub == panels.HubPullRequests:
+		return viewPullRequests
 	case a.hub == panels.HubBoard:
 		return viewBoard
 	case a.hub == panels.HubSprint && a.sprintView == sprintTaskboard:
@@ -333,6 +351,8 @@ func (a *App) selectedItem() *models.WorkItem {
 		return a.boardPanel.SelectedItem()
 	case viewTaskboard:
 		return a.taskboardPanel.SelectedItem()
+	case viewPullRequests:
+		return nil
 	default:
 		return a.workItemsPanel.SelectedItem()
 	}
@@ -345,6 +365,8 @@ func (a *App) updateMainPanel(msg tea.Msg) tea.Cmd {
 		a.boardPanel, cmd = a.boardPanel.Update(msg)
 	case viewTaskboard:
 		a.taskboardPanel, cmd = a.taskboardPanel.Update(msg)
+	case viewPullRequests:
+		a.pr.panel, cmd = a.pr.panel.Update(msg)
 	default:
 		a.workItemsPanel, cmd = a.workItemsPanel.Update(msg)
 	}

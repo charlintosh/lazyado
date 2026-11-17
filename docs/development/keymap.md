@@ -2,12 +2,12 @@
 
 Purpose
 
-- Centralize key bindings across components using the `KeyMap` type in [internal/keys](internal/keys).
+- Centralize key bindings across components using the `KeyMap` type in [internal/keys](../../internal/keys).
 - Use `DefaultKeyMap()` to create a canonical set of defaults and derive help text for UIs.
 
 Location
 
-- KeyMap type and `DefaultKeyMap()` live in [internal/keys/keymap.go](internal/keys/keymap.go).
+- KeyMap type and `DefaultKeyMap()` live in [internal/keys/keymap.go](../../internal/keys/keymap.go).
 
 Patterns
 
@@ -84,8 +84,8 @@ footer := widgets.Hints(inner,
 
 - Add the binding to the `KeyMap` struct.
 - Provide a default in `DefaultKeyMap()`.
-- Update [README.md](README.md) and the in-app help so users can discover the change.
-  - Add new bindings to `KeyMap.FullHelp()` so the in-app help ([internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) lists them.
+- Update [docs/guide/keybindings.md](../guide/keybindings.md) and the in-app help so users can discover the change.
+  - Add new bindings to `KeyMap.FullHelp()` so the in-app help ([internal/components/modals/help_modal.go](../../internal/components/modals/help_modal.go)) lists them.
 
 5. Testing key handling
 
@@ -94,11 +94,11 @@ footer := widgets.Hints(inner,
 
 References
 
-- See the `KeyMap` implementation: [internal/keys/keymap.go](internal/keys/keymap.go)
-- Examples of `KeyMap` usage: [internal/components/modals/choice_modal.go](internal/components/modals/choice_modal.go) and [internal/components/modals/comment_modal.go](internal/components/modals/comment_modal.go)
+- See the `KeyMap` implementation: [internal/keys/keymap.go](../../internal/keys/keymap.go)
+- Examples of `KeyMap` usage: [internal/components/modals/choice_modal.go](../../internal/components/modals/choice_modal.go) and [internal/components/modals/comment_modal.go](../../internal/components/modals/comment_modal.go)
 
 Notes
 
 - All keyboard input handling MUST use the centralized `KeyMap` (do not match raw strings in Update handlers).
 
-- When bindings change, update [README.md](README.md) and `KeyMap.FullHelp()` (rendered by [internal/components/modals/help_modal.go](internal/components/modals/help_modal.go)) to keep docs and UI in sync.
+- When bindings change, update [docs/guide/keybindings.md](../guide/keybindings.md) and `KeyMap.FullHelp()` (rendered by [internal/components/modals/help_modal.go](../../internal/components/modals/help_modal.go)) to keep docs and UI in sync.

@@ -136,24 +136,66 @@ func TestChoiceModalClearsQueryBeforeClosing(t *testing.T) {
 	}
 }
 
-func TestQuickSearchAcceptsDigitsOnly(t *testing.T) {
-	var m Modal = NewQuickSearchModal(testEnv())
-	m = typeInto(m, "12a3")
-	m, _ = m.Update(tea.PasteMsg{Content: "4-5"})
-	_, msg := keyPress(m, tea.KeyEnter, 0)
+func quickSearchRequest(t *testing.T, msg tea.Msg) QuickSearchRequestMsg {
+	t.Helper()
 	batch, ok := msg.(tea.BatchMsg)
 	if !ok {
 		t.Fatalf("got %#v, want a batch with the lookup request", msg)
 	}
 	for _, cmd := range batch {
 		if req, ok := immediate(cmd).(QuickSearchRequestMsg); ok {
-			if req.ID != 12345 {
-				t.Fatalf("looked up %d, want 12345", req.ID)
-			}
-			return
+			return req
 		}
 	}
 	t.Fatal("no QuickSearchRequestMsg in the batch")
+	return QuickSearchRequestMsg{}
+}
+
+func TestQuickSearchSendsTheParsedQuery(t *testing.T) {
+	var m Modal = NewQuickSearchModal(testEnv())
+	m = typeInto(m, "!12")
+	_, msg := keyPress(m, tea.KeyEnter, 0)
+	if req := quickSearchRequest(t, msg); req.Query != (models.SearchQuery{ID: 12, Kind: models.SearchPullRequest}) {
+		t.Fatalf("got %+v, want pull request 12", req.Query)
+	}
+	m = NewQuickSearchModal(testEnv())
+	m, _ = m.Update(tea.PasteMsg{Content: " https://dev.azure.com/acme/storefront/_git/api/pullrequest/4821\n"})
+	_, msg = keyPress(m, tea.KeyEnter, 0)
+	if req := quickSearchRequest(t, msg); req.Query.ID != 4821 || req.Query.Kind != models.SearchPullRequest || req.Query.Organization != "acme" {
+		t.Fatalf("got %+v, want pull request 4821 from acme", req.Query)
+	}
+}
+
+func TestQuickSearchExplainsUnusableInput(t *testing.T) {
+	var m Modal = NewQuickSearchModal(testEnv())
+	m = typeInto(m, "abc")
+	m, msg := keyPress(m, tea.KeyEnter, 0)
+	if msg != nil {
+		t.Fatalf("unusable input must not start a lookup, got %#v", msg)
+	}
+	if out := ansi.Strip(m.View()); !strings.Contains(out, "Error: use a number, !PR, #work item") {
+		t.Fatalf("the error must say what is accepted:\n%s", out)
+	}
+}
+
+func TestQuickSearchLetsTheUserChooseBetweenAWorkItemAndAPullRequest(t *testing.T) {
+	var m Modal = NewQuickSearchModal(testEnv())
+	m = typeInto(m, "77")
+	m, _ = keyPress(m, tea.KeyEnter, 0)
+	item := &models.WorkItem{ID: 77, Title: "Checkout fails", Type: models.WorkItemTypeBug, State: "Active"}
+	pr := &models.PullRequest{ID: 77, Title: "Retry webhooks", RepositoryName: "api", SourceBranch: "feature/retry", TargetBranch: "main"}
+	m, _ = m.Update(QuickSearchSuccessMsg{Item: item, PullRequest: pr})
+	out := ansi.Strip(m.View())
+	for _, want := range []string{"2 matches", "PR !77 Retry webhooks", "#77 Checkout fails", "api · feature/retry → main"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("chooser is missing %q:\n%s", want, out)
+		}
+	}
+	m, _ = keyPress(m, tea.KeyDown, 0)
+	_, msg := keyPress(m, tea.KeyEnter, 0)
+	if chosen, ok := msg.(QuickSearchSuccessMsg); !ok || chosen.Item != item || chosen.PullRequest != nil {
+		t.Fatalf("got %#v, want only the work item", msg)
+	}
 }
 
 func mentionTeam() []models.TeamMember {

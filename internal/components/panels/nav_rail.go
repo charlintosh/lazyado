@@ -14,7 +14,6 @@ import (
 const (
 	railBar       = "┃"
 	railGroupIcon = "▾"
-	railSection   = "Boards"
 )
 
 type RailProps struct {
@@ -31,8 +30,16 @@ type railEntry struct {
 	binding key.Binding
 }
 
-func railEntries(k keys.KeyMap) []railEntry {
-	return []railEntry{{HubBoard, k.HubBoard}, {HubBacklog, k.HubBacklog}, {HubSprint, k.HubSprint}}
+type railGroup struct {
+	name    string
+	entries []railEntry
+}
+
+func railGroups(k keys.KeyMap) []railGroup {
+	return []railGroup{
+		{HubBoard.Section(), []railEntry{{HubBoard, k.HubBoard}, {HubBacklog, k.HubBacklog}, {HubSprint, k.HubSprint}}},
+		{HubPullRequests.Section(), []railEntry{{HubPullRequests, k.HubPullRequests}}},
+	}
 }
 
 func RenderRail(p RailProps) string {
@@ -57,10 +64,13 @@ func railFull(p RailProps, inner int) []string {
 	badge := Badge(widgets.Initials(p.Project), styles.ColorPrimary, styles.ColorOnAccent)
 	name := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).
 		Render(ansi.Truncate(p.Project, max(inner-lipgloss.Width(badge)-3, 1), "…"))
-	group := Muted(railGroupIcon) + " " + lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(railSection)
-	lines := []string{"", " " + badge + " " + name, "", " " + group}
-	for _, e := range railEntries(p.Keys) {
-		lines = append(lines, " "+railItem(e.hub.Name(), e.binding.Help().Key, e.hub == p.Hub, inner-2))
+	lines := []string{"", " " + badge + " " + name}
+	for _, g := range railGroups(p.Keys) {
+		title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(g.name)
+		lines = append(lines, "", " "+Muted(railGroupIcon)+" "+title)
+		for _, e := range g.entries {
+			lines = append(lines, " "+railItem(e.hub.Name(), e.binding.Help().Key, e.hub == p.Hub, inner-2))
+		}
 	}
 	return lines
 }
@@ -68,9 +78,12 @@ func railFull(p RailProps, inner int) []string {
 func railCompact(p RailProps, inner int) []string {
 	initials := lipgloss.NewStyle().Background(styles.ColorPrimary).Foreground(styles.ColorOnAccent).Bold(true).
 		Render(widgets.Initials(p.Project))
-	lines := []string{"", lipgloss.PlaceHorizontal(inner, lipgloss.Center, initials), ""}
-	for _, e := range railEntries(p.Keys) {
-		lines = append(lines, railKey(e.binding.Help().Key, e.hub == p.Hub, inner))
+	lines := []string{"", lipgloss.PlaceHorizontal(inner, lipgloss.Center, initials)}
+	for _, g := range railGroups(p.Keys) {
+		lines = append(lines, "")
+		for _, e := range g.entries {
+			lines = append(lines, railKey(e.binding.Help().Key, e.hub == p.Hub, inner))
+		}
 	}
 	return lines
 }
