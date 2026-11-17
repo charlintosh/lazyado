@@ -6,25 +6,29 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.4.0] - 2026-11-17
+
+Repos release: browse a repository's files, commit history, branches and tags, create and delete branches, create annotated tags, copy clone URLs, and syntax highlighting in file views and pull request diffs.
+
 ### Added
 
-- feat: Repos › Files hub (`E`, next to Pull requests in the navigation rail) — a folder tree beside the selected folder's files and subfolders with the last commit that changed each one (when, short ID, message) and its rendered `README.md`, or the selected file's contents with line numbers (Markdown rendered; binary files and files over `diff.max_file_kb` open in the browser); folders load as you open them and files once the cursor rests on them; `b` browses another branch or tag, `y` copies a path and `o` opens it in the browser at that branch or tag
-- feat: Repos › Commits hub (`H`) — the commits of a branch or tag, 100 at a time with more as you scroll, with a preview of the full message, author, committer, parents and changed files; `/` filters the loaded commits by text and searches Azure DevOps with `author:` and `path:`, `enter` browses the files at a commit, `y` copies its ID and `o` opens it in the browser
-- feat: file and folder history (`H` in the Files hub) — opens the Commits hub filtered to the selected path; `esc` clears it
-- feat: Repos › Branches hub (`V`) — **Mine** (yours, starred and the default branch), **All** and **Stale** (no commit in 3 months) views with each branch's last commit, behind | ahead counts against the default branch (`stats/branches`), *Default* and *Locked* marks and its active pull request; `/` filters by name, `enter` browses its files, `H` shows its commits, `p` opens a new pull request from it, `y` copies its name
-- feat: create a branch (`n` in the Branches hub) — name checked against Git's rules and existing branches, based on a branch, tag or commit ID; errors keep the form open and the new branch is selected
-- feat: delete a branch (`d` in the Branches hub) — confirmation that warns about an active pull request from it; the default branch and locked branches are refused
-- feat: Repos › Tags hub (`T`) — tags by name with their commit and whether they're annotated or lightweight, and a preview of an annotated tag's message, tagger and date; `/` filters by name, `enter` browses the files at the tag, `H` shows the commits up to it, `y` copies its name
-- feat: create a tag (`n` in the Tags hub) — an annotated tag (as the Azure DevOps web UI creates) on a branch, tag or commit ID, with a required description; the name is checked against Git's rules and existing tags, errors keep the form open and the new tag is selected
-- feat: clone a repository (`c` in the Files hub) — copy the HTTPS or SSH clone URL, or a `git clone` command
-- feat: the Repos hubs keep their own repository (`r`, without *All repositories*), remembered in `state.json` as `code_repository`; it starts from the Pull requests hub's repository or the project's only one
+- feat: Repos › Files hub (`E`, next to Pull requests in the navigation rail) — a folder tree beside the selected folder's files and subfolders with the last commit that changed each one (when, short ID, message) and its rendered `README.md`, or the selected file's contents with line numbers (Markdown rendered; binary files and files over `diff.max_file_kb` open in the browser); folders load as you open them and files once the cursor rests on them; `b` browses another branch or tag, `y` copies a path and `o` opens it in the browser at that branch or tag (0f8e053)
+- feat: Repos › Commits hub (`H`) — the commits of a branch or tag, 100 at a time with more as you scroll, with a preview of the full message, author, committer, parents and changed files; `/` filters the loaded commits by text and searches Azure DevOps with `author:` and `path:`, `enter` browses the files at a commit, `y` copies its ID and `o` opens it in the browser (0f8e053)
+- feat: file and folder history (`H` in the Files hub) — opens the Commits hub filtered to the selected path; `esc` clears it (0f8e053)
+- feat: Repos › Branches hub (`V`) — **Mine** (yours, starred and the default branch), **All** and **Stale** (no commit in 3 months) views with each branch's last commit, behind | ahead counts against the default branch (`stats/branches`), *Default* and *Locked* marks and its active pull request; `/` filters by name, `enter` browses its files, `H` shows its commits, `p` opens a new pull request from it, `y` copies its name (0f8e053)
+- feat: create a branch (`n` in the Branches hub) — name checked against Git's rules and existing branches, based on a branch, tag or commit ID; errors keep the form open and the new branch is selected (0f8e053)
+- feat: delete a branch (`d` in the Branches hub) — confirmation that warns about an active pull request from it; the default branch and locked branches are refused (0f8e053)
+- feat: Repos › Tags hub (`T`) — tags by name with their commit and whether they're annotated or lightweight, and a preview of an annotated tag's message, tagger and date; `/` filters by name, `enter` browses the files at the tag, `H` shows the commits up to it, `y` copies its name (0f8e053)
+- feat: create a tag (`n` in the Tags hub) — an annotated tag (as the Azure DevOps web UI creates) on a branch, tag or commit ID, with a required description; the name is checked against Git's rules and existing tags, errors keep the form open and the new tag is selected (0f8e053)
+- feat: clone a repository (`c` in the Files hub) — copy the HTTPS or SSH clone URL, or a `git clone` command (0f8e053)
+- feat: the Repos hubs keep their own repository (`r`, without *All repositories*), remembered in `state.json` as `code_repository`; it starts from the Pull requests hub's repository or the project's only one (0f8e053)
 
 ### Changed
 
-- feat: syntax highlighting in the pull request diff and the Files hub — one shared highlighter (`components.HighlightCode`) runs Chroma, the engine glamour uses, with lazyado's glamour code block theme, so diffs, file contents and Markdown code blocks share the same colors; each side of a diff is highlighted as a whole so multi-line comments and strings stay correct, and colors sit on the diff's add, delete and cursor backgrounds
-- feat: the Files hub shows a file like the pull request diff — a line-number gutter and a line cursor (`j` / `k`, `g` / `G`, `Ctrl+d` / `Ctrl+u`) with the focus bar; `o` opens the file in the browser at the cursor line
-- feat: confirmation dialogs fit short terminals by trimming the message instead of overflowing
-- refactor: hub keys are matched in one place (`hubFor` / `goToHub`) instead of once per hub
+- feat: syntax highlighting in the pull request diff and the Files hub — one shared highlighter (`components.HighlightCode`) runs Chroma, the engine glamour uses, with lazyado's glamour code block theme, so diffs, file contents and Markdown code blocks share the same colors; each side of a diff is highlighted as a whole so multi-line comments and strings stay correct, and colors sit on the diff's add, delete and cursor backgrounds (0f8e053)
+- feat: the Files hub shows a file like the pull request diff — a line-number gutter and a line cursor (`j` / `k`, `g` / `G`, `Ctrl+d` / `Ctrl+u`) with the focus bar; `o` opens the file in the browser at the cursor line (0f8e053)
+- feat: confirmation dialogs fit short terminals by trimming the message instead of overflowing (0f8e053)
+- refactor: hub keys are matched in one place (`hubFor` / `goToHub`) instead of once per hub (0f8e053)
 
 ## [v1.3.1] - 2026-11-17
 
