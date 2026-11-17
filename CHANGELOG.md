@@ -6,17 +6,21 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.4.2] - 2026-11-17
+
+Boards release: drag and drop on the Board like on Sprints, redesigned Board cards, and simpler Boards hub headers.
+
 ### Added
 
-- feat: drag and drop on the Board (`B`), the same as on the Sprints taskboard — hover shows the ⠿ grip; while dragging, the card's place shows a dotted ghost, the target column is tinted with a dashed preview at its top and counts like `2 → 3`, a label follows the pointer and the status bar reads MOVING; the card moves at once and shows saving, then saved or not saved (it goes back on failure); `esc` cancels
-- feat: Board drags refuse a state the item's type doesn't have ("Bug has no Approved state") and, when columns are scrolled out of view, holding the pointer at the left or right edge scrolls to them
-- feat: double click a Board card to open its work item form
+- feat: drag and drop on the Board (`B`), the same as on the Sprints taskboard — hover shows the ⠿ grip; while dragging, the card's place shows a dotted ghost, the target column is tinted with a dashed preview at its top and counts like `2 → 3`, a label follows the pointer and the status bar reads MOVING; the card moves at once and shows saving, then saved or not saved (it goes back on failure); `esc` cancels (430cf3e)
+- feat: Board drags refuse a state the item's type doesn't have ("Bug has no Approved state") and, when columns are scrolled out of view, holding the pointer at the left or right edge scrolls to them (430cf3e)
+- feat: double click a Board card to open its work item form (430cf3e)
 
 ### Changed
 
-- feat: Board cards redesigned — bordered columns with a header and count, and five-row cards with padding on both sides: ID, type and effort; the title on two word-wrapped lines; up to two tag chips; the assignee's initials and name with task progress. The state is no longer repeated on the card
-- feat: the Backlogs, Boards and Sprints headers drop their view tabs (*Backlog*, *Board*, *Taskboard* / *Backlog*) and the *View as Board* / *View as Backlog* links — `L`, `B` and `S` switch hubs, and on Sprints `[` / `]` still switch views, named in the pane title; the main pane no longer shows the `5` badge
-- feat: `<` / `>` on the Board move the card at once with the same saving and saved feedback as dragging, and skip states the item's type doesn't have
+- feat: Board cards redesigned — bordered columns with a header and count, and five-row cards with padding on both sides: ID, type and effort; the title on two word-wrapped lines; up to two tag chips; the assignee's initials and name with task progress. The state is no longer repeated on the card (430cf3e)
+- feat: the Backlogs, Boards and Sprints headers drop their view tabs (*Backlog*, *Board*, *Taskboard* / *Backlog*) and the *View as Board* / *View as Backlog* links — `L`, `B` and `S` switch hubs, and on Sprints `[` / `]` still switch views, named in the pane title; the main pane no longer shows the `5` badge (430cf3e)
+- feat: `<` / `>` on the Board move the card at once with the same saving and saved feedback as dragging, and skip states the item's type doesn't have (430cf3e)
 
 ## [v1.4.1] - 2026-11-17
 
