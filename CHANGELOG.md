@@ -6,13 +6,17 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.3.1] - 2026-11-17
+
+Security awareness release: lazyado relies only on your Personal Access Token and keeps it, your identity and Azure DevOps content off disk and out of logs.
+
 ### Security
 
-- security: the debug log moved from the shared temp directory to `lazyado/debug.log` in your user cache directory, readable only by you, and no longer records query strings, API error bodies or raw comment responses (which held names, emails and comment text)
-- security: `config.yaml` is read only from `~/.config/lazyado/`; a `./config.yaml` in the directory you start lazyado from is no longer used, so a token can't be picked up from (or left in) a project folder
-- security: `~/.config/lazyado/` is created readable only by you (`0700`)
-- security: release binaries are built with `-trimpath`, so they don't embed the build machine's paths
-- test: fixtures use reserved `example.com` addresses, and a repository check fails the tests on real-looking emails, token-shaped strings, encoded credentials or a non-placeholder `pat:`
+- security: the debug log moved from the shared temp directory to `lazyado/debug.log` in your user cache directory, readable only by you, and no longer records query strings, API error bodies or raw comment responses (which held names, emails and comment text) (be89af4)
+- security: `config.yaml` is read only from `~/.config/lazyado/`; a `./config.yaml` in the directory you start lazyado from is no longer used, so a token can't be picked up from (or left in) a project folder (be89af4)
+- security: `~/.config/lazyado/` is created readable only by you (`0700`) (be89af4)
+- security: release binaries are built with `-trimpath`, so they don't embed the build machine's paths (be89af4)
+- test: fixtures use reserved `example.com` addresses, and a repository check fails the tests on real-looking emails, token-shaped strings, encoded credentials or a non-placeholder `pat:` (be89af4)
 
 ## [v1.3.0] - 2026-11-17
 
