@@ -265,6 +265,19 @@ type PullRequestCheck struct {
 	Detail   string
 	State    CheckState
 	Required bool
+	BuildID  int
+}
+
+func BuildChecks(checks []PullRequestCheck) []PullRequestCheck {
+	var out []PullRequestCheck
+	seen := map[int]bool{}
+	for _, c := range checks {
+		if c.BuildID > 0 && !seen[c.BuildID] {
+			seen[c.BuildID] = true
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func BlockingChecks(checks []PullRequestCheck) int {

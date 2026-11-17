@@ -6,6 +6,7 @@ The *Repos › Pull requests* hub (`P`) lists the pull requests of a repository.
 - [Searching](#searching)
 - [Creating a pull request](#creating-a-pull-request)
 - [Reviewing a pull request](#reviewing-a-pull-request)
+- [Builds](#builds)
 - [Comments](#comments)
 - [The Files tab](#the-files-tab)
 - [Voting](#voting)
@@ -34,6 +35,7 @@ Press `r` to switch. The picker is searchable, includes an explicit **All reposi
 | `enter` | Open the review |
 | `a` | Vote |
 | `c` | Comment on the pull request |
+| `b` | [Open its build](#builds) |
 | `o` | Open in the browser |
 
 ## Searching
@@ -77,12 +79,18 @@ The header shows the ID and title, the status, who wants to merge which branch i
 **Overview** shows:
 
 - whether the pull request has merge conflicts and whether its required policies are met;
-- **Policies**: build validation, required reviewers and custom status checks, split into required and optional;
+- **Policies**: build validation, required reviewers and custom status checks, split into required and optional. When one of them points to a build, the title shows `b` ([Builds](#builds));
 - **Reviewers** and their votes;
 - **Work items** linked to the pull request. Press `w` to open one in the [work item form](boards.md#the-work-item-form); `esc` brings you back to the review;
 - **Tags**, the **Description** (rendered as Markdown), and the **Activity**: every comment thread, plus system events such as votes and updates.
 
 `o` opens the pull request in the browser.
+
+## Builds
+
+A build validation policy, or a status check posted by a pipeline, points to the build that produced it. Press `b`, in the review or on the selected pull request in the list, to open that build in the [run view](pipelines.md#a-run): its stages, jobs, errors and logs. With several builds, a picker lists them with their state. `esc` in the run view goes back to the pull request.
+
+Status checks from other tools (SonarQube, for example) don't point to a build and aren't listed.
 
 ## Comments
 

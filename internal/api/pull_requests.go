@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -414,6 +415,7 @@ type policyEvaluation struct {
 	} `json:"configuration"`
 	Context struct {
 		IsExpired bool `json:"isExpired"`
+		BuildID   int  `json:"buildId"`
 	} `json:"context"`
 }
 
@@ -429,7 +431,7 @@ func (e policyEvaluation) check() (models.PullRequestCheck, bool) {
 	if !cfg.IsEnabled || strings.EqualFold(e.Status, "notApplicable") {
 		return models.PullRequestCheck{}, false
 	}
-	check := models.PullRequestCheck{Name: cfg.Type.DisplayName, Required: cfg.IsBlocking}
+	check := models.PullRequestCheck{Name: cfg.Type.DisplayName, Required: cfg.IsBlocking, BuildID: e.Context.BuildID}
 	switch {
 	case cfg.Settings.StatusName != "":
 		check.Name = statusContextName(cfg.Settings.StatusGenre, cfg.Settings.StatusName)
@@ -458,6 +460,7 @@ type pullRequestStatus struct {
 	ID          int    `json:"id"`
 	State       string `json:"state"`
 	Description string `json:"description"`
+	TargetURL   string `json:"targetUrl"`
 	Context     struct {
 		Name  string `json:"name"`
 		Genre string `json:"genre"`
@@ -465,7 +468,7 @@ type pullRequestStatus struct {
 }
 
 func (s pullRequestStatus) check() models.PullRequestCheck {
-	check := models.PullRequestCheck{Name: statusContextName(s.Context.Genre, s.Context.Name), Detail: s.Description}
+	check := models.PullRequestCheck{Name: statusContextName(s.Context.Genre, s.Context.Name), Detail: s.Description, BuildID: buildIDFromURL(s.TargetURL)}
 	switch strings.ToLower(s.State) {
 	case "succeeded":
 		check.State = models.CheckPassed
@@ -475,6 +478,18 @@ func (s pullRequestStatus) check() models.PullRequestCheck {
 		check.State = models.CheckPending
 	}
 	return check
+}
+
+func buildIDFromURL(raw string) int {
+	u, err := url.Parse(raw)
+	if err != nil || !strings.Contains(strings.ToLower(u.Path), "/_build/results") {
+		return 0
+	}
+	id, err := strconv.Atoi(u.Query().Get("buildId"))
+	if err != nil || id <= 0 {
+		return 0
+	}
+	return id
 }
 
 func (c *Client) GetPullRequestChecks(pr models.PullRequest) ([]models.PullRequestCheck, error) {
@@ -490,16 +505,20 @@ func (c *Client) GetPullRequestChecks(pr models.PullRequest) ([]models.PullReque
 		return nil, fmt.Errorf("loading policies: %w", err)
 	}
 	var checks []models.PullRequestCheck
-	seen := map[string]bool{}
+	seen := map[string]int{}
 	for _, e := range evaluations.Value {
 		if check, ok := e.check(); ok {
+			seen[check.Name] = len(checks)
 			checks = append(checks, check)
-			seen[check.Name] = true
 		}
 	}
 	for _, check := range c.pullRequestStatuses(pr) {
-		if !seen[check.Name] {
+		i, ok := seen[check.Name]
+		switch {
+		case !ok:
 			checks = append(checks, check)
+		case checks[i].BuildID == 0:
+			checks[i].BuildID = check.BuildID
 		}
 	}
 	sort.SliceStable(checks, func(i, j int) bool { return checks[i].Required && !checks[j].Required })

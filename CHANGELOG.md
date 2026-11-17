@@ -14,6 +14,17 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 - feat: run details (`enter` on a run, `v` for a pipeline's latest run) — **Summary** shows stages and jobs with progress and durations, errors and warnings with where they came from, run details and the commits it includes; **Logs** shows the jobs by stage, the steps of the selected job and the step's log with Azure DevOps' error, warning and section markers, opens on the failed or running step, and follows a running step (`F`); a running run refreshes every 5 seconds
 - feat: run a pipeline (`n` in the Builds hub, `n` on a run to run it again on the same branch) — choose a branch or tag and an optional commit, set the parameters read from the pipeline's YAML at that branch or tag, untick the stages to skip, override queue-time variables and turn on system diagnostics; classic pipelines queue a build with the branch and variables, and the new run's logs open once it is queued
 
+- feat: Pipelines › Releases hub (`R`) — release pipelines with an always-visible **Starred** group first (`Ctrl+t`, saved in `state.json`, plus any Azure DevOps favorites), searchable by name (typing filters, `↑` / `↓` move through matches, `Enter` goes into the match's releases, the filter stays as `· /text` in the pane title and `Esc` clears it; Azure DevOps is asked 300 ms after typing only when more pipelines exist than are loaded), `v` opens a pipeline's latest release, and each pipeline's releases with a chip per stage (deployed, deploying, waiting for approval, queued, failed, rejected, partial, canceled, not deployed); loads more as you scroll and refreshes while a release deploys
+- feat: Approvals view (`2` in the Releases hub) — pending approvals waiting on you (including group approvals) and on others, with a preview of the release; `a` approves or rejects
+- feat: release screen — stages as boxes (`h` / `l`), what the selected stage waits on and who can approve it, its trigger, approvers and last deployment attempt; `a` approves or rejects with a comment (required to reject), `d` deploys or redeploys a stage with warnings about approvals and failed attempts, and the **Logs** tab shows deployment jobs, tasks and logs; refreshes every 5 seconds while deploying
+- feat: open a pull request's build (`b` in the review and in the pull request list) — build validation policies (`context.buildId`) and pipeline status checks (`targetUrl` to `_build/results?buildId=`) open in the run view with stages, jobs and logs; several builds show a picker, and `esc` returns to the pull request
+- feat: cancel a deployment (`x` on the release screen) — for a stage that is deploying, queued, scheduled or waiting for approval; the dialog explains what stops, takes an optional comment, and the stage can be deployed again afterwards
+- feat: create a release (`n`) — pick a branch and build version for each build artifact (succeeded and partially succeeded builds of that branch), a branch for Azure Repos artifacts, which automatic stages should wait for a manual deploy, release-time variables and a description
+
+### Changed
+
+- change: pane titles show the `5` key only on the Boards hubs, where it focuses the main view; the Pull requests, Builds and Releases panes no longer show it
+
 ### Fixed
 
 - fix: the selected pull request row is highlighted edge to edge; the spaces between reviewer vote chips no longer break the highlight

@@ -21,6 +21,9 @@ func (a App) handleResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	if next, cmd, ok := a.handlePipelineResult(msg); ok {
 		return next, cmd, true
 	}
+	if next, cmd, ok := a.handleReleaseHubResult(msg); ok {
+		return next, cmd, true
+	}
 	if next, cmd, ok := a.handlePanelIntent(msg); ok {
 		return next, cmd, true
 	}
@@ -44,6 +47,7 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.filters = filters
 		if s := msg.savedFilters; s != nil {
 			a.pr.savedRepo, a.pr.favorites = s.Repository, s.FavoriteRepositories
+			a.rl.localStars = s.FavoriteReleases
 		}
 		a.setIdentity(msg.me)
 		return a, a.reload(), true
@@ -237,6 +241,7 @@ func (a *App) setIdentity(me models.Identity) {
 	a.detailView.SetIdentity(me)
 	a.pr.panel.SetIdentity(me)
 	a.pr.view.SetIdentity(me)
+	a.rl.view.SetIdentity(me)
 	a.applyPullRequests()
 }
 
@@ -294,6 +299,7 @@ func (a *App) savedState() config.FilterState {
 		Repository: a.pr.savedScope(),
 
 		FavoriteRepositories: a.pr.favorites,
+		FavoriteReleases:     a.rl.localStars,
 	}
 }
 

@@ -74,6 +74,14 @@ Bubble Tea calls `View` after every `Update`, and some messages arrive in bursts
 - `ViewRun` shows `panels.PipelineRunView` (`internal/app/pipeline_run.go`). Opening it loads the run, its timeline and its changes. `reconcile` asks the view which log it needs (`WantedLog`), the same way the review asks for files. While the run is active a 5 second `runPollMsg` (guarded by `runSeq`) reloads the run and the timeline and marks logs stale, so the selected running step is tailed from its next line.
 - The run dialog (`modals.RunPipelineForm`) never calls the API. It asks for the definition and refs (`RunDefinitionRequestMsg`) and for the YAML spec of a ref (`RunSpecRequestMsg`); the app answers with `RunDefinitionMsg` / `RunSpecMsg` only while the form is on top. `RunPipelineRequestMsg` starts the run; on success the app closes the form and opens the run's logs.
 
+## Releases
+
+- The Pipelines › Releases hub is `panels.HubReleases`; its state lives in `App.rl` (`internal/app/releases.go`). Three list panels share `panels.selectList` (cursor, headers, edge-to-edge highlight, reveal): `ReleaseDefinitionsPanel`, `ReleasesPanel` and `ApprovalsPanel`. The hub draws two panes itself (`renderReleasesBody`), so it does not use the right preview pane.
+- The selected release pipeline's releases load debounced in `reconcile` (`syncReleaseSelection`), like pull request policies.
+- Release pipeline search filters the loaded list in the panel. Every text change emits `ReleaseSearchTypedMsg`; when more pages exist the app schedules `releaseSearchDueMsg` (300 ms, `searchSeq`) and the panel shows the server's extra matches under *Found on Azure DevOps* (`SetFound`). `Enter` only accepts the selection (`FocusReleasesMsg`); it never reloads the list. Loads carry `listSeq`/`approvalsSeq`; deploying releases schedule a 15 second refresh.
+- `ViewRelease` shows `panels.ReleaseView` (`internal/app/release_view.go`). Its Logs tab and the build run view both embed `panels.runLogs`, which owns the jobs, steps and log panes, log entries, tailing and follow. `reconcile` asks the view for the log it needs (`WantedLog` returns the task's log URL for releases).
+- Approve, deploy, cancel and create are intents (`ApproveReleaseMsg`, `DeployStageMsg`, `CancelDeploymentMsg`, `CreateReleaseMsg`) that open dialogs; the dialogs return request messages, and after a change the app reloads the release, the list and the approvals.
+
 ## Modals
 
 ```go

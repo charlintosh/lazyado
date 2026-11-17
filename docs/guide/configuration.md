@@ -80,8 +80,10 @@ Create the token under *User settings → Personal access tokens* in Azure DevOp
 | **Code** · Read & write | Creating pull requests, and voting, commenting, replying, liking and resolving threads on them |
 | **Build** · Read | Pipelines, runs, stages and logs |
 | **Build** · Read & execute | Running pipelines. Reading a pipeline's branches, tags and YAML parameters also needs *Code* · Read |
+| **Release** · Read | Release pipelines, releases, approvals and deployment logs |
+| **Release** · Read, write, execute & manage | Creating releases, deploying stages, canceling deployments, and approving or rejecting deployments |
 
-You can skip the *Code* scopes if you only use the Boards hubs, the *Build* scopes if you don't use the Builds hub, and the *Read & write* and *execute* scopes if you only want to browse.
+You can skip the *Code* scopes if you only use the Boards hubs, the *Build* and *Release* scopes if you don't use the Builds and Releases hubs, and the *Read & write* and *execute* scopes if you only want to browse.
 
 ## Who you are
 
@@ -99,6 +101,7 @@ Some choices are saved to `~/.config/lazyado/state.json` and restored the next t
 
 - the sprint, person, state and area filters;
 - the repository chosen in the Pull requests hub (or *All repositories*);
-- the repositories you starred locally (`Ctrl+t` in the repository picker).
+- the repositories you starred locally (`Ctrl+t` in the repository picker);
+- the release pipelines you starred locally (`Ctrl+t` in the Releases hub).
 
-Delete the file to start fresh. Repositories you starred in Azure DevOps are read from your account each time and are not stored here.
+Delete the file to start fresh. Repositories you starred in Azure DevOps are read from your account each time and are not stored here. Azure DevOps doesn't expose release pipeline stars through its favorites API for most accounts, so star release pipelines in lazyado with `Ctrl+t`.

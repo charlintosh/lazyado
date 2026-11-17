@@ -21,6 +21,7 @@ type Client struct {
 	httpClient   *http.Client
 	baseURL      string
 	teamURL      string
+	releaseURL   string
 	webURL       string
 	authHeader   string
 	organization string
@@ -40,6 +41,7 @@ func NewClient(cfg *config.Config) *Client {
 		},
 		baseURL:      cfg.BaseURL(),
 		teamURL:      cfg.TeamURL(),
+		releaseURL:   cfg.ReleaseURL(),
 		webURL:       cfg.WebURL(),
 		authHeader:   "Basic " + auth,
 		organization: cfg.Organization,

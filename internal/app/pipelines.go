@@ -61,7 +61,8 @@ type pipelineState struct {
 	history         []models.PipelineRun
 	historyLoaded   bool
 
-	runSeq int
+	runSeq     int
+	fromReview bool
 }
 
 type pipelineListMsg struct {
@@ -445,6 +446,8 @@ func (a App) handlePipelineKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, k.HubPullRequests):
 		return a, a.openPullRequests()
 	case key.Matches(msg, k.HubBuilds):
+	case key.Matches(msg, k.HubReleases):
+		return a, a.openReleases()
 	case key.Matches(msg, k.Back) && a.pl.page != nil:
 		return a, a.closePipelinePage()
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.PrevPanel), key.Matches(msg, k.Left):

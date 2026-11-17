@@ -104,8 +104,12 @@ func checkRows(checks []models.PullRequestCheck, width int) []string {
 	return rows
 }
 
-func RenderChecks(checks []models.PullRequestCheck, loaded bool, width int, spinner string) string {
-	lines := []string{sectionTitle("Policies", width)}
+func RenderChecks(checks []models.PullRequestCheck, loaded bool, width int, spinner, buildKey string) string {
+	title := "Policies"
+	if len(models.BuildChecks(checks)) > 0 && buildKey != "" {
+		title += " " + lipgloss.NewStyle().Foreground(styles.ColorPrimary).Bold(true).Render(buildKey)
+	}
+	lines := []string{sectionTitle(title, width)}
 	switch {
 	case !loaded:
 		return strings.Join(append(lines, Loading(spinner, loadingChecks)), "\n")
@@ -199,6 +203,7 @@ type PullRequestPreviewProps struct {
 	Checks       []models.PullRequestCheck
 	ChecksLoaded bool
 	Spinner      string
+	BuildKey     string
 	Me           models.Identity
 	Width        int
 	Height       int
@@ -211,7 +216,7 @@ func RenderPullRequestPreview(p PullRequestPreviewProps) string {
 	pr := *p.PullRequest
 	parts := []string{
 		PullRequestSummary(pr, p.Width),
-		RenderChecks(p.Checks, p.ChecksLoaded, p.Width, p.Spinner),
+		RenderChecks(p.Checks, p.ChecksLoaded, p.Width, p.Spinner, p.BuildKey),
 		RenderReviewers(pr, p.Me, p.Width),
 		sectionTitle("Description", p.Width) + "\n" + PullRequestDescription(pr, p.Width),
 	}

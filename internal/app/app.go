@@ -36,6 +36,7 @@ const (
 	viewTaskboard
 	viewPullRequests
 	viewPipelines
+	viewReleases
 )
 
 const (
@@ -52,6 +53,7 @@ const (
 	ViewDetail
 	ViewPullRequest
 	ViewRun
+	ViewRelease
 )
 
 type App struct {
@@ -63,6 +65,7 @@ type App struct {
 	detailView     panels.DetailView
 	pr             pullRequestState
 	pl             pipelineState
+	rl             releaseState
 	splashScreen   screens.SplashScreen
 	notification   notification.Notification
 	statusHelp     help.Model
@@ -118,8 +121,12 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		detailView:     panels.NewDetailView(st, k),
 		pr:             pullRequestState{panel: panels.NewPullRequestsPanel(k), view: panels.NewPullRequestView(k, limits)},
 		pl:             pipelineState{panel: panels.NewPipelinesPanel(k), view: panels.NewPipelineRunView(k)},
-		splashScreen:   screens.NewSplashScreen(st),
-		statusHelp:     widgets.NewHelp(),
+		rl: releaseState{
+			defs: panels.NewReleaseDefinitionsPanel(k), list: panels.NewReleasesPanel(k),
+			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k),
+		},
+		splashScreen: screens.NewSplashScreen(st),
+		statusHelp:   widgets.NewHelp(),
 		spinner: spinner.New(
 			spinner.WithSpinner(spinner.MiniDot),
 			spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary)),
@@ -172,6 +179,11 @@ func (a App) update(msg tea.Msg) (App, tea.Cmd) {
 			a.pl.panel, cmd = a.pl.panel.Update(msg)
 			return a, cmd
 		}
+		if a.searchingReleases() {
+			var cmd tea.Cmd
+			a.rl.defs, cmd = a.rl.defs.Update(msg)
+			return a, cmd
+		}
 	case spinner.TickMsg:
 		return a.tick(msg)
 	case screens.FrameMsg:
@@ -201,6 +213,8 @@ func (a App) handleMouse(msg tea.MouseMsg) (App, tea.Cmd) {
 		a.pr.view, cmd = a.pr.view.Update(msg)
 	case a.viewingRun():
 		a.pl.view, cmd = a.pl.view.Update(msg)
+	case a.viewingRelease():
+		a.rl.view, cmd = a.rl.view.Update(msg)
 	case a.viewMode == ViewDetail:
 		a.detailView, cmd = a.detailView.Update(msg)
 	case a.activePanel == PanelWorkItems:
@@ -248,8 +262,9 @@ func (a *App) reconcile() tea.Cmd {
 	selection := a.syncSelection()
 	checks := a.syncPullRequestSelection()
 	preview := a.syncPipelinePreview()
+	releases := a.syncReleaseSelection()
 	a.syncSpinner()
-	return tea.Batch(selection, checks, preview, a.syncReviewFile(), a.syncRunLog(), a.ensureSpinner())
+	return tea.Batch(selection, checks, preview, releases, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
 }
 
 func (a *App) syncSpinner() {
@@ -258,6 +273,10 @@ func (a *App) syncSpinner() {
 	a.pr.view.SetSpinner(frame)
 	a.pl.panel.SetSpinner(frame)
 	a.pl.view.SetSpinner(frame)
+	a.rl.defs.SetSpinner(frame)
+	a.rl.list.SetSpinner(frame)
+	a.rl.approvals.SetSpinner(frame)
+	a.rl.view.SetSpinner(frame)
 }
 
 func (a *App) syncSelection() tea.Cmd {
@@ -290,7 +309,8 @@ func (a *App) ensureSpinner() tea.Cmd {
 func (a *App) busy() bool {
 	return a.loading || a.pr.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading()) ||
 		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded) ||
-		(a.inPipelines() && (a.pl.loading || a.pl.panel.Loading() || a.previewLoading())) || (a.viewingRun() && a.pl.view.Loading())
+		(a.inPipelines() && (a.pl.loading || a.pl.panel.Loading() || a.previewLoading())) || (a.viewingRun() && a.pl.view.Loading()) ||
+		(a.inReleases() && a.releaseLoading()) || (a.viewingRelease() && a.rl.view.Loading())
 }
 
 func (a *App) showSplash() bool {
@@ -354,6 +374,8 @@ func (a *App) mainView() mainView {
 		return viewPullRequests
 	case a.hub == panels.HubBuilds:
 		return viewPipelines
+	case a.hub == panels.HubReleases:
+		return viewReleases
 	case a.hub == panels.HubBoard:
 		return viewBoard
 	case a.hub == panels.HubSprint && a.sprintView == sprintTaskboard:
@@ -373,7 +395,7 @@ func (a *App) selectedItem() *models.WorkItem {
 		return a.boardPanel.SelectedItem()
 	case viewTaskboard:
 		return a.taskboardPanel.SelectedItem()
-	case viewPullRequests, viewPipelines:
+	case viewPullRequests, viewPipelines, viewReleases:
 		return nil
 	default:
 		return a.workItemsPanel.SelectedItem()
@@ -391,6 +413,8 @@ func (a *App) updateMainPanel(msg tea.Msg) tea.Cmd {
 		a.pr.panel, cmd = a.pr.panel.Update(msg)
 	case viewPipelines:
 		a.pl.panel, cmd = a.pl.panel.Update(msg)
+	case viewReleases:
+		cmd = a.updateReleasePanel(msg)
 	default:
 		a.workItemsPanel, cmd = a.workItemsPanel.Update(msg)
 	}

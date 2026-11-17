@@ -108,6 +108,10 @@ func (c *Config) BaseURL() string {
 	return fmt.Sprintf("https://dev.azure.com/%s/%s/_apis", c.Organization, c.Project)
 }
 
+func (c *Config) ReleaseURL() string {
+	return fmt.Sprintf("https://vsrm.dev.azure.com/%s/%s/_apis", c.Organization, c.Project)
+}
+
 // TeamURL returns the Azure DevOps API URL for team-specific endpoints
 func (c *Config) TeamURL() string {
 	return fmt.Sprintf("https://dev.azure.com/%s/%s/%s/_apis", c.Organization, c.Project, c.Team)

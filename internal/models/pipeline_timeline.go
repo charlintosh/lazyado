@@ -25,6 +25,7 @@ type TimelineRecord struct {
 	Started    time.Time
 	Finished   time.Time
 	LogID      int
+	LogURL     string
 	Worker     string
 	Issues     []RunIssue
 }

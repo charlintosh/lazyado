@@ -39,7 +39,7 @@ func railGroups(k keys.KeyMap) []railGroup {
 	return []railGroup{
 		{HubBoard.Section(), []railEntry{{HubBoard, k.HubBoard}, {HubBacklog, k.HubBacklog}, {HubSprint, k.HubSprint}}},
 		{HubPullRequests.Section(), []railEntry{{HubPullRequests, k.HubPullRequests}}},
-		{HubBuilds.Section(), []railEntry{{HubBuilds, k.HubBuilds}}},
+		{HubBuilds.Section(), []railEntry{{HubBuilds, k.HubBuilds}, {HubReleases, k.HubReleases}}},
 	}
 }
 

@@ -124,7 +124,25 @@ func (a *App) viewingRun() bool {
 	return a.viewMode == ViewRun
 }
 
+func (a *App) openPullRequestBuilds(pr models.PullRequest, builds []models.PullRequestCheck) tea.Cmd {
+	switch len(builds) {
+	case 0:
+		return a.info("No policy or status check on this pull request points to a build.")
+	case 1:
+		return a.openBuildByID(builds[0].BuildID, builds[0].Name)
+	}
+	return a.openModal(modals.NewPullRequestBuildsModal(a.env(), pr, builds))
+}
+
+func (a *App) openBuildByID(id int, name string) tea.Cmd {
+	fromReview := a.reviewing()
+	cmd := a.openRun(models.PipelineRun{ID: id, PipelineName: name, WebURL: a.client.RunWebURL(id)}, panels.RunSummaryTab)
+	a.pl.fromReview = fromReview
+	return cmd
+}
+
 func (a *App) openRun(run models.PipelineRun, tab panels.RunTab) tea.Cmd {
+	a.pl.fromReview = false
 	a.viewMode = ViewRun
 	a.pl.view.Open(run, tab)
 	a.pl.runSeq++
@@ -166,8 +184,17 @@ func (a App) handleRunResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case panels.CloseRunViewMsg:
 		a.viewMode = ViewMain
+		if a.pl.fromReview {
+			a.viewMode = ViewPullRequest
+		}
+		a.pl.fromReview = false
 		a.pl.runSeq++
 		return a, nil, true
+	case panels.PullRequestBuildsMsg:
+		return a, a.openPullRequestBuilds(msg.PullRequest, msg.Builds), true
+	case modals.BuildChosenMsg:
+		a.closeModal()
+		return a, a.openBuildByID(msg.BuildID, msg.Name), true
 	case panels.RunAgainMsg:
 		r := msg.Run
 		return a, a.openRunForm(models.Pipeline{ID: r.PipelineID, Name: r.PipelineName, Folder: r.PipelineFolder}, r.Ref), true

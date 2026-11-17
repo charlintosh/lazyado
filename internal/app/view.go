@@ -74,6 +74,8 @@ func (a *App) renderBase() string {
 		return a.renderReview()
 	case a.viewingRun():
 		return a.renderRun()
+	case a.viewingRelease():
+		return a.renderRelease()
 	case a.viewMode == ViewDetail:
 		return a.renderDetailView()
 	default:
@@ -93,7 +95,7 @@ func (a *App) renderHeader(crumbs ...string) string {
 		Organization: a.client.Organization(),
 		Project:      a.client.Project(),
 		Crumbs:       crumbs,
-		Loading:      a.loading || a.pr.loading || a.pl.loading,
+		Loading:      a.loading || a.pr.loading || a.pl.loading || a.rl.loading,
 		Spinner:      a.spinner.View(),
 		Notice:       a.notification.View(),
 		SearchKey:    a.keys.QuickSearch.Help().Key,
@@ -129,20 +131,34 @@ func (a *App) hubCrumbs() []string {
 	if a.inPipelines() {
 		crumbs = append(crumbs, a.pipelineCrumb())
 	}
+	if a.inReleases() {
+		crumbs = append(crumbs, a.releaseCrumb())
+	}
 	return crumbs
 }
 
 func (a *App) renderMainColumn(l shellLayout) string {
 	var box string
-	if a.isPanePanel() && !l.showPane {
+	switch {
+	case a.inReleases():
+		box = a.renderReleasesBody(l.mainWidth, l.mainHeight())
+	case a.isPanePanel() && !l.showPane:
 		box = a.renderPane(l.mainWidth, l.mainHeight())
-	} else {
+	default:
 		focused := a.activePanel == PanelWorkItems
 		title, content := a.mainPanelView()
-		box = panels.Pane(panels.PaneTitle(a.keys.Panel5.Help().Key, title, focused), content, l.mainWidth, l.mainHeight(), focused)
+		box = panels.Pane(panels.PaneTitle(a.mainPaneKey(), title, focused), content, l.mainWidth, l.mainHeight(), focused)
 	}
 	header := panels.Block(a.header.View, l.mainWidth, l.headerHeight)
 	return lipgloss.JoinVertical(lipgloss.Left, header, box)
+}
+
+func (a *App) mainPaneKey() string {
+	switch a.hub {
+	case panels.HubBacklog, panels.HubBoard, panels.HubSprint:
+		return a.keys.Panel5.Help().Key
+	}
+	return ""
 }
 
 func (a *App) mainPanelView() (string, string) {
@@ -244,11 +260,13 @@ func (a *App) modeLabel() string {
 		return a.pr.view.Mode()
 	case a.viewingRun():
 		return a.pl.view.Mode()
+	case a.viewingRelease():
+		return a.rl.view.Mode()
 	case a.viewMode == ViewDetail:
 		return "WORK ITEM"
 	case a.keyword.Focused():
 		return "FILTER"
-	case a.searchingPullRequests(), a.searchingPipelines():
+	case a.searchingPullRequests(), a.searchingPipelines(), a.searchingReleases():
 		return "SEARCH"
 	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
 		return "MOVING"
@@ -280,6 +298,8 @@ func (a *App) statusBindings() []key.Binding {
 		return a.pr.view.KeyBindings()
 	case a.viewingRun():
 		return a.pl.view.KeyBindings()
+	case a.viewingRelease():
+		return a.rl.view.KeyBindings()
 	case a.viewMode == ViewDetail:
 		return a.detailView.KeyBindings()
 	case a.keyword.Focused():
@@ -295,9 +315,11 @@ func (a *App) statusBindings() []key.Binding {
 	case viewTaskboard:
 		return a.taskboardPanel.KeyBindings()
 	case viewPullRequests:
-		return a.pr.panel.KeyBindings()
+		return a.pullRequestBindings()
 	case viewPipelines:
 		return a.pl.panel.KeyBindings()
+	case viewReleases:
+		return a.releaseBindings()
 	default:
 		return a.workItemsPanel.KeyBindings()
 	}

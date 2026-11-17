@@ -207,6 +207,44 @@ type WorkItemChosenMsg struct {
 	Item models.WorkItem
 }
 
+type BuildChosenMsg struct {
+	BuildID int
+	Name    string
+}
+
+func NewPullRequestBuildsModal(env Env, pr models.PullRequest, builds []models.PullRequestCheck) ChoiceModal {
+	options := make([]widgets.Option, len(builds))
+	for i, b := range builds {
+		options[i] = widgets.Option{Label: b.Name, Value: strconv.Itoa(i), Detail: checkStateLabel(b.State)}
+	}
+	return newChoiceModal(env, choiceSpec{
+		title:    "Builds",
+		subtitle: pullRequestLabel(pr),
+		action:   "open",
+		options:  options,
+		noun:     "build",
+		nouns:    "builds",
+		width:    styles.ModalWidthXL,
+		rows:     min(len(options), styles.PickerRows),
+		choose: func(o widgets.Option) tea.Msg {
+			index, _ := strconv.Atoi(o.Value)
+			return BuildChosenMsg{BuildID: builds[index].BuildID, Name: builds[index].Name}
+		},
+	})
+}
+
+func checkStateLabel(s models.CheckState) string {
+	switch s {
+	case models.CheckPassed:
+		return "succeeded"
+	case models.CheckFailed:
+		return "failed"
+	case models.CheckRunning:
+		return "running"
+	}
+	return "pending"
+}
+
 func NewLinkedWorkItemsModal(env Env, pr models.PullRequest, items []models.WorkItem) ChoiceModal {
 	options := make([]widgets.Option, len(items))
 	for i, item := range items {

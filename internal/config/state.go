@@ -15,6 +15,7 @@ type FilterState struct {
 
 	Repository           string   `json:"repository,omitempty"`
 	FavoriteRepositories []string `json:"favorite_repositories,omitempty"`
+	FavoriteReleases     []int    `json:"favorite_releases,omitempty"`
 }
 
 // getStatePath returns the path to the state file

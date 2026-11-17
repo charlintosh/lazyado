@@ -74,6 +74,11 @@ type DeletePullRequestCommentMsg struct {
 	Comment     models.PullRequestComment
 }
 
+type PullRequestBuildsMsg struct {
+	PullRequest models.PullRequest
+	Builds      []models.PullRequestCheck
+}
+
 type LinkedWorkItemsMsg struct {
 	PullRequest models.PullRequest
 	Items       []models.WorkItem
@@ -387,7 +392,7 @@ func (v *PullRequestView) workItemsSection(width int) string {
 
 func (v *PullRequestView) sideSections(width int) []string {
 	sections := []string{
-		RenderChecks(v.checks, v.checksLoaded, width, v.spinner),
+		RenderChecks(v.checks, v.checksLoaded, width, v.spinner, v.keys.OpenBuild.Help().Key),
 		RenderReviewers(*v.pr, v.me, width),
 		v.workItemsSection(width),
 	}
@@ -485,6 +490,9 @@ func (v PullRequestView) handleKey(msg tea.KeyPressMsg) (PullRequestView, tea.Cm
 	case key.Matches(msg, k.LinkedWorkItems):
 		items := v.workItems
 		return v, func() tea.Msg { return LinkedWorkItemsMsg{PullRequest: pr, Items: items} }
+	case key.Matches(msg, k.OpenBuild):
+		builds := models.BuildChecks(v.checks)
+		return v, func() tea.Msg { return PullRequestBuildsMsg{PullRequest: pr, Builds: builds} }
 	}
 	if v.tab == PullRequestFiles {
 		return v.handleFilesKey(msg)
@@ -636,6 +644,9 @@ func (v *PullRequestView) KeyBindings() []key.Binding {
 	}
 	if len(v.workItems) > 0 {
 		bindings = append(bindings, k.LinkedWorkItems)
+	}
+	if len(models.BuildChecks(v.checks)) > 0 {
+		bindings = append(bindings, k.OpenBuild)
 	}
 	return append(bindings, widgets.Combine("comment", k.Up, k.Down), tabs, k.OpenBrowser, back)
 }

@@ -44,7 +44,7 @@ func (a *App) filterKeys() []key.Binding {
 }
 
 func (a *App) barFilters() []models.FilterType {
-	if a.inPullRequests() || a.inPipelines() {
+	if a.inPullRequests() || a.inPipelines() || a.inReleases() {
 		return nil
 	}
 	if a.hub == panels.HubSprint {
@@ -133,7 +133,7 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 	p := panels.PageHeaderProps{
 		Width:      width,
 		Title:      a.headerTitle(),
-		ShowBar:    a.filterBar && !a.inPullRequests() && !a.inPipelines(),
+		ShowBar:    a.filterBar && len(a.barFilters()) > 0,
 		Keyword:    panels.Line(a.keyword.View(), styles.KeywordInputWidth),
 		KeywordKey: a.keys.Search,
 		Clear:      panels.HeaderControl{Label: clearIcon + " Clear", Short: clearIcon, Key: a.keys.ClearFilters, Group: -1},
@@ -169,6 +169,10 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 		if a.pl.page != nil {
 			p.Pivot = a.pl.pagePivot
 		}
+		p.Controls = []panels.HeaderControl{fullscreen}
+	case panels.HubReleases:
+		p.Action = a.plainControl(newIcon+"Create release", a.keys.CreateRelease)
+		p.Pivots, p.Pivot = a.releasePivotLabels(), a.rl.pivot
 		p.Controls = []panels.HeaderControl{fullscreen}
 	case panels.HubBoard:
 		p.Action = a.plainControl(newIcon+"New item", a.keys.CreateParent)

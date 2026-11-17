@@ -273,3 +273,20 @@ func TestChangesUseTheLatestIterationAndSkipFolders(t *testing.T) {
 		}
 	}
 }
+
+func TestChecksKeepTheBuildTheyPointTo(t *testing.T) {
+	var seen []recorded
+	evaluations := `{"value":[{"status":"rejected","configuration":{"isEnabled":true,"isBlocking":true,"type":{"displayName":"Build"},"settings":{"displayName":"storefront-web-ci"}},"context":{"buildId":812}},` +
+		`{"status":"approved","configuration":{"isEnabled":true,"isBlocking":true,"type":{"displayName":"Status"},"settings":{"statusName":"e2e","statusGenre":"ci"}}}]}`
+	statuses := `{"value":[{"id":1,"state":"succeeded","context":{"name":"e2e","genre":"ci"},"targetUrl":"https://dev.azure.com/acme/web/_build/results?buildId=900&view=results"},` +
+		`{"id":2,"state":"succeeded","context":{"name":"sonar","genre":"quality"},"targetUrl":"https://sonar.example.com/dashboard?id=web"}]}`
+	c := clientRouting(t, map[string]string{"/policy/evaluations": evaluations, "/statuses": statuses}, &seen)
+	checks, err := c.GetPullRequestChecks(models.PullRequest{ID: 4821, RepositoryID: "r1", ProjectID: "p1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	builds := models.BuildChecks(checks)
+	if len(builds) != 2 || builds[0].BuildID != 812 || builds[1].BuildID != 900 || builds[1].Name != "ci/e2e" {
+		t.Fatalf("got %+v", builds)
+	}
+}

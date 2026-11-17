@@ -84,6 +84,13 @@ type KeyMap struct {
 	HubBuilds   key.Binding
 	RunPipeline key.Binding
 	FollowLog   key.Binding
+
+	HubReleases   key.Binding
+	CreateRelease key.Binding
+	Approve       key.Binding
+	DeployStage   key.Binding
+	CancelDeploy  key.Binding
+	OpenBuild     key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -385,18 +392,42 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("F"),
 			key.WithHelp("F", "follow log"),
 		),
+		HubReleases: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "releases"),
+		),
+		CreateRelease: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "create release"),
+		),
+		Approve: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "approve / reject"),
+		),
+		DeployStage: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "deploy stage"),
+		),
+		CancelDeploy: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "cancel deployment"),
+		),
+		OpenBuild: key.NewBinding(
+			key.WithKeys("b"),
+			key.WithHelp("b", "open build"),
+		),
 	}
 }
 
 // FullHelp returns all key bindings for the help panel
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.HubBuilds, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
+		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.HubBuilds, k.HubReleases, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
 		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
-		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
-		{k.RunPipeline, k.FollowLog},
+		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBuild, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
+		{k.RunPipeline, k.FollowLog, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy},
 	}
 }

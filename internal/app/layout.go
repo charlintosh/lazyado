@@ -57,6 +57,7 @@ func (a *App) syncLayout() {
 	a.taskboardPanel.SetSize(cw, ch)
 	a.pr.panel.SetSize(cw, ch)
 	a.pl.panel.SetSize(cw, ch)
+	a.syncReleaseLayout(l.mainWidth, l.mainHeight())
 	a.taskboardPanel.SetOrigin(l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY)
 
 	pw, ph := cw, ch
@@ -68,6 +69,7 @@ func (a *App) syncLayout() {
 	a.detailView.SetSize(a.width, l.bodyHeight)
 	a.pr.view.SetSize(a.width, l.bodyHeight)
 	a.pl.view.SetSize(a.width, l.bodyHeight)
+	a.rl.view.SetSize(a.width, l.bodyHeight)
 }
 
 func (a *App) syncFocus() {
@@ -78,6 +80,7 @@ func (a *App) syncFocus() {
 	a.taskboardPanel.SetFocused(main && view == viewTaskboard)
 	a.pr.panel.SetFocused(main && view == viewPullRequests)
 	a.pl.panel.SetFocused(main && view == viewPipelines)
+	a.syncReleaseFocus(main)
 	a.detailsPanel.SetFocused(a.activePanel == PanelDetails)
 	a.commentsPanel.SetFocused(a.activePanel == PanelComments)
 	if a.isPanePanel() {

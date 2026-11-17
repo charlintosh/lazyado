@@ -21,6 +21,7 @@
 - Creating a pull request uses `refs?filter=heads/` for branches, the repository's `defaultBranch`, `diffs/commits` (ahead/behind and change counts), `commits` with `itemVersion` / `compareVersion` for the commit messages, the items API on the target branch for `pull_request_template.md`, and `POST .../pullrequests` ([internal/api/pull_request_create.go](../../internal/api/pull_request_create.go)).
 - The pull requests API has no text search; `ListPullRequests` sends only `searchCriteria` (`creatorId`, `reviewerId`, `sourceRefName`, `targetRefName`), and text filtering happens on the loaded list.
 - Quick search looks pull requests up by ID with the project-scoped `/git/pullrequests/{id}`, so no repository is needed.
+- A check's `BuildID` comes from the policy evaluation's `context.buildId` (build validation) or from a status's `targetUrl` when it points to `_build/results?buildId=`. A status that only adds a build to a policy with the same name fills the policy's `BuildID` instead of adding a row.
 - Policy evaluations are a preview API (`getPreview`) keyed by `vstfs:///CodeReview/CodeReviewId/{projectId}/{pullRequestId}`; a status-check policy and a raw pull request status with the same `genre/name` are shown once.
 
 ## Pipelines
@@ -33,6 +34,16 @@
 - Logs are plain text from `build/builds/{id}/logs/{logId}`, read up to `diff.max_file_kb`. A running step is tailed with `startLine`. `CleanLogLine` strips the timestamp prefix and ANSI escapes and keeps the `##[error]` style markers for rendering.
 - The run dialog reads the YAML at the chosen branch or tag through the Items API (`versionDescriptor.versionType` `branch` or `tag`) and `models.ParsePipelineSpec` keeps top-level scalar `parameters:` and `stages:`. Parameters and stages that only exist in templates are not seen.
 - YAML pipelines start with `POST pipelines/{id}/runs` (`resources.repositories.self.refName` and `version`, `templateParameters`, `variables`, `stagesToSkip`). Classic pipelines queue with `POST build/builds` (`sourceBranch`, `sourceVersion`, and the variables JSON-encoded in `parameters`). *System diagnostics* sets `system.debug`.
+
+## Releases
+
+- Classic releases live on a different host: `https://vsrm.dev.azure.com/{org}/{project}/_apis` (`Config.ReleaseURL`). [internal/api/releases.go](../../internal/api/releases.go) builds those URLs with `releaseEndpoint` and adds `api-version` itself.
+- Release pipelines: `release/definitions?searchText=&$expand=lastRelease&queryOrder=nameAscending`, paged with the continuation token. Stars come from the organization favorites API (artifact types containing `ReleaseDefinition`, the ID is the trailing number of the artifact ID) plus local stars in `state.json`.
+- Releases: `release/releases?definitionId=&$expand=environments,artifacts,approvals`. A stage's state comes from `models.StageStateOf`: a rejected approval wins, then a pending manual approval, then the environment status (`rejected` without a rejected approval means the deployment failed).
+- A stage's last attempt is the `deploySteps` entry with the highest `attempt`; its phases, deployment jobs and tasks become `RunJob`s so the build log viewer can show them. Task logs are read from each task's `logUrl`, and their log ID is a hash of that URL so it stays the same across refreshes.
+- Approvals: `release/approvals?statusFilter=pending` for everything, and again with `assignedToFilter` (unique name, or ID) and `includeMyGroupApprovals=true` for the ones waiting on you. Decide with `PATCH release/approvals/{id}` (`status`, `comments`).
+- Deploy a stage with `PATCH release/releases/{id}/environments/{envId}` and `status: inProgress` (`7.1-preview.7`); cancel its deployment with the same call and `status: canceled`.
+- Create with `POST release/releases`: `artifacts[].instanceReference` (`id`, `name`, `sourceBranch`), `manualEnvironments` and `variables`. Build artifact versions come from the Build API (`resultFilter=succeeded,partiallySucceeded`); Git artifacts use the branch's head commit from the refs API.
 
 ## Azure DevOps REST API reference
 

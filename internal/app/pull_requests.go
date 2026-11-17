@@ -321,6 +321,8 @@ func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, k.HubPullRequests):
 	case key.Matches(msg, k.HubBuilds):
 		return a, a.openPipelines()
+	case key.Matches(msg, k.HubReleases):
+		return a, a.openReleases()
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.PrevPanel), key.Matches(msg, k.Left):
 		return a, a.cyclePullRequestPivot(-1)
 	case key.Matches(msg, k.NextView), key.Matches(msg, k.NextPanel), key.Matches(msg, k.Right):
@@ -342,6 +344,13 @@ func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, k.AddComment):
 		if pr := a.pr.panel.Selected(); pr != nil {
 			return a, a.openModal(modals.NewPullRequestCommentModal(a.env(), *pr, nil, a.teamMembers))
+		}
+	case key.Matches(msg, k.OpenBuild):
+		if pr := a.pr.panel.Selected(); pr != nil {
+			if pr.ID != a.pr.checksFor || !a.pr.checksLoaded {
+				return a, a.info("Policies are still loading. Try again in a moment.")
+			}
+			return a, a.openPullRequestBuilds(*pr, models.BuildChecks(a.pr.checks))
 		}
 	default:
 		var cmd tea.Cmd
@@ -430,9 +439,19 @@ func (a *App) renderPullRequestPane(width, height int) string {
 		Checks:       a.pr.checks,
 		ChecksLoaded: a.pr.checksLoaded,
 		Spinner:      a.spinner.View(),
+		BuildKey:     a.keys.OpenBuild.Help().Key,
 		Me:           a.me,
 		Width:        cw,
 		Height:       ch,
 	})
 	return panels.Pane(panels.PaneTitle("", "Preview", false), content, width, height, false)
+}
+
+func (a *App) pullRequestBindings() []key.Binding {
+	bindings := a.pr.panel.KeyBindings()
+	pr := a.pr.panel.Selected()
+	if pr == nil || a.pr.panel.Searching() || pr.ID != a.pr.checksFor || len(models.BuildChecks(a.pr.checks)) == 0 {
+		return bindings
+	}
+	return append(bindings[:1:1], append([]key.Binding{a.keys.OpenBuild}, bindings[1:]...)...)
 }

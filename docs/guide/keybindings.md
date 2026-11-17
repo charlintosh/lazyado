@@ -12,6 +12,8 @@ Some keys mean different things in different places. For example, `a` assigns a 
 - [Pull request review](#pull-request-review)
 - [Builds hub](#builds-hub)
 - [Pipeline run](#pipeline-run)
+- [Releases hub](#releases-hub)
+- [Release](#release)
 - [Dialogs and pickers](#dialogs-and-pickers)
 
 ## Everywhere
@@ -23,6 +25,7 @@ Some keys mean different things in different places. For example, `a` assigns a 
 | `S` | Sprints hub (taskboard) |
 | `P` | Pull requests hub |
 | `D` | [Pipelines › Builds hub](pipelines.md) |
+| `R` | [Pipelines › Releases hub](releases.md) |
 | `Ctrl+f` | [Quick search](getting-started.md#quick-search): `1234`, `!1234`, `#1234` or a link |
 | `Ctrl+r` | Reload from Azure DevOps (also retries identifying you) |
 | `z` | Full screen (hide the navigation rail) |
@@ -111,6 +114,7 @@ Opened with `v`.
 | `enter` | Open the review |
 | `a` | Vote |
 | `c` | Comment on the pull request |
+| `b` | Open the build behind a policy or status check |
 | `o` | Open in the browser |
 
 ## Pull request review
@@ -124,6 +128,7 @@ See [Pull requests](pull-requests.md) for details.
 | `a` | Vote |
 | `c` | Comment on the pull request, or on the current line or selection in Files |
 | `w` | Open a linked work item |
+| `b` | Open the build behind a policy or status check; `esc` comes back |
 | `o` | Open the pull request, or the focused thread, in the browser |
 | `esc` | Back to the list |
 
@@ -179,6 +184,38 @@ See [Pipelines](pipelines.md) for details.
 | `o` | Open the run, or the selected job and step, in the browser |
 | `esc` | Back a pane, then back to the list |
 
+## Releases hub
+
+See [Releases](releases.md) for details.
+
+| Key | Action |
+| --- | ------ |
+| `1` / `2` | Releases / Approvals (`[` / `]` also switch) |
+| `Tab` / `Shift+Tab`, `h` / `l` | Move between release pipelines and releases |
+| `/` | [Search](releases.md#searching-release-pipelines) release pipelines by name. In the bar: `↑` / `↓` move, `Enter` goes into the match's releases, `Esc` clears |
+| `Ctrl+t` | Star / unstar a release pipeline |
+| `enter` | Release pipeline: show its releases. Release or approval: open the release |
+| `v` | Release pipeline: open its latest release. Release: open it |
+| `a` | Approve or reject |
+| `n` | Create a release |
+| `o` | Open in the browser |
+| `esc` | From the releases: back to the release pipelines. In the release pipelines: clear the filter |
+
+## Release
+
+| Key | Action |
+| --- | ------ |
+| `1` / `2` | Pipeline / Logs tab (`[` / `]` also switch) |
+| `h` / `l` | Previous / next stage |
+| `a` | Approve or reject the stage's pending approval |
+| `d` | Deploy or redeploy the stage |
+| `x` | Cancel the stage's deployment |
+| `enter` | Open the stage's logs |
+| `Tab` / `Shift+Tab`, `j` / `k`, `F` | In Logs: as in a [pipeline run](#pipeline-run) |
+| `n` | Create another release |
+| `o` | Open in the browser |
+| `esc` | Back a pane, then back to the hub |
+
 ## Dialogs and pickers
 
 | Key | Action |
@@ -193,5 +230,6 @@ See [Pipelines](pipelines.md) for details.
 | `Ctrl+t` | Star / unstar a repository (repository picker) |
 | `Tab` | In the pull request search bar: complete the suggested filter |
 | `enter` | In a reviewer list: add or remove the highlighted person. On *Create as draft*: toggle it |
-| `enter` / `space` | In *Stages to run*: skip or include the highlighted stage. On a checkbox: toggle it |
+| `enter` / `space` | In *Stages to run* or *Deploy automatically*: toggle the highlighted stage. On a checkbox: toggle it |
+| `h` / `l` | In the approval dialog: choose Approve or Reject |
 | `esc` | Clear the filter, then close |

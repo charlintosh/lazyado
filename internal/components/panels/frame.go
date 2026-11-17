@@ -20,13 +20,14 @@ const (
 	HubSprint
 	HubPullRequests
 	HubBuilds
+	HubReleases
 )
 
 func (h Hub) Section() string {
 	switch h {
 	case HubPullRequests:
 		return "Repos"
-	case HubBuilds:
+	case HubBuilds, HubReleases:
 		return "Pipelines"
 	}
 	return "Boards"
@@ -42,6 +43,8 @@ func (h Hub) Name() string {
 		return "Pull requests"
 	case HubBuilds:
 		return "Builds"
+	case HubReleases:
+		return "Releases"
 	default:
 		return "Backlogs"
 	}
@@ -57,6 +60,8 @@ func (h Hub) Mode() string {
 		return "PULL REQUESTS"
 	case HubBuilds:
 		return "BUILDS"
+	case HubReleases:
+		return "RELEASES"
 	default:
 		return "BACKLOG"
 	}
