@@ -91,6 +91,17 @@ type KeyMap struct {
 	DeployStage   key.Binding
 	CancelDeploy  key.Binding
 	OpenBuild     key.Binding
+
+	HubFiles        key.Binding
+	HubCommits      key.Binding
+	Version         key.Binding
+	Clone           key.Binding
+	Copy            key.Binding
+	NewRef          key.Binding
+	DeleteRef       key.Binding
+	HubBranches     key.Binding
+	PullRequestFrom key.Binding
+	HubTags         key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -416,6 +427,46 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("b"),
 			key.WithHelp("b", "open build"),
 		),
+		HubFiles: key.NewBinding(
+			key.WithKeys("E"),
+			key.WithHelp("E", "files"),
+		),
+		HubCommits: key.NewBinding(
+			key.WithKeys("H"),
+			key.WithHelp("H", "commits"),
+		),
+		Version: key.NewBinding(
+			key.WithKeys("b"),
+			key.WithHelp("b", "branch or tag"),
+		),
+		HubBranches: key.NewBinding(
+			key.WithKeys("V"),
+			key.WithHelp("V", "branches"),
+		),
+		HubTags: key.NewBinding(
+			key.WithKeys("T"),
+			key.WithHelp("T", "tags"),
+		),
+		PullRequestFrom: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "new pull request"),
+		),
+		NewRef: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "new"),
+		),
+		DeleteRef: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "delete"),
+		),
+		Clone: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "clone"),
+		),
+		Copy: key.NewBinding(
+			key.WithKeys("y"),
+			key.WithHelp("y", "copy"),
+		),
 	}
 }
 
@@ -429,5 +480,6 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBuild, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
 		{k.RunPipeline, k.FollowLog, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy},
+		{k.HubFiles, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.Copy, k.NewRef, k.DeleteRef, k.PullRequestFrom},
 	}
 }

@@ -170,6 +170,22 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 			p.Pivot = a.pl.pagePivot
 		}
 		p.Controls = []panels.HeaderControl{fullscreen}
+	case panels.HubFiles:
+		p.Action = a.plainControl("Clone", a.keys.Clone)
+		p.Pivots = []string{"Files"}
+		p.Controls = append(a.codeControls(true), fullscreen)
+	case panels.HubCommits:
+		p.Action = a.plainControl(keywordPrompt+"Filter", a.keys.Search)
+		p.Pivots = []string{"Commits"}
+		p.Controls = append(a.codeControls(true), fullscreen)
+	case panels.HubBranches:
+		p.Action = a.plainControl(newIcon+"New branch", a.keys.NewRef)
+		p.Pivots, p.Pivot = a.branchPivotLabels(), a.branches.panel.Pivot()
+		p.Controls = append(a.codeControls(false), fullscreen)
+	case panels.HubTags:
+		p.Action = a.plainControl(newIcon+"New tag", a.keys.NewRef)
+		p.Pivots = []string{"Tags"}
+		p.Controls = append(a.codeControls(false), fullscreen)
 	case panels.HubReleases:
 		p.Action = a.plainControl(newIcon+"Create release", a.keys.CreateRelease)
 		p.Pivots, p.Pivot = a.releasePivotLabels(), a.rl.pivot
@@ -199,6 +215,9 @@ func (a *App) headerTitle() string {
 	title := bold.Render(team)
 	if a.inPipelines() && a.pl.page != nil {
 		return a.pipelinePageTitle()
+	}
+	if a.inFiles() {
+		return a.filesTitle()
 	}
 	if a.hub != panels.HubSprint {
 		return title

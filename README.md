@@ -17,6 +17,12 @@ lazyado follows the layout of the Azure DevOps web UI (a navigation rail, hub pi
 - Drag tasks between state columns on the Sprints taskboard.
 - A full-screen work item form, with Markdown-rendered descriptions and a discussion that supports @mentions.
 
+**Repos**
+- Browse a repository's files on any branch or tag, with the last commit behind each item, rendered READMEs and Markdown, and copy its HTTPS or SSH clone URL.
+- Commit history for a branch, a tag, a file or a folder, with each commit's changed files.
+- Branches with ahead and behind counts and their pull requests; create and delete branches.
+- Tags, annotated or lightweight; create annotated tags.
+
 **Pull requests**
 - Mine / Active / Completed / Abandoned views for one repository or all of them, with a search bar that filters as you type and searches Azure DevOps by author, reviewer or branch.
 - Create pull requests: pick two branches, see how far ahead and behind they are, and start from the repository's pull request template.
@@ -65,6 +71,7 @@ Other options are covered in [Getting started](docs/guide/getting-started.md#ins
 | [Getting started](docs/guide/getting-started.md) | Installing, first run, and a tour of the screen |
 | [Configuration](docs/guide/configuration.md) | Config file, environment variables, token scopes, saved state |
 | [Boards](docs/guide/boards.md) | Backlogs, boards, sprints, filters and work items |
+| [Repos](docs/guide/repos.md) | Files, commits, branches, tags and cloning |
 | [Pull requests](docs/guide/pull-requests.md) | Browsing, reviewing, commenting and voting on pull requests |
 | [Pipelines](docs/guide/pipelines.md) | Pipelines, runs, logs, and running a pipeline |
 | [Releases](docs/guide/releases.md) | Releases, approvals, deploying stages and creating releases |

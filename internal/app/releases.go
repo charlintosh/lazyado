@@ -380,18 +380,10 @@ func (a App) handleReleaseKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		}
 	}
 	twoPanes := a.rl.pivot == releasesTab
+	if hub, ok := a.hubFor(msg); ok {
+		return a, a.goToHub(hub)
+	}
 	switch {
-	case key.Matches(msg, k.HubBacklog):
-		a.switchHub(panels.HubBacklog)
-	case key.Matches(msg, k.HubBoard):
-		a.switchHub(panels.HubBoard)
-	case key.Matches(msg, k.HubSprint):
-		a.switchHub(panels.HubSprint)
-	case key.Matches(msg, k.HubPullRequests):
-		return a, a.openPullRequests()
-	case key.Matches(msg, k.HubBuilds):
-		return a, a.openPipelines()
-	case key.Matches(msg, k.HubReleases):
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.NextView):
 		return a, a.selectReleasePivot((a.rl.pivot + 1) % len(releasePivots))
 	case twoPanes && (key.Matches(msg, k.NextPanel) || key.Matches(msg, k.PrevPanel)):

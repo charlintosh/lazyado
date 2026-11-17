@@ -58,6 +58,10 @@ func (a *App) syncLayout() {
 	a.pr.panel.SetSize(cw, ch)
 	a.pl.panel.SetSize(cw, ch)
 	a.syncReleaseLayout(l.mainWidth, l.mainHeight())
+	a.syncFilesLayout(l.mainWidth, l.mainHeight())
+	a.syncCommitsLayout(l.mainWidth, l.mainHeight())
+	a.syncBranchesLayout(l.mainWidth, l.mainHeight())
+	a.syncTagsLayout(l.mainWidth, l.mainHeight())
 	a.taskboardPanel.SetOrigin(l.railWidth+styles.PaneContentInsetX, styles.TopBarHeight+l.headerHeight+styles.PaneContentInsetY)
 
 	pw, ph := cw, ch
@@ -81,6 +85,10 @@ func (a *App) syncFocus() {
 	a.pr.panel.SetFocused(main && view == viewPullRequests)
 	a.pl.panel.SetFocused(main && view == viewPipelines)
 	a.syncReleaseFocus(main)
+	a.syncFilesFocus(main)
+	a.commits.panel.SetFocused(main && a.inCommits() && a.viewMode == ViewMain)
+	a.branches.panel.SetFocused(main && a.inBranches() && a.viewMode == ViewMain)
+	a.tags.panel.SetFocused(main && a.inTags() && a.viewMode == ViewMain)
 	a.detailsPanel.SetFocused(a.activePanel == PanelDetails)
 	a.commentsPanel.SetFocused(a.activePanel == PanelComments)
 	if a.isPanePanel() {

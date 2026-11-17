@@ -24,6 +24,18 @@
 - A check's `BuildID` comes from the policy evaluation's `context.buildId` (build validation) or from a status's `targetUrl` when it points to `_build/results?buildId=`. A status that only adds a build to a policy with the same name fills the policy's `BuildID` instead of adding a row.
 - Policy evaluations are a preview API (`getPreview`) keyed by `vstfs:///CodeReview/CodeReviewId/{projectId}/{pullRequestId}`; a status-check policy and a raw pull request status with the same `genre/name` are shown once.
 
+## Repos
+
+- [internal/api/git_files.go](../../internal/api/git_files.go). Repositories come from `git/repositories`, which already carries `defaultBranch`, `remoteUrl`, `sshUrl` and `webUrl`, so cloning needs no extra call.
+- A folder: `items?scopePath=&recursionLevel=OneLevel&latestProcessedChange=true` plus `versionDescriptor.versionType` (`branch`, `tag` or `commit`) and `versionDescriptor.version`. The response includes the folder itself (dropped) and submodules (`gitObjectType: commit`, dropped); `latestProcessedChange` is the last commit that touched each item.
+- A file: `items?path=&$format=text` with the same version descriptor, read up to `diff.max_file_kb` (`GetItemText`).
+- Branch and tag names: `refs?filter=heads/` and `refs?filter=tags/`.
+- Branches: `stats/branches?baseVersionDescriptor.version=<default>` gives each branch's last commit and ahead/behind counts in one call; `refs?filter=heads/` adds `objectId`, `isLocked` and `creator`, and `refs?includeMyBranches=true` marks *Mine*. That call accepts neither `filter` nor `$top` (it answers 400 "Pagination is not supported"), and a failure there only leaves *Mine* with the default branch ([internal/api/git_refs.go](../../internal/api/git_refs.go)).
+- Creating and deleting a branch are both `POST refs` with one `{name, oldObjectId, newObjectId}` update: a zero `oldObjectId` creates, a zero `newObjectId` deletes. The reply is `200` even when the update is refused, so `updateRef` checks `success` and reports `customMessage` or `updateStatus`. `ResolveCommit` turns a branch or tag into its commit with `commits?searchCriteria.$top=1`.
+- Tags: `refs?filter=tags/&peelTags=true` — an annotated tag's `objectId` is the tag object and `peeledObjectId` its commit; a lightweight tag has no `peeledObjectId`. `annotatedtags/{objectId}` gives the message and `taggedBy`. Create with `POST annotatedtags` (`name`, `taggedObject.objectId`, `message`), which is what the web UI does; lightweight tags would be a `POST refs` like branches ([internal/api/git_tags.go](../../internal/api/git_tags.go)).
+- Commits: `commits?searchCriteria.itemVersion.version=&searchCriteria.itemVersion.versionType=&searchCriteria.$top=100&searchCriteria.$skip=`, plus `searchCriteria.author` and `searchCriteria.itemPath` ([internal/api/git_commits.go](../../internal/api/git_commits.go)). The list doesn't include parents; `commits/{id}` does, and `commits/{id}/changes` lists the changed items. There is no commit graph in the API.
+- Azure DevOps has no REST endpoint for blame or for comparing two files on screen, so the Files hub leaves those to the browser (`o`).
+
 ## Pipelines
 
 - [internal/api/pipelines.go](../../internal/api/pipelines.go) uses the Build API (`_apis/build/...`) for reading, because it is the one that filters runs by state, branch, pipeline and requester on the server and searches pipeline names. Starting a YAML run uses the Pipelines API.

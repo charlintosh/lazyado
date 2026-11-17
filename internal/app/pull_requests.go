@@ -311,18 +311,10 @@ func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 			return a, a.selectPullRequestPivot(pivot)
 		}
 	}
+	if hub, ok := a.hubFor(msg); ok {
+		return a, a.goToHub(hub)
+	}
 	switch {
-	case key.Matches(msg, k.HubBacklog):
-		a.switchHub(panels.HubBacklog)
-	case key.Matches(msg, k.HubBoard):
-		a.switchHub(panels.HubBoard)
-	case key.Matches(msg, k.HubSprint):
-		a.switchHub(panels.HubSprint)
-	case key.Matches(msg, k.HubPullRequests):
-	case key.Matches(msg, k.HubBuilds):
-		return a, a.openPipelines()
-	case key.Matches(msg, k.HubReleases):
-		return a, a.openReleases()
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.PrevPanel), key.Matches(msg, k.Left):
 		return a, a.cyclePullRequestPivot(-1)
 	case key.Matches(msg, k.NextView), key.Matches(msg, k.NextPanel), key.Matches(msg, k.Right):
@@ -372,7 +364,7 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		for _, id := range msg.starred {
 			a.pr.starred[id] = true
 		}
-		return a, a.restoreRepositoryScope(), true
+		return a, tea.Batch(a.restoreRepositoryScope(), a.restoreCodeRepository()), true
 	case modals.RepositoryFavoriteMsg:
 		a.pr.favorites = slices.DeleteFunc(slices.Clone(a.pr.favorites), func(id string) bool { return id == msg.Repository.ID })
 		if msg.Favorite {
@@ -381,6 +373,9 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, saveFiltersCmd(a.savedState()), true
 	case modals.RepositoryChosenMsg:
 		a.closeModal()
+		if a.inCode() {
+			return a, a.chooseCodeRepository(msg.Repository), true
+		}
 		load := a.setRepositoryScope(msg.Repository, msg.All)
 		return a, tea.Batch(load, saveFiltersCmd(a.savedState())), true
 	case pullRequestsLoadedMsg:

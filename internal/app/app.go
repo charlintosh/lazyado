@@ -37,6 +37,10 @@ const (
 	viewPullRequests
 	viewPipelines
 	viewReleases
+	viewFiles
+	viewCommits
+	viewBranches
+	viewTags
 )
 
 const (
@@ -66,6 +70,10 @@ type App struct {
 	pr             pullRequestState
 	pl             pipelineState
 	rl             releaseState
+	code           codeState
+	commits        commitsState
+	branches       branchesState
+	tags           tagsState
 	splashScreen   screens.SplashScreen
 	notification   notification.Notification
 	statusHelp     help.Model
@@ -125,6 +133,10 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 			defs: panels.NewReleaseDefinitionsPanel(k), list: panels.NewReleasesPanel(k),
 			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k),
 		},
+		commits:      commitsState{panel: panels.NewCommitsPanel(k)},
+		branches:     branchesState{panel: panels.NewBranchesPanel(k)},
+		tags:         tagsState{panel: panels.NewTagsPanel(k)},
+		code:         codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k))},
 		splashScreen: screens.NewSplashScreen(st),
 		statusHelp:   widgets.NewHelp(),
 		spinner: spinner.New(
@@ -182,6 +194,21 @@ func (a App) update(msg tea.Msg) (App, tea.Cmd) {
 		if a.searchingReleases() {
 			var cmd tea.Cmd
 			a.rl.defs, cmd = a.rl.defs.Update(msg)
+			return a, cmd
+		}
+		if a.searchingCommits() {
+			var cmd tea.Cmd
+			a.commits.panel, cmd = a.commits.panel.Update(msg)
+			return a, cmd
+		}
+		if a.searchingBranches() {
+			var cmd tea.Cmd
+			a.branches.panel, cmd = a.branches.panel.Update(msg)
+			return a, cmd
+		}
+		if a.searchingTags() {
+			var cmd tea.Cmd
+			a.tags.panel, cmd = a.tags.panel.Update(msg)
 			return a, cmd
 		}
 	case spinner.TickMsg:
@@ -264,7 +291,11 @@ func (a *App) reconcile() tea.Cmd {
 	preview := a.syncPipelinePreview()
 	releases := a.syncReleaseSelection()
 	a.syncSpinner()
-	return tea.Batch(selection, checks, preview, releases, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
+	files := a.syncFiles()
+	commits := a.syncCommits()
+	branches := a.syncBranches()
+	tags := a.syncTags()
+	return tea.Batch(selection, checks, preview, releases, files, commits, branches, tags, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
 }
 
 func (a *App) syncSpinner() {
@@ -277,6 +308,11 @@ func (a *App) syncSpinner() {
 	a.rl.list.SetSpinner(frame)
 	a.rl.approvals.SetSpinner(frame)
 	a.rl.view.SetSpinner(frame)
+	a.code.files.tree.SetSpinner(frame)
+	a.code.files.content.SetSpinner(frame)
+	a.commits.panel.SetSpinner(frame)
+	a.branches.panel.SetSpinner(frame)
+	a.tags.panel.SetSpinner(frame)
 }
 
 func (a *App) syncSelection() tea.Cmd {
@@ -310,7 +346,9 @@ func (a *App) busy() bool {
 	return a.loading || a.pr.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading()) ||
 		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded) ||
 		(a.inPipelines() && (a.pl.loading || a.pl.panel.Loading() || a.previewLoading())) || (a.viewingRun() && a.pl.view.Loading()) ||
-		(a.inReleases() && a.releaseLoading()) || (a.viewingRelease() && a.rl.view.Loading())
+		(a.inReleases() && a.releaseLoading()) || (a.viewingRelease() && a.rl.view.Loading()) ||
+		(a.inFiles() && a.filesLoading()) || (a.inCommits() && a.commitsLoading()) ||
+		(a.inBranches() && (a.pr.reposLoading || a.branches.loading)) || (a.inTags() && a.tagsLoading())
 }
 
 func (a *App) showSplash() bool {
@@ -376,6 +414,14 @@ func (a *App) mainView() mainView {
 		return viewPipelines
 	case a.hub == panels.HubReleases:
 		return viewReleases
+	case a.hub == panels.HubFiles:
+		return viewFiles
+	case a.hub == panels.HubCommits:
+		return viewCommits
+	case a.hub == panels.HubBranches:
+		return viewBranches
+	case a.hub == panels.HubTags:
+		return viewTags
 	case a.hub == panels.HubBoard:
 		return viewBoard
 	case a.hub == panels.HubSprint && a.sprintView == sprintTaskboard:
@@ -395,7 +441,7 @@ func (a *App) selectedItem() *models.WorkItem {
 		return a.boardPanel.SelectedItem()
 	case viewTaskboard:
 		return a.taskboardPanel.SelectedItem()
-	case viewPullRequests, viewPipelines, viewReleases:
+	case viewPullRequests, viewPipelines, viewReleases, viewFiles, viewCommits, viewBranches, viewTags:
 		return nil
 	default:
 		return a.workItemsPanel.SelectedItem()
@@ -415,6 +461,14 @@ func (a *App) updateMainPanel(msg tea.Msg) tea.Cmd {
 		a.pl.panel, cmd = a.pl.panel.Update(msg)
 	case viewReleases:
 		cmd = a.updateReleasePanel(msg)
+	case viewFiles:
+		cmd = a.updateFilesPanel(msg)
+	case viewCommits:
+		a.commits.panel, cmd = a.commits.panel.Update(msg)
+	case viewBranches:
+		a.branches.panel, cmd = a.branches.panel.Update(msg)
+	case viewTags:
+		a.tags.panel, cmd = a.tags.panel.Update(msg)
 	default:
 		a.workItemsPanel, cmd = a.workItemsPanel.Update(msg)
 	}

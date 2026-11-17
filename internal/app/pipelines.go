@@ -436,18 +436,10 @@ func (a App) handlePipelineKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 			return a, a.selectPipelinePivot(i)
 		}
 	}
+	if hub, ok := a.hubFor(msg); ok {
+		return a, a.goToHub(hub)
+	}
 	switch {
-	case key.Matches(msg, k.HubBacklog):
-		a.switchHub(panels.HubBacklog)
-	case key.Matches(msg, k.HubBoard):
-		a.switchHub(panels.HubBoard)
-	case key.Matches(msg, k.HubSprint):
-		a.switchHub(panels.HubSprint)
-	case key.Matches(msg, k.HubPullRequests):
-		return a, a.openPullRequests()
-	case key.Matches(msg, k.HubBuilds):
-	case key.Matches(msg, k.HubReleases):
-		return a, a.openReleases()
 	case key.Matches(msg, k.Back) && a.pl.page != nil:
 		return a, a.closePipelinePage()
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.PrevPanel), key.Matches(msg, k.Left):

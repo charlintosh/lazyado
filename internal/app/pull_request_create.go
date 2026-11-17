@@ -63,6 +63,11 @@ func (a *App) openPullRequestForm() tea.Cmd {
 	return a.openModal(modals.NewPullRequestForm(a.env(), data))
 }
 
+func (a *App) openPullRequestFormFrom(repo models.Repository, source string) tea.Cmd {
+	data := modals.PullRequestFormData{Members: a.teamMembers, Open: a.pr.items, Repository: repo, Source: source}
+	return a.openModal(modals.NewPullRequestForm(a.env(), data))
+}
+
 func (a App) handlePullRequestFormResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case modals.PullRequestBranchesRequestMsg:

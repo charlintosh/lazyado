@@ -38,7 +38,7 @@ type railGroup struct {
 func railGroups(k keys.KeyMap) []railGroup {
 	return []railGroup{
 		{HubBoard.Section(), []railEntry{{HubBoard, k.HubBoard}, {HubBacklog, k.HubBacklog}, {HubSprint, k.HubSprint}}},
-		{HubPullRequests.Section(), []railEntry{{HubPullRequests, k.HubPullRequests}}},
+		{HubPullRequests.Section(), []railEntry{{HubFiles, k.HubFiles}, {HubCommits, k.HubCommits}, {HubBranches, k.HubBranches}, {HubTags, k.HubTags}, {HubPullRequests, k.HubPullRequests}}},
 		{HubBuilds.Section(), []railEntry{{HubBuilds, k.HubBuilds}, {HubReleases, k.HubReleases}}},
 	}
 }

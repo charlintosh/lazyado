@@ -24,6 +24,9 @@ func (a App) handleResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	if next, cmd, ok := a.handleReleaseHubResult(msg); ok {
 		return next, cmd, true
 	}
+	if next, cmd, ok := a.handleCodeResult(msg); ok {
+		return next, cmd, true
+	}
 	if next, cmd, ok := a.handlePanelIntent(msg); ok {
 		return next, cmd, true
 	}
@@ -47,6 +50,7 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.filters = filters
 		if s := msg.savedFilters; s != nil {
 			a.pr.savedRepo, a.pr.favorites = s.Repository, s.FavoriteRepositories
+			a.code.savedRepo = s.CodeRepository
 			a.rl.localStars = s.FavoriteReleases
 		}
 		a.setIdentity(msg.me)
@@ -297,6 +301,8 @@ func (a *App) savedState() config.FilterState {
 		Assigned:   fs.GetSelectedAssigned(),
 		Area:       fs.GetSelectedArea(),
 		Repository: a.pr.savedScope(),
+
+		CodeRepository: a.code.savedName(),
 
 		FavoriteRepositories: a.pr.favorites,
 		FavoriteReleases:     a.rl.localStars,

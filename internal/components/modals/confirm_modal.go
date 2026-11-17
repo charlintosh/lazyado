@@ -2,6 +2,7 @@ package modals
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -28,6 +29,7 @@ type ConfirmModal struct {
 	env     Env
 	title   string
 	message string
+	warning string
 	confirm tea.Msg
 }
 
@@ -70,11 +72,17 @@ func (m ConfirmModal) Update(msg tea.Msg) (Modal, tea.Cmd) {
 func (m ConfirmModal) View() string {
 	width := widgets.DialogWidth(styles.ModalWidthMD, m.env.Width)
 	inner := widgets.DialogInnerWidth(width)
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Foreground(styles.ColorText).Width(inner).Render(m.message),
-		"",
-		lipgloss.NewStyle().Foreground(styles.ColorWarning).Render("This action cannot be undone!"),
-	)
+	warning := m.warning
+	if warning == "" {
+		warning = "This action cannot be undone!"
+	}
+	tail := []string{"", lipgloss.NewStyle().Foreground(styles.ColorWarning).Width(inner).Render(warning)}
+	message := strings.Split(lipgloss.NewStyle().Foreground(styles.ColorText).Width(inner).Render(m.message), "\n")
+	room := max(widgets.DialogBodyHeight(m.env.Height, false)-lipgloss.Height(strings.Join(tail, "\n")), 1)
+	if len(message) > room {
+		message = message[:room]
+	}
+	body := strings.Join(append(message, tail...), "\n")
 	k := m.env.Keys
 	return widgets.Dialog{
 		Title:  m.title,

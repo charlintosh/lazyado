@@ -99,6 +99,7 @@ Links to another organization or project are refused with a message naming the p
 ## Next steps
 
 - [Boards](boards.md): backlogs, boards, sprints and work items.
+- [Repos](repos.md): files, commits, branches, tags and cloning.
 - [Pull requests](pull-requests.md): reviewing code.
 - [Pipelines](pipelines.md): runs, logs, and running a pipeline.
 - [Releases](releases.md): stages, approvals, deploying and creating releases.

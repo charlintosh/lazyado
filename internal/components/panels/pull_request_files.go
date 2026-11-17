@@ -6,12 +6,12 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"unicode"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/components"
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/diff"
 	"github.com/charlintosh/lazyado/internal/keys"
@@ -71,6 +71,28 @@ type fileDiff struct {
 	lines   []diff.Line
 	added   int
 	deleted int
+	oldCode []components.CodeLine
+	newCode []components.CodeLine
+}
+
+func (d fileDiff) code(l diff.Line) components.CodeLine {
+	side, n := d.newCode, l.New
+	if l.Kind == diff.Delete {
+		side, n = d.oldCode, l.Old
+	}
+	if n < 1 || n > len(side) {
+		return components.CodeLine{{Text: components.SanitizeCode(l.Text)}}
+	}
+	return side[n-1]
+}
+
+func (f *pullRequestFiles) highlighted(filePath string, d fileDiff) fileDiff {
+	if d.newCode == nil && d.oldCode == nil && !d.collapsed() && len(d.lines) > 0 {
+		d.oldCode = components.HighlightCode(filePath, d.oldText)
+		d.newCode = components.HighlightCode(filePath, d.newText)
+		f.diffs[filePath] = d
+	}
+	return d
 }
 
 func threadPins(threads []models.PullRequestThread) diff.Pins {
@@ -652,16 +674,6 @@ func (f *pullRequestFiles) anchor() (models.ThreadAnchor, bool) {
 	return anchor, anchor.Line > 0
 }
 
-func sanitizeCode(text string) string {
-	text = strings.ReplaceAll(text, "\t", strings.Repeat(" ", styles.DiffTabWidth))
-	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
-			return -1
-		}
-		return r
-	}, text)
-}
-
 func lineNumber(n int) string {
 	if n == 0 {
 		return strings.Repeat(" ", styles.DiffGutterWidth)
@@ -669,7 +681,7 @@ func lineNumber(n int) string {
 	return fmt.Sprintf("%*d", styles.DiffGutterWidth, n)
 }
 
-func (f *pullRequestFiles) codeRow(l diff.Line, selected, covered bool) string {
+func (f *pullRequestFiles) codeRow(l diff.Line, code components.CodeLine, selected, covered bool) string {
 	width := f.diffWidth()
 	base := lipgloss.NewStyle()
 	sign, signColor := " ", styles.ColorTextMuted
@@ -699,8 +711,7 @@ func (f *pullRequestFiles) codeRow(l diff.Line, selected, covered bool) string {
 	gutter := base.Foreground(styles.ColorTextMuted).Render(lineNumber(l.Old) + " " + lineNumber(l.New) + " ")
 	mark := base.Foreground(signColor).Bold(true).Render(sign + " ")
 	room := max(width-1-2*styles.DiffGutterWidth-4, 1)
-	text := ansi.Truncate(sanitizeCode(l.Text), room, "…")
-	return lead + gutter + mark + base.Foreground(styles.ColorText).Width(room).Render(text)
+	return lead + gutter + mark + code.Render(base.Foreground(styles.ColorText), room)
 }
 
 func (f *pullRequestFiles) threadIndent() int {
@@ -721,7 +732,7 @@ func (f *pullRequestFiles) block(d fileDiff, threads []models.PullRequestThread,
 	if index == 0 {
 		parts = f.orphans(d, threads)
 	}
-	parts = append(parts, f.codeRow(l, f.focus.none() && index >= lo && index <= hi, covered))
+	parts = append(parts, f.codeRow(l, d.code(l), f.focus.none() && index >= lo && index <= hi, covered))
 	indent := f.threadIndent()
 	for _, t := range threads {
 		if !anchoredAt(t, l) {
@@ -762,6 +773,7 @@ func (f *pullRequestFiles) rebuild() {
 		f.diff.SetContent("")
 		return
 	}
+	d = f.highlighted(file.Path, d)
 	f.line = min(max(f.line, 0), max(len(d.lines)-1, 0))
 	f.validateFocus()
 	f.rows = make([]string, len(d.lines))

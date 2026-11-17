@@ -9,6 +9,7 @@ Start here if you want to use lazyado.
 | [Getting started](guide/getting-started.md) | Installing, first run, a tour of the screen, quick search |
 | [Configuration](guide/configuration.md) | Config file, environment variables, token scopes, identity, saved state |
 | [Boards](guide/boards.md) | Backlogs, Kanban boards, sprint taskboards, filters, work items and comments |
+| [Repos](guide/repos.md) | Files, commit history, branches, tags and cloning |
 | [Pull requests](guide/pull-requests.md) | The pull request list, reviews, comments, the diff and voting |
 | [Pipelines](guide/pipelines.md) | Pipeline lists, runs, stages and logs, and running a pipeline with its options |
 | [Releases](guide/releases.md) | Release pipelines, stages, approvals, deploying a stage and creating a release |

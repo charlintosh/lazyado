@@ -73,8 +73,8 @@ Create the token under *User settings → Personal access tokens* in Azure DevOp
 | **Work Items** · Read | Browsing backlogs, boards, sprints and work items |
 | **Work Items** · Read & write | Creating, editing, assigning, moving and deleting work items, and commenting on them |
 | **Project and Team** · Read | Iterations, areas and team members |
-| **Code** · Read | Repositories, pull requests, threads, policies and file contents |
-| **Code** · Read & write | Creating pull requests, and voting, commenting, replying, liking and resolving threads on them |
+| **Code** · Read | Repositories, files, branches and tags, pull requests, threads, policies and file contents |
+| **Code** · Read & write | Creating pull requests, and voting, commenting, replying, liking and resolving threads on them; creating and deleting branches, and creating tags |
 | **Build** · Read | Pipelines, runs, stages and logs |
 | **Build** · Read & execute | Running pipelines. Reading a pipeline's branches, tags and YAML parameters also needs *Code* · Read |
 | **Release** · Read | Release pipelines, releases, approvals and deployment logs |
@@ -98,6 +98,7 @@ Some choices are saved to `~/.config/lazyado/state.json` and restored the next t
 
 - the sprint, person, state and area filters;
 - the repository chosen in the Pull requests hub (or *All repositories*);
+- the repository chosen in the Repos hubs (Files, Commits, Branches, Tags);
 - the repositories you starred locally (`Ctrl+t` in the repository picker);
 - the release pipelines you starred locally (`Ctrl+t` in the Releases hub).
 

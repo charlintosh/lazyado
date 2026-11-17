@@ -8,6 +8,10 @@ Some keys mean different things in different places. For example, `a` assigns a 
 - [Navigation](#navigation)
 - [Boards hubs](#boards-hubs)
 - [Work item form](#work-item-form)
+- [Files hub](#files-hub)
+- [Commits hub](#commits-hub)
+- [Branches hub](#branches-hub)
+- [Tags hub](#tags-hub)
 - [Pull requests list](#pull-requests-list)
 - [Pull request review](#pull-request-review)
 - [Builds hub](#builds-hub)
@@ -23,6 +27,10 @@ Some keys mean different things in different places. For example, `a` assigns a 
 | `L` | Backlogs hub |
 | `B` | Boards hub (Kanban) |
 | `S` | Sprints hub (taskboard) |
+| `E` | [Repos › Files hub](repos.md#files) |
+| `H` | [Repos › Commits hub](repos.md#commits) (in the Files hub: the selected item's history; in Branches: the branch's commits) |
+| `V` | [Repos › Branches hub](repos.md#branches) |
+| `T` | [Repos › Tags hub](repos.md#tags) |
 | `P` | Pull requests hub |
 | `D` | [Pipelines › Builds hub](pipelines.md) |
 | `R` | [Pipelines › Releases hub](releases.md) |
@@ -101,6 +109,67 @@ Opened with `v`.
 | `j` / `k` | Scroll, or move between comments |
 | `s` `a` `e` `t` `d` `i` `c` | Same as in the lists. With Discussion focused, `e` / `d` act on your selected comment and `+` likes someone else's. |
 | `esc` / `q` | Back to the hub |
+
+## Files hub
+
+See [Repos](repos.md) for details.
+
+| Key | Action |
+| --- | ------ |
+| `l` / `enter` | Expand a folder, or open a file's contents |
+| `h` | Collapse a folder, or go to its parent |
+| `Tab` | Switch between the tree and the contents |
+| `esc` | Back to the tree |
+| `b` | Choose a branch or tag |
+| `r` | Choose the repository |
+| `c` | [Clone](repos.md#cloning): copy the HTTPS or SSH URL, or a `git clone` command |
+| `H` | History of the selected file or folder |
+| `y` | Copy the selected item's path |
+| `o` | Open in the browser |
+
+## Commits hub
+
+See [Repos](repos.md#commits) for details.
+
+| Key | Action |
+| --- | ------ |
+| `enter` | Browse the files at that commit |
+| `/` | [Filter](repos.md#filtering): text, or `author:` and `path:` |
+| `esc` | Clear the filter |
+| `b` | Choose a branch or tag |
+| `r` | Choose the repository |
+| `y` | Copy the commit ID |
+| `o` | Open the commit in the browser |
+
+## Branches hub
+
+See [Repos](repos.md#branches) for details.
+
+| Key | Action |
+| --- | ------ |
+| `1` – `3` | Mine / All / Stale |
+| `Tab` / `Shift+Tab`, `h` / `l`, `[` / `]` | Next / previous view |
+| `n` | [New branch](repos.md#creating-a-branch) |
+| `d` | [Delete the branch](repos.md#deleting-a-branch) |
+| `enter` | Browse the branch's files |
+| `H` | The branch's commits |
+| `p` | New pull request from the branch |
+| `/` | Search by name |
+| `y` | Copy the branch name |
+| `o` | Open in the browser |
+
+## Tags hub
+
+See [Repos](repos.md#tags) for details.
+
+| Key | Action |
+| --- | ------ |
+| `n` | [New tag](repos.md#creating-a-tag) |
+| `enter` | Browse the files at the tag |
+| `H` | The commits up to the tag |
+| `/` | Search by name |
+| `y` | Copy the tag name |
+| `o` | Open in the browser |
 
 ## Pull requests list
 
@@ -228,6 +297,7 @@ See [Releases](releases.md) for details.
 | `Ctrl+s` | Save / submit |
 | `y` | Confirm |
 | `Ctrl+t` | Star / unstar a repository (repository picker) |
+| `Ctrl+s` | In the new branch and new tag forms: create it |
 | `Tab` | In the pull request search bar: complete the suggested filter |
 | `enter` | In a reviewer list: add or remove the highlighted person. On *Create as draft*: toggle it |
 | `enter` / `space` | In *Stages to run* or *Deploy automatically*: toggle the highlighted stage. On a checkbox: toggle it |

@@ -114,7 +114,7 @@ On Overview, `enter` on a comment in a file thread jumps to that line in the Fil
 
 ## The Files tab
 
-The Files tab shows the changed files on the left and an inline diff of the selected file on the right.
+The Files tab shows the changed files on the left and an inline diff of the selected file on the right. Code is syntax highlighted by file type, with the same colors as code blocks in descriptions and comments.
 
 | Key | Action |
 | --- | ------ |

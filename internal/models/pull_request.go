@@ -68,8 +68,12 @@ type Reviewer struct {
 const AllRepositories = "*"
 
 type Repository struct {
-	ID   string
-	Name string
+	ID            string
+	Name          string
+	DefaultBranch string
+	RemoteURL     string
+	SSHURL        string
+	WebURL        string
 }
 
 func (r Reviewer) Name() string {

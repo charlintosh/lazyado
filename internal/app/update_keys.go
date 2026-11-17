@@ -48,6 +48,15 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	if a.searchingReleases() {
 		return a.handleReleaseKey(msg)
 	}
+	if a.searchingCommits() {
+		return a.handleCommitsKey(msg)
+	}
+	if a.searchingBranches() {
+		return a.handleBranchesKey(msg)
+	}
+	if a.searchingTags() {
+		return a.handleTagsKey(msg)
+	}
 	if a.notification.IsVisible() && (key.Matches(msg, a.keys.Back) || key.Matches(msg, a.keys.DismissNotification)) {
 		a.notification = a.notification.Dismiss()
 		return a, nil
@@ -92,6 +101,18 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	if a.inReleases() {
 		return a.handleReleaseKey(msg)
 	}
+	if a.inFiles() {
+		return a.handleFilesKey(msg)
+	}
+	if a.inCommits() {
+		return a.handleCommitsKey(msg)
+	}
+	if a.inBranches() {
+		return a.handleBranchesKey(msg)
+	}
+	if a.inTags() {
+		return a.handleTagsKey(msg)
+	}
 	if next, cmd, ok := a.handleNavigationKey(msg); ok {
 		return next, cmd
 	}
@@ -126,19 +147,10 @@ func (a App) handleNavigationKey(msg tea.KeyPressMsg) (App, tea.Cmd, bool) {
 			return a, a.openFilterPicker(group), true
 		}
 	}
+	if hub, ok := a.hubFor(msg); ok {
+		return a, a.goToHub(hub), true
+	}
 	switch {
-	case key.Matches(msg, k.HubBacklog):
-		a.switchHub(panels.HubBacklog)
-	case key.Matches(msg, k.HubBoard):
-		a.switchHub(panels.HubBoard)
-	case key.Matches(msg, k.HubSprint):
-		a.switchHub(panels.HubSprint)
-	case key.Matches(msg, k.HubPullRequests):
-		return a, a.openPullRequests(), true
-	case key.Matches(msg, k.HubBuilds):
-		return a, a.openPipelines(), true
-	case key.Matches(msg, k.HubReleases):
-		return a, a.openReleases(), true
 	case key.Matches(msg, k.PrevView):
 		a.cycleView(-1)
 	case key.Matches(msg, k.NextView):
@@ -188,6 +200,18 @@ func (a *App) refresh() tea.Cmd {
 	}
 	if a.inReleases() {
 		return a.refreshReleases()
+	}
+	if a.inFiles() {
+		return a.refreshFiles()
+	}
+	if a.inCommits() {
+		return a.refreshCommits()
+	}
+	if a.inBranches() {
+		return a.refreshBranches()
+	}
+	if a.inTags() {
+		return a.refreshTags()
 	}
 	if !a.me.Known() {
 		return tea.Batch(a.reload(), loadIdentityCmd(a.client))

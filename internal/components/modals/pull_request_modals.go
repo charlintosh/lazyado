@@ -118,15 +118,24 @@ type RepositoryPickerModal struct {
 	repos     []models.Repository
 	favorites RepositoryFavorites
 	current   string
+	single    bool
 }
 
 func NewRepositoryPickerModal(env Env, repos []models.Repository, favorites RepositoryFavorites, current string) RepositoryPickerModal {
+	return newRepositoryPicker(env, repos, favorites, current, false)
+}
+
+func NewSingleRepositoryPickerModal(env Env, repos []models.Repository, favorites RepositoryFavorites, current string) RepositoryPickerModal {
+	return newRepositoryPicker(env, repos, favorites, current, true)
+}
+
+func newRepositoryPicker(env Env, repos []models.Repository, favorites RepositoryFavorites, current string, single bool) RepositoryPickerModal {
 	local := make(map[string]bool, len(favorites.Local))
 	for id := range favorites.Local {
 		local[id] = true
 	}
 	favorites.Local = local
-	m := RepositoryPickerModal{repos: repos, favorites: favorites, current: current}
+	m := RepositoryPickerModal{repos: repos, favorites: favorites, current: current, single: single}
 	m.ChoiceModal = m.build(env, current)
 	return m
 }
@@ -146,7 +155,11 @@ func (m RepositoryPickerModal) options() []widgets.Option {
 			rest = append(rest, o)
 		}
 	}
-	return append(append(favorites, rest...), widgets.Option{
+	options := append(favorites, rest...)
+	if m.single {
+		return options
+	}
+	return append(options, widgets.Option{
 		Label: "All repositories", Value: models.AllRepositories, Detail: "whole project", Marked: m.current == models.AllRepositories,
 	})
 }

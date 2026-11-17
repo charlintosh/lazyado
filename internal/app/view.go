@@ -134,6 +134,9 @@ func (a *App) hubCrumbs() []string {
 	if a.inReleases() {
 		crumbs = append(crumbs, a.releaseCrumb())
 	}
+	if a.inCode() && a.code.repo.ID != "" {
+		crumbs = append(crumbs, a.code.repo.Name)
+	}
 	return crumbs
 }
 
@@ -142,6 +145,14 @@ func (a *App) renderMainColumn(l shellLayout) string {
 	switch {
 	case a.inReleases():
 		box = a.renderReleasesBody(l.mainWidth, l.mainHeight())
+	case a.inFiles():
+		box = a.renderFilesBody(l.mainWidth, l.mainHeight())
+	case a.inCommits():
+		box = a.renderCommitsBody(l.mainWidth, l.mainHeight())
+	case a.inBranches():
+		box = a.renderBranchesBody(l.mainWidth, l.mainHeight())
+	case a.inTags():
+		box = a.renderTagsBody(l.mainWidth, l.mainHeight())
 	case a.isPanePanel() && !l.showPane:
 		box = a.renderPane(l.mainWidth, l.mainHeight())
 	default:
@@ -266,7 +277,7 @@ func (a *App) modeLabel() string {
 		return "WORK ITEM"
 	case a.keyword.Focused():
 		return "FILTER"
-	case a.searchingPullRequests(), a.searchingPipelines(), a.searchingReleases():
+	case a.searchingPullRequests(), a.searchingPipelines(), a.searchingReleases(), a.searchingCommits(), a.searchingBranches(), a.searchingTags():
 		return "SEARCH"
 	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
 		return "MOVING"
@@ -320,6 +331,14 @@ func (a *App) statusBindings() []key.Binding {
 		return a.pl.panel.KeyBindings()
 	case viewReleases:
 		return a.releaseBindings()
+	case viewFiles:
+		return a.filesBindings()
+	case viewCommits:
+		return a.commitsBindings()
+	case viewBranches:
+		return a.branchesBindings()
+	case viewTags:
+		return a.tagsBindings()
 	default:
 		return a.workItemsPanel.KeyBindings()
 	}

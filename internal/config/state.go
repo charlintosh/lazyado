@@ -14,6 +14,7 @@ type FilterState struct {
 	Area     string `json:"area"`
 
 	Repository           string   `json:"repository,omitempty"`
+	CodeRepository       string   `json:"code_repository,omitempty"`
 	FavoriteRepositories []string `json:"favorite_repositories,omitempty"`
 	FavoriteReleases     []int    `json:"favorite_releases,omitempty"`
 }

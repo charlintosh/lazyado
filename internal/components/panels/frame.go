@@ -21,11 +21,15 @@ const (
 	HubPullRequests
 	HubBuilds
 	HubReleases
+	HubFiles
+	HubCommits
+	HubBranches
+	HubTags
 )
 
 func (h Hub) Section() string {
 	switch h {
-	case HubPullRequests:
+	case HubPullRequests, HubFiles, HubCommits, HubBranches, HubTags:
 		return "Repos"
 	case HubBuilds, HubReleases:
 		return "Pipelines"
@@ -45,6 +49,14 @@ func (h Hub) Name() string {
 		return "Builds"
 	case HubReleases:
 		return "Releases"
+	case HubFiles:
+		return "Files"
+	case HubCommits:
+		return "Commits"
+	case HubBranches:
+		return "Branches"
+	case HubTags:
+		return "Tags"
 	default:
 		return "Backlogs"
 	}
@@ -62,6 +74,14 @@ func (h Hub) Mode() string {
 		return "BUILDS"
 	case HubReleases:
 		return "RELEASES"
+	case HubFiles:
+		return "FILES"
+	case HubCommits:
+		return "COMMITS"
+	case HubBranches:
+		return "BRANCHES"
+	case HubTags:
+		return "TAGS"
 	default:
 		return "BACKLOG"
 	}

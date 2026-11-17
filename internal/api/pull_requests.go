@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"sort"
 	"strconv"
@@ -85,6 +84,10 @@ func (c *Client) pullRequest(r pullRequestResponse) models.PullRequest {
 }
 
 func (c *Client) sendJSON(method, endpoint string, payload any) error {
+	return c.exchangeJSON(method, endpoint, payload, nil)
+}
+
+func (c *Client) exchangeJSON(method, endpoint string, payload, reply any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
@@ -98,7 +101,10 @@ func (c *Client) sendJSON(method, endpoint string, payload any) error {
 	if err != nil {
 		return err
 	}
-	return resp.Body.Close()
+	if reply == nil {
+		return resp.Body.Close()
+	}
+	return decode(resp, reply)
 }
 
 func pullRequestPath(repositoryID string, id int) string {
@@ -112,9 +118,13 @@ func (c *Client) ListRepositories() ([]models.Repository, error) {
 	}
 	var data struct {
 		Value []struct {
-			ID         string `json:"id"`
-			Name       string `json:"name"`
-			IsDisabled bool   `json:"isDisabled"`
+			ID            string `json:"id"`
+			Name          string `json:"name"`
+			IsDisabled    bool   `json:"isDisabled"`
+			DefaultBranch string `json:"defaultBranch"`
+			RemoteURL     string `json:"remoteUrl"`
+			SSHURL        string `json:"sshUrl"`
+			WebURL        string `json:"webUrl"`
 		} `json:"value"`
 	}
 	if err := decode(resp, &data); err != nil {
@@ -123,7 +133,10 @@ func (c *Client) ListRepositories() ([]models.Repository, error) {
 	repos := make([]models.Repository, 0, len(data.Value))
 	for _, r := range data.Value {
 		if !r.IsDisabled {
-			repos = append(repos, models.Repository{ID: r.ID, Name: r.Name})
+			repos = append(repos, models.Repository{
+				ID: r.ID, Name: r.Name, DefaultBranch: models.BranchName(r.DefaultBranch),
+				RemoteURL: r.RemoteURL, SSHURL: r.SSHURL, WebURL: r.WebURL,
+			})
 		}
 	}
 	sort.SliceStable(repos, func(i, j int) bool { return strings.ToLower(repos[i].Name) < strings.ToLower(repos[j].Name) })
@@ -628,21 +641,7 @@ func (c *Client) GetPullRequestChanges(repositoryID string, id int) (models.Pull
 }
 
 func (c *Client) GetFileContent(repositoryID, path, commit string) (string, error) {
-	endpoint := fmt.Sprintf("/git/repositories/%s/items?path=%s&versionDescriptor.versionType=commit&versionDescriptor.version=%s&$format=text",
-		url.PathEscape(repositoryID), url.QueryEscape(path), url.QueryEscape(commit))
-	resp, err := c.get(endpoint)
-	if err != nil {
-		return "", fmt.Errorf("loading %s: %w", path, err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, c.maxFileBytes+1))
-	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", path, err)
-	}
-	if int64(len(body)) > c.maxFileBytes {
-		return "", fmt.Errorf("loading %s: %w", path, models.ErrFileTooLarge)
-	}
-	return string(body), nil
+	return c.GetItemText(repositoryID, path, models.GitVersion{Kind: models.VersionCommit, Name: commit})
 }
 
 func (c *Client) GetPullRequestWorkItemIDs(repositoryID string, id int) ([]int, error) {

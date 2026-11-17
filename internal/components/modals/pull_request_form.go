@@ -48,6 +48,7 @@ type PullRequestFormData struct {
 	Repository   models.Repository
 	Members      []models.TeamMember
 	Open         []models.PullRequest
+	Source       string
 }
 
 type PullRequestBranchesRequestMsg struct {
@@ -311,7 +312,7 @@ func (m *PullRequestForm) replaceBranches(target string) {
 	open := m.openBySource()
 	for _, id := range []prField{prSource, prTarget} {
 		i := m.index(id)
-		initial := ""
+		initial := m.data.Source
 		if id == prTarget {
 			initial = target
 		}
