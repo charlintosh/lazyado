@@ -154,7 +154,7 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 		sprint.Label, sprint.Set = sprintIcon+sprint.Label, false
 		p.Controls = []panels.HeaderControl{sprint, a.filterControl(models.FilterTypeAssigned, "Person: "), a.funnelControl(), fullscreen}
 	case panels.HubPullRequests:
-		p.Action = a.plainControl("Open in browser", a.keys.OpenBrowser)
+		p.Action = a.plainControl(newIcon+"New pull request", a.keys.NewPullRequest)
 		p.Pivots, p.Pivot = a.pullRequestPivotLabels(), a.pr.pivot
 		_, open := a.repositoryPicker()
 		repo := panels.HeaderControl{

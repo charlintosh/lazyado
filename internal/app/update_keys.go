@@ -39,6 +39,9 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	if a.keyword.Focused() {
 		return a.handleKeywordKey(msg)
 	}
+	if a.searchingPullRequests() {
+		return a.handlePullRequestKey(msg)
+	}
 	if a.notification.IsVisible() && (key.Matches(msg, a.keys.Back) || key.Matches(msg, a.keys.DismissNotification)) {
 		a.notification = a.notification.Dismiss()
 		return a, nil

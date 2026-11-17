@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -15,7 +16,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const loadingPullRequests = "Loading pull requests"
+const (
+	loadingPullRequests = "Loading pull requests"
+	searchingServer     = "Searching Azure DevOps"
+)
 
 type ReviewPullRequestMsg struct {
 	PullRequest models.PullRequest
@@ -26,37 +30,33 @@ type BrowsePullRequestMsg struct {
 }
 
 type PullRequestsPanel struct {
-	items    []models.PullRequest
-	cursor   int
-	viewport viewport.Model
-	keys     keys.KeyMap
-	me       models.Identity
-	loading  bool
-	spinner  string
-	unscoped bool
-	oneRepo  bool
-	focused  bool
-	width    int
-	height   int
+	all       []models.PullRequest
+	items     []models.PullRequest
+	members   []models.TeamMember
+	search    textinput.Model
+	searching bool
+	searchErr string
+	applied   models.PullRequestCriteria
+	cursor    int
+	viewport  viewport.Model
+	keys      keys.KeyMap
+	me        models.Identity
+	loading   bool
+	spinner   string
+	unscoped  bool
+	oneRepo   bool
+	focused   bool
+	width     int
+	height    int
 }
 
 func NewPullRequestsPanel(k keys.KeyMap) PullRequestsPanel {
-	return PullRequestsPanel{viewport: widgets.NewViewport(k), keys: k, unscoped: true}
+	return PullRequestsPanel{viewport: widgets.NewViewport(k), keys: k, unscoped: true, search: widgets.SearchInput(searchPrompt, searchPlaceholder)}
 }
 
 func (p *PullRequestsPanel) SetItems(items []models.PullRequest) {
-	selected := 0
-	if current := p.Selected(); current != nil {
-		selected = current.ID
-	}
-	p.items = items
-	p.cursor = 0
-	for i := range items {
-		if items[i].ID == selected {
-			p.cursor = i
-		}
-	}
-	p.render()
+	p.all = items
+	p.applyFilter()
 }
 
 func (p *PullRequestsPanel) SetLoading(loading bool) { p.loading = loading }
@@ -89,8 +89,13 @@ func (p *PullRequestsPanel) SetSize(width, height int) {
 		return
 	}
 	p.width, p.height = width, height
-	p.viewport.SetWidth(width)
-	p.viewport.SetHeight(height)
+	p.search.SetWidth(max(width/2, 1))
+	p.layout()
+}
+
+func (p *PullRequestsPanel) layout() {
+	p.viewport.SetWidth(p.width)
+	p.viewport.SetHeight(max(p.height-p.searchChromeHeight(), 1))
 	p.render()
 }
 
@@ -102,15 +107,22 @@ func (p *PullRequestsPanel) Selected() *models.PullRequest {
 }
 
 func (p *PullRequestsPanel) Title() string {
+	if p.query().Active() {
+		return fmt.Sprintf("Pull requests %d of %d", len(p.items), len(p.all))
+	}
 	return fmt.Sprintf("Pull requests %d", len(p.items))
 }
 
 func (p *PullRequestsPanel) KeyBindings() []key.Binding {
+	if p.searching {
+		return p.searchBindings()
+	}
+	search := widgets.Relabel(p.keys.Search, "search")
 	if len(p.items) == 0 {
-		return []key.Binding{p.keys.Repository, widgets.Combine("view", p.keys.PrevPanel, p.keys.NextPanel), p.keys.Refresh}
+		return []key.Binding{p.keys.NewPullRequest, search, p.keys.Repository, widgets.Combine("view", p.keys.PrevPanel, p.keys.NextPanel), p.keys.Refresh}
 	}
 	return []key.Binding{
-		widgets.Relabel(p.keys.Select, "review"), p.keys.Vote, p.keys.AddComment, p.keys.Repository, p.keys.OpenBrowser,
+		widgets.Relabel(p.keys.Select, "review"), p.keys.NewPullRequest, search, p.keys.Vote, p.keys.AddComment, p.keys.Repository, p.keys.OpenBrowser,
 		widgets.Combine("view", p.keys.PrevPanel, p.keys.NextPanel), p.keys.Refresh,
 	}
 }
@@ -118,7 +130,14 @@ func (p *PullRequestsPanel) KeyBindings() []key.Binding {
 func (p PullRequestsPanel) Update(msg tea.Msg) (PullRequestsPanel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		if p.searching {
+			return p.handleSearchKey(msg)
+		}
 		return p.handleKey(msg)
+	case tea.PasteMsg:
+		if p.searching {
+			return p.updateSearch(msg)
+		}
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -225,9 +244,10 @@ func (p *PullRequestsPanel) row(pr models.PullRequest, selected bool) string {
 	if pr.IsDraft {
 		draft = Badge(draftLabel, styles.ColorChip, styles.ColorLight) + pad(1)
 	}
-	title := ansi.Truncate(pr.Title, max(room-lipgloss.Width(draft), 1), "…")
-	first := lead + base.Foreground(styles.ColorAccent).Render(id) + pad(1) + draft +
-		base.Foreground(styles.ColorText).Bold(selected).Render(title) +
+	terms := p.query().Terms
+	plain := ansi.Truncate(pr.Title, max(room-lipgloss.Width(draft), 1), "…")
+	title := highlight(plain, terms, base.Foreground(styles.ColorText).Bold(selected))
+	first := lead + base.Foreground(styles.ColorAccent).Render(id) + pad(1) + draft + title +
 		pad(room-lipgloss.Width(draft)-lipgloss.Width(title)+1) + right
 
 	detailRoom := max(p.width-2-indent, 1)
@@ -236,7 +256,7 @@ func (p *PullRequestsPanel) row(pr models.PullRequest, selected bool) string {
 		summary = pr.RepositoryName + " · " + summary
 	}
 	detail := ansi.Truncate(summary, detailRoom, "…")
-	second := lead + pad(indent) + base.Foreground(styles.ColorTextMuted).Render(detail) + pad(detailRoom-lipgloss.Width(detail))
+	second := lead + pad(indent) + highlight(detail, terms, base.Foreground(styles.ColorTextMuted)) + pad(detailRoom-lipgloss.Width(detail))
 	return first + "\n" + second
 }
 
@@ -244,19 +264,30 @@ func (p PullRequestsPanel) View() string {
 	if p.width <= 0 || p.height <= 0 {
 		return ""
 	}
+	top := p.searchView()
+	if top != "" {
+		top += "\n"
+	}
 	if len(p.items) > 0 {
-		return Block(p.viewport.View(), p.width, p.height)
+		return Block(top+p.viewport.View(), p.width, p.height)
+	}
+	if len(p.all) > 0 && p.query().Active() {
+		return Block(top+lipgloss.NewStyle().Padding(1, 1).Render(p.noMatches()), p.width, p.height)
 	}
 	title, hint := "No pull requests in this view", "Switch views with "+p.keys.NextPanel.Help().Key+" or "+p.keys.Panel1.Help().Key+"-"+p.keys.Panel4.Help().Key+"."
 	switch {
 	case p.unscoped:
 		title = "Choose a repository"
 		hint = "Pull requests are listed one repository at a time. Press " + p.keys.Repository.Help().Key + " to pick one."
+	case p.loading && !p.applied.Empty():
+		return Block(top+lipgloss.NewStyle().Padding(1, 1).Render(Loading(p.spinner, searchingServer)), p.width, p.height)
 	case p.loading:
-		return Block(lipgloss.NewStyle().Padding(1, 1).Render(Loading(p.spinner, loadingPullRequests)), p.width, p.height)
+		return Block(top+lipgloss.NewStyle().Padding(1, 1).Render(Loading(p.spinner, loadingPullRequests)), p.width, p.height)
+	case !p.applied.Empty():
+		title, hint = "No pull requests match these filters", "Press "+p.keys.Search.Help().Key+" and "+p.keys.Back.Help().Key+" to clear the search."
 	}
 	msg := lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(title),
 		lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Width(max(p.width-2, 1)).Render(hint))
-	return Block(lipgloss.NewStyle().Padding(1, 1).Render(msg), p.width, p.height)
+	return Block(top+lipgloss.NewStyle().Padding(1, 1).Render(msg), p.width, p.height)
 }

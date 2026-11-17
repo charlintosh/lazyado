@@ -117,6 +117,10 @@ func reviewCmd(pr models.PullRequest, notice string, run func() error) tea.Cmd {
 	}
 }
 
+func (a *App) searchingPullRequests() bool {
+	return a.viewMode == ViewMain && a.inPullRequests() && !a.modals.open() && a.pr.panel.Searching()
+}
+
 func (a *App) reviewing() bool {
 	return a.viewMode == ViewPullRequest
 }

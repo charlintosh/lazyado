@@ -33,6 +33,7 @@ type pullRequestState struct {
 	checksFor    int
 	checks       []models.PullRequestCheck
 	checksLoaded bool
+	criteria     models.PullRequestCriteria
 
 	repos        []models.Repository
 	reposLoaded  bool
@@ -162,9 +163,23 @@ func pullRequestStatusFor(pivot int) models.PullRequestStatus {
 	return models.PullRequestActive
 }
 
-func loadPullRequestsCmd(client *api.Client, seq int, status models.PullRequestStatus, repositoryID string) tea.Cmd {
+type pullRequestFoundMsg struct {
+	pr models.PullRequest
+}
+
+func loadPullRequestByIDCmd(client *api.Client, id int) tea.Cmd {
 	return func() tea.Msg {
-		items, err := client.ListPullRequests(status, repositoryID)
+		pr, err := client.GetPullRequest(id)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return pullRequestFoundMsg{pr: pr}
+	}
+}
+
+func loadPullRequestsCmd(client *api.Client, seq int, status models.PullRequestStatus, repositoryID string, criteria models.PullRequestCriteria) tea.Cmd {
+	return func() tea.Msg {
+		items, err := client.ListPullRequests(status, repositoryID, criteria)
 		if err != nil {
 			return pullRequestsFailedMsg{seq: seq, err: err}
 		}
@@ -213,7 +228,7 @@ func (a *App) loadPullRequests() tea.Cmd {
 	a.pr.seq++
 	a.pr.loading = true
 	a.pr.panel.SetLoading(true)
-	return loadPullRequestsCmd(a.client, a.pr.seq, pullRequestStatusFor(a.pr.pivot), a.pr.repo.ID)
+	return loadPullRequestsCmd(a.client, a.pr.seq, pullRequestStatusFor(a.pr.pivot), a.pr.repo.ID, a.pr.criteria)
 }
 
 func (a *App) refreshPullRequests() tea.Cmd {
@@ -286,6 +301,11 @@ func (a *App) syncPullRequestSelection() tea.Cmd {
 
 func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	k := a.keys
+	if a.pr.panel.Searching() {
+		var cmd tea.Cmd
+		a.pr.panel, cmd = a.pr.panel.Update(msg)
+		return a, cmd
+	}
 	for pivot, b := range a.filterKeys() {
 		if key.Matches(msg, b) {
 			return a, a.selectPullRequestPivot(pivot)
@@ -309,6 +329,10 @@ func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		return a, a.openModal(modals.NewQuickSearchModal(a.env()))
 	case key.Matches(msg, k.Repository):
 		return a, a.openRepositoryPicker()
+	case key.Matches(msg, k.Search):
+		return a, a.pr.panel.FocusSearch()
+	case key.Matches(msg, k.NewPullRequest):
+		return a, a.openPullRequestForm()
 	case key.Matches(msg, k.Vote):
 		if pr := a.pr.panel.Selected(); pr != nil {
 			return a, a.openVote(*pr)
@@ -378,6 +402,21 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, nil, true
 	case panels.BrowsePullRequestMsg:
 		return a, openBrowserCmd(msg.PullRequest.WebURL), true
+	case panels.SearchPullRequestsMsg:
+		if msg.Criteria == a.pr.criteria {
+			return a, nil, true
+		}
+		a.pr.criteria, a.pr.items, a.pr.loaded = msg.Criteria, nil, false
+		a.applyPullRequests()
+		return a, a.loadPullRequests(), true
+	case panels.OpenPullRequestByIDMsg:
+		return a, a.mutate(loadPullRequestByIDCmd(a.client, msg.ID)), true
+	case pullRequestFoundMsg:
+		a.loading = false
+		return a, a.openReview(msg.pr), true
+	}
+	if next, cmd, ok := a.handlePullRequestFormResult(msg); ok {
+		return next, cmd, true
 	}
 	return a.handleReviewResult(msg)
 }

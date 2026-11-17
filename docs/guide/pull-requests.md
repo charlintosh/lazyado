@@ -3,6 +3,8 @@
 The *Repos › Pull requests* hub (`P`) lists the pull requests of a repository. You can open any of them to review it: read the description and policies, browse the changed files, comment, and vote.
 
 - [The pull request list](#the-pull-request-list)
+- [Searching](#searching)
+- [Creating a pull request](#creating-a-pull-request)
 - [Reviewing a pull request](#reviewing-a-pull-request)
 - [Comments](#comments)
 - [The Files tab](#the-files-tab)
@@ -33,6 +35,38 @@ Press `r` to switch. The picker is searchable, includes an explicit **All reposi
 | `a` | Vote |
 | `c` | Comment on the pull request |
 | `o` | Open in the browser |
+
+## Searching
+
+Press `/` to open the search bar above the list. What you type filters the list as you type, matching the ID, title, branches, author and repository. Matches are highlighted, and the bar shows how many of the loaded pull requests match.
+
+Azure DevOps can't search pull requests by text, so text only filters what's loaded: up to the 200 most recent pull requests in the current view. These filters go further, because Azure DevOps can search by them:
+
+| Filter | Finds pull requests | Searched |
+| ------ | ------------------- | -------- |
+| `author:name` or `author:@me` | created by someone | on the server |
+| `reviewer:name` or `reviewer:@me` | with someone as a reviewer | on the server |
+| `source:branch` | from a branch | on the server |
+| `target:branch` | into a branch | on the server |
+| `is:draft` | that are drafts | in the loaded list |
+
+When the bar is empty, or you start typing a filter, suggestions appear under it, and `Tab` completes the first one, including team members' full names and branch names. `Enter` sends the filters to Azure DevOps and the bar says the results came from the *server*. Press `Enter` again to open the selected pull request. Filters combine with the Mine / Active / Completed / Abandoned views.
+
+If you type an ID that isn't in the current view, `Enter` opens that pull request anyway. `Esc` clears the search, and a second `Esc` closes the bar.
+
+## Creating a pull request
+
+Press `n` (or *+ New pull request* in the header) to open the form. If the hub shows all repositories, choose the repository first.
+
+1. **Pick the branches.** The target starts on the repository's default branch. Branches that already have an open pull request are marked `!1234 open`.
+2. **Check the line under them.** It compares the branches the way Azure DevOps does:
+   - `✓ 3 commits ahead, 0 behind main · 7 files changed`: ready to go.
+   - `! … 12 behind main`: allowed, but you may want to update your branch first.
+   - `✕ An active pull request already exists: !4826 …`: `Ctrl+s` opens that one instead.
+   - `✕ Nothing to merge` or the same branch on both sides: the form won't create it.
+3. **Write it up.** The title is filled in from the commit message when there is a single commit, otherwise from the branch name. The description starts from the repository's pull request template, if it has one (`.azuredevops/pull_request_template.md` and the other places Azure DevOps looks, including branch-specific templates). A work item ID in the branch name, as in `feature/1043-guest-checkout`, is linked for you. Anything you type yourself is never overwritten.
+4. **Add reviewers, work items, tags, or mark it as a draft.** In a reviewer list, type to filter and press `Enter` to add or remove someone. Required reviewers and build policies from branch policies are still added by Azure DevOps.
+5. **Press `Ctrl+s`.** The pull request is created and its review opens. If Azure DevOps refuses, the error is shown over the form and everything you typed is kept.
 
 ## Reviewing a pull request
 

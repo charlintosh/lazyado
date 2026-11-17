@@ -71,22 +71,25 @@ const (
 	ModalWidthLG  = 60
 	ModalWidthXL  = 70
 	ModalWidthXXL = 80
+	ModalWidthPR  = 100
 )
 
 const (
 	TextareaHeightSM = 3
 	TextareaHeightMD = 4
 	TextareaHeightLG = 6
+	TextareaHeightXL = 9
 )
 
 const (
-	InputCharLimitSM   = 10
-	SearchCharLimit    = 500
-	TitleCharLimit     = 255
-	ContentCharLimitLG = 2000
-	PriorityCharLimit  = 1
-	EffortCharLimit    = 5
-	TagsCharLimit      = 500
+	InputCharLimitSM            = 10
+	SearchCharLimit             = 500
+	TitleCharLimit              = 255
+	ContentCharLimitLG          = 2000
+	PullRequestDescriptionLimit = 4000
+	PriorityCharLimit           = 1
+	EffortCharLimit             = 5
+	TagsCharLimit               = 500
 )
 
 const (

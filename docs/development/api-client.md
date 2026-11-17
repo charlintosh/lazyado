@@ -18,6 +18,8 @@
 - JSON writes that are not work item patches go through `sendJSON(method, endpoint, payload)`, which adds `api-version` and sends `application/json`.
 - Work item comment likes use the preview reactions endpoint `.../wit/workItems/{id}/comments/{commentId}/reactions/like` (`PUT` to like, `DELETE` to unlike); `GetComments` reads them from `reactions` (`$expand=all`).
 - Pull request comment likes use the preview `.../threads/{threadId}/comments/{commentId}/likes` endpoint (`POST` to like, `DELETE` to unlike, `api-version=7.1-preview.1`); `usersLiked` on each comment says who liked it.
+- Creating a pull request uses `refs?filter=heads/` for branches, the repository's `defaultBranch`, `diffs/commits` (ahead/behind and change counts), `commits` with `itemVersion` / `compareVersion` for the commit messages, the items API on the target branch for `pull_request_template.md`, and `POST .../pullrequests` ([internal/api/pull_request_create.go](../../internal/api/pull_request_create.go)).
+- The pull requests API has no text search; `ListPullRequests` sends only `searchCriteria` (`creatorId`, `reviewerId`, `sourceRefName`, `targetRefName`), and text filtering happens on the loaded list.
 - Quick search looks pull requests up by ID with the project-scoped `/git/pullrequests/{id}`, so no repository is needed.
 - Policy evaluations are a preview API (`getPreview`) keyed by `vstfs:///CodeReview/CodeReviewId/{projectId}/{pullRequestId}`; a status-check policy and a raw pull request status with the same `genre/name` are shown once.
 

@@ -37,6 +37,7 @@ var (
 	ColorDiffAdd      = lipgloss.Color("#16301F")
 	ColorDiffDelete   = lipgloss.Color("#3A1A20")
 	ColorDiffHunk     = lipgloss.Color("#1F3A57")
+	ColorMatch        = lipgloss.Color("#5C4A12")
 	ColorTypePBI      = lipgloss.Color("#2AB0E0")
 	ColorTypeTask     = lipgloss.Color("#F2CB1D")
 	ColorTypeBug      = lipgloss.Color("#E0475B")

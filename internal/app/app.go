@@ -158,6 +158,11 @@ func (a App) update(msg tea.Msg) (App, tea.Cmd) {
 		if a.keyword.Focused() && !a.modals.open() {
 			return a.updateKeyword(msg)
 		}
+		if a.searchingPullRequests() {
+			var cmd tea.Cmd
+			a.pr.panel, cmd = a.pr.panel.Update(msg)
+			return a, cmd
+		}
 	case spinner.TickMsg:
 		return a.tick(msg)
 	case screens.FrameMsg:

@@ -32,6 +32,7 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.statesByType = msg.statesByType
 		a.teamMembers = msg.teamMembers
 		a.pr.view.SetMembers(a.teamMembers)
+		a.pr.panel.SetMembers(a.teamMembers)
 		registerWorkflowColors(a.statesByType)
 		filters := models.NewFilterState(a.iterations, a.areas, a.statesByType)
 		if s := msg.savedFilters; s != nil {

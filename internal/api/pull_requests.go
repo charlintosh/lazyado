@@ -153,12 +153,29 @@ func (c *Client) GetFavoriteArtifactIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (c *Client) ListPullRequests(status models.PullRequestStatus, repositoryID string) ([]models.PullRequest, error) {
+func criteriaQuery(status models.PullRequestStatus, criteria models.PullRequestCriteria) string {
+	q := url.Values{}
+	q.Set("searchCriteria.status", string(status))
+	for name, value := range map[string]string{
+		"searchCriteria.creatorId":     criteria.CreatorID,
+		"searchCriteria.reviewerId":    criteria.ReviewerID,
+		"searchCriteria.sourceRefName": criteria.SourceRef,
+		"searchCriteria.targetRefName": criteria.TargetRef,
+	} {
+		if value != "" {
+			q.Set(name, value)
+		}
+	}
+	q.Set("$top", fmt.Sprint(pullRequestPageSize))
+	return q.Encode()
+}
+
+func (c *Client) ListPullRequests(status models.PullRequestStatus, repositoryID string, criteria models.PullRequestCriteria) ([]models.PullRequest, error) {
 	scope := "/git/pullrequests"
 	if repositoryID != "" {
 		scope = fmt.Sprintf("/git/repositories/%s/pullrequests", url.PathEscape(repositoryID))
 	}
-	resp, err := c.get(fmt.Sprintf("%s?searchCriteria.status=%s&$top=%d", scope, url.QueryEscape(string(status)), pullRequestPageSize))
+	resp, err := c.get(scope + "?" + criteriaQuery(status, criteria))
 	if err != nil {
 		return nil, fmt.Errorf("listing pull requests: %w", err)
 	}

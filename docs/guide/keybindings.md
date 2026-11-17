@@ -103,6 +103,8 @@ Opened with `v`.
 | `1` – `4` | Mine / Active / Completed / Abandoned |
 | `Tab` / `Shift+Tab`, `h` / `l`, `[` / `]` | Next / previous view |
 | `r` | Choose the repository |
+| `n` | [New pull request](pull-requests.md#creating-a-pull-request) |
+| `/` | [Search](pull-requests.md#searching): text, or `author:`, `reviewer:`, `source:`, `target:`, `is:draft` |
 | `enter` | Open the review |
 | `a` | Vote |
 | `c` | Comment on the pull request |
@@ -158,4 +160,6 @@ These keys act on the focused comment, on Overview and in the Files diff.
 | `Ctrl+s` | Save / submit |
 | `y` | Confirm |
 | `Ctrl+t` | Star / unstar a repository (repository picker) |
+| `Tab` | In the pull request search bar: complete the suggested filter |
+| `enter` | In a reviewer list: add or remove the highlighted person. On *Create as draft*: toggle it |
 | `esc` | Clear the filter, then close |

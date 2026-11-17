@@ -6,6 +6,12 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- feat: create pull requests (`n` in the Pull requests hub) — pick the source and target branches (the target starts on the default branch, and branches with an open pull request are marked), see commits ahead and behind and the files changed, and write the title, description, required and optional reviewers, linked work items, tags and draft flag; the title comes from the commit or branch name, the description from the repository's pull request template, and a work item ID in the branch name is linked. An existing pull request for the same branches is offered instead of a duplicate, and branches with nothing to merge are refused before Azure DevOps would
+- feat: search pull requests (`/` in the Pull requests hub) — text filters the loaded list as you type with matches highlighted; `author:`, `reviewer:`, `source:` and `target:` (with `@me`, completion of names and branches, and `Tab`) search Azure DevOps beyond the loaded list, `is:draft` keeps drafts, and an ID that isn't in the view can still be opened
+- change: the Pull requests hub's header action is now *+ New pull request*; `o` still opens the selected pull request in the browser
+
 ## [v1.2.0] - 2026-11-17
 
 Pull requests release: a Repos › Pull requests hub with full reviews, bordered comment cards with likes across pull requests and work items, pull request quick search, and "too large" handling for lockfiles and other big diffs.

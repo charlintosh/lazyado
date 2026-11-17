@@ -69,6 +69,7 @@ type KeyMap struct {
 	OpenBrowser     key.Binding
 	Vote            key.Binding
 	Reply           key.Binding
+	NewPullRequest  key.Binding
 	LikeComment     key.Binding
 	ResolveThread   key.Binding
 	NextFile        key.Binding
@@ -324,6 +325,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("r"),
 			key.WithHelp("r", "reply"),
 		),
+		NewPullRequest: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "new pull request"),
+		),
 		LikeComment: key.NewBinding(
 			key.WithKeys("+"),
 			key.WithHelp("+", "like/unlike"),
@@ -375,6 +380,6 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
-		{k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
+		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
 	}
 }

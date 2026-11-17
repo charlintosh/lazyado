@@ -911,3 +911,196 @@ func TestReviewCollapsesFilesTheRepositoryMarksAsGenerated(t *testing.T) {
 		t.Fatalf("a file marked linguist-generated must be collapsed:\n%s", out)
 	}
 }
+
+func TestPullRequestSearchFiltersAsYouType(t *testing.T) {
+	a := openPullRequestHub(t, 160, 40)
+	a = feed(t, a, press("/"))
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"SEARCH", "author:", "reviewer:", "source:", "target:", "is:draft", "server"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("an empty search bar must suggest filters, missing %q:\n%s", want, out)
+		}
+	}
+	a = typeText(t, a, "liquid")
+	if !a.pr.panel.Searching() {
+		t.Fatal("letters typed in the bar, q included, must stay in the bar")
+	}
+	out = ansi.Strip(a.render())
+	if !strings.Contains(out, "1 of 2") || !strings.Contains(out, "Migrate invoice templates") || strings.Contains(out, "Add retry policy") {
+		t.Fatalf("typing must filter the loaded list:\n%s", out)
+	}
+	a = feed(t, a, special(tea.KeyEscape))
+	if out = ansi.Strip(a.render()); !strings.Contains(out, "Add retry policy") || !a.pr.panel.Searching() {
+		t.Fatal("the first esc must clear the search and keep the bar open")
+	}
+	a = feed(t, a, special(tea.KeyEscape))
+	if a.pr.panel.Searching() {
+		t.Fatal("the second esc must leave the bar")
+	}
+}
+
+func TestPullRequestSearchSendsFiltersToTheServer(t *testing.T) {
+	a := openPullRequestHub(t, 160, 40)
+	a = typeText(t, feed(t, a, press("/")), "author:@me")
+	a, msgs := step(t, a, special(tea.KeyEnter))
+	search, ok := find[panels.SearchPullRequestsMsg](msgs)
+	if !ok || search.Criteria.CreatorID != "me-id" {
+		t.Fatalf("got %+v, want a server search for my pull requests", search)
+	}
+	a = feed(t, a, search)
+	if a.pr.criteria.CreatorID != "me-id" || !a.pr.loading {
+		t.Fatal("a server filter must reload the list with the criteria")
+	}
+	a = feed(t, a, pullRequestsLoadedMsg{seq: a.pr.seq, status: models.PullRequestActive, items: samplePullRequests()[2:]})
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "1 of 1 · server") {
+		t.Fatalf("the bar must say the results came from the server:\n%s", out)
+	}
+	a = feed(t, a, press("/"))
+	a, msgs = step(t, a, special(tea.KeyEscape))
+	if clear, ok := find[panels.SearchPullRequestsMsg](msgs); !ok || !clear.Criteria.Empty() {
+		t.Fatalf("clearing must drop the server filter, got %+v", clear)
+	}
+}
+
+func TestPullRequestSearchOpensAnIDOutsideTheView(t *testing.T) {
+	a := openPullRequestHub(t, 160, 40)
+	a = typeText(t, feed(t, a, press("/")), "4511")
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "!4511 isn't in this view") {
+		t.Fatalf("an unknown ID must offer to open it anyway:\n%s", out)
+	}
+	_, msgs := step(t, a, special(tea.KeyEnter))
+	if open, ok := find[panels.OpenPullRequestByIDMsg](msgs); !ok || open.ID != 4511 {
+		t.Fatalf("got %+v, want pull request 4511 opened by ID", open)
+	}
+}
+
+func TestPullRequestSearchCompletesReviewerNames(t *testing.T) {
+	a := openPullRequestHub(t, 160, 40)
+	a.teamMembers = append(a.teamMembers, models.TeamMember{ID: "pn-id", DisplayName: "Priya Nair", UniqueName: "priya@acme.io"})
+	a.pr.panel.SetMembers(a.teamMembers)
+	a = typeText(t, feed(t, a, press("/")), "reviewer:pri")
+	a = feed(t, a, special(tea.KeyTab))
+	if out := ansi.Strip(a.render()); !strings.Contains(out, `reviewer:"Priya Nair"`) {
+		t.Fatalf("tab must complete the reviewer's full name:\n%s", out)
+	}
+	_, msgs := step(t, a, special(tea.KeyEnter))
+	if search, ok := find[panels.SearchPullRequestsMsg](msgs); !ok || search.Criteria.ReviewerID != "pn-id" {
+		t.Fatalf("got %+v, want a server search by reviewer ID", search)
+	}
+}
+
+func openPullRequestForm(t *testing.T) App {
+	t.Helper()
+	a := openPullRequestHub(t, 160, 50)
+	a.teamMembers = []models.TeamMember{{ID: "ml-id", DisplayName: "Marco Lima"}, {ID: "pn-id", DisplayName: "Priya Nair"}}
+	a, msgs := step(t, a, press("n"))
+	topModal[modals.PullRequestForm](t, a)
+	if req, ok := find[modals.PullRequestBranchesRequestMsg](msgs); !ok || req.RepositoryID != "repo-1" {
+		t.Fatalf("opening the form must load the repository's branches, got %+v", req)
+	}
+	return feed(t, a, modals.PullRequestBranchesMsg{
+		RepositoryID: "repo-1", Branches: []string{"feature/1043-guest-checkout", "feature/webhook-retry", "main"}, Default: "main",
+	})
+}
+
+func chooseSource(t *testing.T, a App, filter string) (App, modals.PullRequestCompareRequestMsg) {
+	t.Helper()
+	a = typeText(t, a, filter)
+	a, msgs := step(t, a, special(tea.KeyEnter))
+	req, ok := find[modals.PullRequestCompareRequestMsg](msgs)
+	if !ok {
+		t.Fatalf("leaving the source branch must compare it with the target, got %v", msgs)
+	}
+	return a, req
+}
+
+func TestNewPullRequestComparesBranchesPrefillsAndCreates(t *testing.T) {
+	a := openPullRequestForm(t)
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"New pull request", "storefront-api", "Source branch", "Target branch", "main", "Required reviewers", "Ctrl+s create"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the form is missing %q:\n%s", want, out)
+		}
+	}
+	a, req := chooseSource(t, a, "guest")
+	if req.Source != "feature/1043-guest-checkout" || req.Target != "main" || req.RepositoryID != "repo-1" {
+		t.Fatalf("got %+v", req)
+	}
+	if out = ansi.Strip(a.render()); !strings.Contains(out, "Comparing branches") {
+		t.Fatalf("the form must say it is comparing:\n%s", out)
+	}
+	a = feed(t, a, modals.PullRequestComparedMsg{RepositoryID: "repo-1", Source: req.Source, Target: req.Target,
+		Comparison: models.BranchComparison{Ahead: 1, Files: 7, Commits: []string{"Checkout: allow guests"}, Template: "## What changed\n"}})
+	out = ansi.Strip(a.render())
+	for _, want := range []string{"1 commit ahead, 0 behind main · 7 files changed", "Checkout: allow guests", "## What changed", "1043"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the comparison must fill the form, missing %q:\n%s", want, out)
+		}
+	}
+	a = feed(t, a, special(tea.KeyTab), special(tea.KeyTab), special(tea.KeyTab))
+	a = typeText(t, a, "marco")
+	a = feed(t, a, special(tea.KeyEnter))
+	a, msgs := step(t, a, ctrl('s'))
+	create, ok := find[modals.PullRequestCreateRequestMsg](msgs)
+	if !ok {
+		t.Fatalf("ctrl+s must create the pull request, got %v", msgs)
+	}
+	pr := create.PullRequest
+	if create.Repository.ID != "repo-1" || pr.Source != "feature/1043-guest-checkout" || pr.Target != "main" || pr.Title != "Checkout: allow guests" ||
+		len(pr.WorkItems) != 1 || pr.WorkItems[0] != 1043 || len(pr.Reviewers) != 1 || pr.Reviewers[0] != (models.NewReviewer{ID: "ml-id", Required: true}) {
+		t.Fatalf("got %+v", create)
+	}
+	m, _ := a.Update(create)
+	a = m.(App)
+	if !a.loading || !a.modals.open() {
+		t.Fatal("creating must keep the form open until Azure DevOps answers")
+	}
+	created := samplePullRequests()[0]
+	a = feed(t, a, pullRequestCreatedMsg{pr: created})
+	if a.modals.open() || !a.reviewing() || a.pr.view.PullRequest().ID != created.ID {
+		t.Fatal("a created pull request must close the form and open its review")
+	}
+}
+
+func TestNewPullRequestPointsToAnOpenOneInsteadOfDuplicating(t *testing.T) {
+	a, req := chooseSource(t, openPullRequestForm(t), "webhook")
+	a = feed(t, a, modals.PullRequestComparedMsg{RepositoryID: "repo-1", Source: req.Source, Target: req.Target,
+		Comparison: models.BranchComparison{ExistingID: 4821, ExistingTitle: "Add retry policy"}})
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "An active pull request already exists: !4821 Add retry policy") {
+		t.Fatalf("the form must point to the open pull request:\n%s", out)
+	}
+	_, msgs := step(t, a, ctrl('s'))
+	if open, ok := find[modals.OpenPullRequestRequestMsg](msgs); !ok || open.ID != 4821 {
+		t.Fatalf("ctrl+s must open the existing pull request, got %v", msgs)
+	}
+}
+
+func TestNewPullRequestRefusesBranchesWithNothingToMerge(t *testing.T) {
+	a, req := chooseSource(t, openPullRequestForm(t), "guest")
+	a = feed(t, a, modals.PullRequestComparedMsg{RepositoryID: "repo-1", Source: req.Source, Target: req.Target, Comparison: models.BranchComparison{Behind: 3}})
+	a, msgs := step(t, a, ctrl('s'))
+	if _, ok := find[modals.PullRequestCreateRequestMsg](msgs); ok {
+		t.Fatal("a branch with no new commits must not be submitted")
+	}
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "Nothing to merge: feature/1043-guest-checkout has no commits that aren't in main") {
+		t.Fatalf("the form must explain why:\n%s", out)
+	}
+}
+
+func TestNewPullRequestStartsWithTheRepositoryWhenTheHubShowsAll(t *testing.T) {
+	a := openPullRequestHub(t, 160, 50)
+	a.pr.repos = append(a.pr.repos, models.Repository{ID: "repo-2", Name: "web"})
+	a = feed(t, a, modals.RepositoryChosenMsg{All: true})
+	a, msgs := step(t, a, press("n"))
+	if _, ok := find[modals.PullRequestBranchesRequestMsg](msgs); ok {
+		t.Fatal("branches must wait until a repository is chosen")
+	}
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "Repository") || !strings.Contains(out, "Choose a repository") {
+		t.Fatalf("the form must ask for the repository first:\n%s", out)
+	}
+	a = typeText(t, a, "web")
+	_, msgs = step(t, a, special(tea.KeyEnter))
+	if req, ok := find[modals.PullRequestBranchesRequestMsg](msgs); !ok || req.RepositoryID != "repo-2" {
+		t.Fatalf("choosing a repository must load its branches, got %v", msgs)
+	}
+}

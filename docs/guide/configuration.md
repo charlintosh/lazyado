@@ -77,7 +77,7 @@ Create the token under *User settings → Personal access tokens* in Azure DevOp
 | **Work Items** · Read & write | Creating, editing, assigning, moving and deleting work items, and commenting on them |
 | **Project and Team** · Read | Iterations, areas and team members |
 | **Code** · Read | Repositories, pull requests, threads, policies and file contents |
-| **Code** · Read & write | Voting, commenting, replying, liking and resolving threads on pull requests |
+| **Code** · Read & write | Creating pull requests, and voting, commenting, replying, liking and resolving threads on them |
 
 You can skip the *Code* scopes if you only use the Boards hubs, and the *Read & write* scopes if you only want to browse.
 

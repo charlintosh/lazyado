@@ -45,7 +45,7 @@ func TestListPullRequestsMapsBranchesReviewersAndWebURL(t *testing.T) {
 		`"mergeStatus":"conflicts","repository":{"id":"r1","name":"phoenix api","project":{"id":"p1"}},` +
 		`"reviewers":[{"id":"u1","displayName":"Deepak Kumar","vote":10,"isRequired":true},{"id":"g1","displayName":"Team","vote":-5,"isContainer":true}],` +
 		`"labels":[{"name":"payments"}]}]}`
-	prs, err := clientRouting(t, map[string]string{"/git/pullrequests": body}, &seen).ListPullRequests(models.PullRequestActive, "")
+	prs, err := clientRouting(t, map[string]string{"/git/pullrequests": body}, &seen).ListPullRequests(models.PullRequestActive, "", models.PullRequestCriteria{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,11 +80,20 @@ func TestPullRequestsCanBeScopedToOneRepository(t *testing.T) {
 	if len(repos) != 2 || repos[0].Name != "API" || repos[1].ID != "r2" {
 		t.Fatalf("got %+v, want enabled repositories sorted by name", repos)
 	}
-	if _, err := c.ListPullRequests(models.PullRequestCompleted, "r1"); err != nil {
+	if _, err := c.ListPullRequests(models.PullRequestCompleted, "r1", models.PullRequestCriteria{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := seen[1].url; !strings.Contains(got, "/web/_apis/git/repositories/r1/pullrequests?searchCriteria.status=completed") {
+	if got := seen[1].url; !strings.Contains(got, "/web/_apis/git/repositories/r1/pullrequests?") || !strings.Contains(got, "searchCriteria.status=completed") {
 		t.Fatalf("asked %s", got)
+	}
+	criteria := models.PullRequestCriteria{CreatorID: "u1", ReviewerID: "u2", SourceRef: "refs/heads/feature/x", TargetRef: "refs/heads/main"}
+	if _, err := c.ListPullRequests(models.PullRequestActive, "r1", criteria); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"searchCriteria.creatorId=u1", "searchCriteria.reviewerId=u2", "searchCriteria.sourceRefName=refs%2Fheads%2Ffeature%2Fx", "searchCriteria.targetRefName=refs%2Fheads%2Fmain", "%24top=200"} {
+		if !strings.Contains(seen[2].url, want) {
+			t.Errorf("search asked %s, missing %s", seen[2].url, want)
+		}
 	}
 }
 

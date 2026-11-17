@@ -18,7 +18,8 @@ lazyado follows the layout of the Azure DevOps web UI (a navigation rail, hub pi
 - A full-screen work item form, with Markdown-rendered descriptions and a discussion that supports @mentions.
 
 **Pull requests**
-- Mine / Active / Completed / Abandoned views for one repository or all of them.
+- Mine / Active / Completed / Abandoned views for one repository or all of them, with a search bar that filters as you type and searches Azure DevOps by author, reviewer or branch.
+- Create pull requests: pick two branches, see how far ahead and behind they are, and start from the repository's pull request template.
 - A review screen with the description, policies, status checks, reviewer votes and linked work items.
 - A file browser with an inline diff. Comment on a line or a range of lines, reply, like comments, resolve threads and vote.
 

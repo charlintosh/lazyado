@@ -236,6 +236,8 @@ func (a *App) modeLabel() string {
 		return "WORK ITEM"
 	case a.keyword.Focused():
 		return "FILTER"
+	case a.searchingPullRequests():
+		return "SEARCH"
 	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
 		return "MOVING"
 	case a.activePanel == PanelDetails:
