@@ -295,7 +295,7 @@ func (p *RepoTreePanel) KeyBindings() []key.Binding {
 		open = widgets.Relabel(k.Select, "expand")
 	}
 	return []key.Binding{open, widgets.Relabel(k.Left, "collapse"), widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
-		widgets.Relabel(k.Copy, "copy path"), k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh}
+		k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh}
 }
 
 func (p *RepoTreePanel) View() string {

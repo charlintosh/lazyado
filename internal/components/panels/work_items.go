@@ -91,7 +91,7 @@ func (w *WorkItemsPanel) KeyBindings() []key.Binding {
 	}
 	return []key.Binding{
 		w.keys.View, w.keys.ChangeState, w.keys.Assign, w.keys.CreateTask, w.keys.EditTask,
-		w.keys.AddComment, w.keys.Select, w.keys.DeleteTask, w.keys.Info,
+		w.keys.AddComment, w.keys.Select, w.keys.DeleteTask, w.keys.Share,
 	}
 }
 

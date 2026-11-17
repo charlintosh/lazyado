@@ -46,6 +46,7 @@ The row's second line shows the primary artifact's version and branch, who creat
 | `v` | On a pipeline: open its latest release. On a release: open it |
 | `a` | Approve or reject the release's pending approval |
 | `n` | [Create a release](#creating-a-release) of the selected pipeline |
+| `y` | [Share](sharing.md) the release pipeline or release |
 | `o` | Open in the browser |
 
 ## Searching release pipelines
@@ -66,7 +67,7 @@ When the project has more release pipelines than are loaded, lazyado also asks A
 
 The **Approvals** view lists pending pre- and post-deployment approvals: first the ones **waiting on you** (including approvals assigned to a group you belong to), then the ones **waiting on others**. The pivot shows how many are waiting on you. On wide terminals a preview shows the approvers, when it was requested, the artifact and the release's stages.
 
-`a` approves or rejects the selected approval, `enter` opens its release, and `o` opens it in the browser.
+`a` approves or rejects the selected approval, `enter` opens its release, `y` [shares](sharing.md) it, and `o` opens it in the browser.
 
 ## A release
 
@@ -88,6 +89,7 @@ A sidebar lists the release's artifacts, each stage's trigger, who created the r
 | `x` | [Cancel](#canceling-a-deployment) the stage's deployment |
 | `enter` | Open the stage's logs |
 | `n` | Create another release of this pipeline |
+| `y` | [Share](sharing.md) the release: link, name, its stages, its release pipeline |
 | `o` | Open the release in the browser |
 | `esc` | Back to the hub |
 

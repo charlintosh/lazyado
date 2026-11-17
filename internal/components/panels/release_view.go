@@ -12,6 +12,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
@@ -340,6 +341,9 @@ func (v ReleaseView) handleKey(msg tea.KeyPressMsg) (ReleaseView, tea.Cmd) {
 		return v, func() tea.Msg { return CreateReleaseMsg{DefinitionID: r.DefinitionID, Name: r.Definition} }
 	case key.Matches(msg, k.OpenBrowser):
 		return v, func() tea.Msg { return BrowseReleaseMsg{ReleaseID: r.ID, URL: r.WebURL} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return v, shareCmd(share.Release(r), now)
 	}
 	if v.tab == ReleaseLogsTab {
 		cmd := v.handleLogsKey(msg)
@@ -428,7 +432,7 @@ func (v *ReleaseView) KeyBindings() []key.Binding {
 	tabs := widgets.Combine("pipeline/logs", k.Panel1, k.Panel2)
 	back := widgets.Relabel(k.Back, "back")
 	if v.tab == ReleaseLogsTab {
-		return append(v.logsBindings(), tabs, k.OpenBrowser, back)
+		return append(v.logsBindings(), tabs, k.Share, k.OpenBrowser, back)
 	}
 	bindings := []key.Binding{widgets.Combine("stage", k.Left, k.Right)}
 	if s, ok := v.SelectedStage(); ok {
@@ -445,7 +449,7 @@ func (v *ReleaseView) KeyBindings() []key.Binding {
 			bindings = append(bindings, widgets.Relabel(k.Select, "logs"))
 		}
 	}
-	return append(bindings, k.CreateRelease, tabs, k.OpenBrowser, back)
+	return append(bindings, k.CreateRelease, tabs, k.Share, k.OpenBrowser, back)
 }
 
 func (v *ReleaseView) Mode() string {

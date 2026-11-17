@@ -390,10 +390,13 @@ func TestWorkItemViewRunsListActions(t *testing.T) {
 			}
 		})
 	}
-	a, _ := step(t, openDetailOf(t, 1043), press("i"))
-	topModal[modals.ChoiceModal](t, a)
+	a, _ := step(t, openDetailOf(t, 1043), press("y"))
+	topModal[modals.ShareModal](t, a)
 	if a.viewMode != ViewDetail {
-		t.Fatal("info must open over the work item view")
+		t.Fatal("y must open Share over the work item view")
+	}
+	if a, _ = step(t, openDetailOf(t, 1043), press("i")); a.modals.open() {
+		t.Fatal("i no longer shares: y does")
 	}
 }
 

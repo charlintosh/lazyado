@@ -30,6 +30,9 @@ func (a App) handleResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	if next, cmd, ok := a.handlePanelIntent(msg); ok {
 		return next, cmd, true
 	}
+	if next, cmd, ok := a.handleShareIntent(msg); ok {
+		return next, cmd, true
+	}
 	return a.handleModalIntent(msg)
 }
 

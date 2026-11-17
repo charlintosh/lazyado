@@ -37,6 +37,7 @@ The run states are shown as labels:
 | `enter` | Open the pipeline's runs (in *Runs*: open the run) |
 | `v` | Open the latest run |
 | `n` | [Run the pipeline](#running-a-pipeline) |
+| `y` | [Share](sharing.md) the pipeline (link, definition ID, name) or run (link, build number, run ID) |
 | `o` | Open in the browser |
 
 All and Runs load 200 pipelines or 50 runs at a time. The next page loads when you scroll to the end of the list. While a listed run is queued or running, the list refreshes every 15 seconds.
@@ -70,7 +71,7 @@ Other words filter the loaded runs by number, message, pipeline, branch, commit 
 
 ## A run
 
-The run screen has two tabs: `1` **Summary** and `2` **Logs**. `[` / `]` also switch tabs, `o` opens the run (or the selected job and step) in the browser, `n` runs the same pipeline again on the same branch, and `esc` goes back.
+The run screen has two tabs: `1` **Summary** and `2` **Logs**. `[` / `]` also switch tabs, `o` opens the run (or the selected job and step) in the browser, `n` runs the same pipeline again on the same branch, `y` [shares](sharing.md) the run (its link, build number, run ID, its pipeline, and on the Logs tab a link to the selected job's logs), and `esc` goes back.
 
 While the run is queued or running, the screen refreshes every 5 seconds.
 

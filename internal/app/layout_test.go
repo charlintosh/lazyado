@@ -189,7 +189,7 @@ func TestModalsFitTerminal(t *testing.T) {
 		"edit":          {tea.KeyPressMsg{Code: 'e', Text: "e"}},
 		"task":          {tea.KeyPressMsg{Code: 't', Text: "t"}},
 		"delete":        {tea.KeyPressMsg{Code: 'd', Text: "d"}},
-		"info":          {tea.KeyPressMsg{Code: 'i', Text: "i"}},
+		"share":         {tea.KeyPressMsg{Code: 'y', Text: "y"}},
 		"help":          {tea.KeyPressMsg{Code: '?', Text: "?"}},
 		"quick_search":  {tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}},
 		"parent_type":   {tea.KeyPressMsg{Code: 'n', Text: "n"}},

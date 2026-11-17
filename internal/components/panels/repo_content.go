@@ -13,6 +13,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -43,6 +44,7 @@ type RepoContentPanel struct {
 	content  RepoContent
 	rev      int
 	focused  bool
+	source   bool
 	spinner  string
 	width    int
 	height   int
@@ -58,22 +60,54 @@ func (p *RepoContentPanel) Show(c RepoContent, rev int) {
 	}
 	moved := p.content.Item.Path != c.Item.Path
 	p.content, p.rev = c, rev
-	switch {
-	case !p.ShowsCode():
-		p.codeFor = ""
-	case p.codeFor != c.Item.Path:
-		p.codeFor = c.Item.Path
-		p.code.setLines(components.HighlightCode(c.Item.Path, c.Text))
-	}
+	p.syncCode()
 	p.render()
 	if moved {
 		p.viewport.GotoTop()
 	}
 }
 
+func (p *RepoContentPanel) syncCode() {
+	c := p.content
+	switch {
+	case !p.ShowsCode() && !p.IsMarkdownFile():
+		p.codeFor = ""
+	case p.ShowsCode() && p.codeFor != c.Item.Path:
+		p.codeFor = c.Item.Path
+		p.code.setLines(components.HighlightCode(c.Item.Path, c.Text))
+	}
+}
+
 func (p *RepoContentPanel) ShowsCode() bool {
 	c := p.content
-	return c.Loaded && c.Err == nil && !c.Item.Folder && c.Item.Path != "" && !c.Item.IsMarkdown() && !models.IsBinary(c.Text)
+	return c.Loaded && c.Err == nil && !c.Item.Folder && c.Item.Path != "" && (!c.Item.IsMarkdown() || p.source) && !models.IsBinary(c.Text)
+}
+
+func (p *RepoContentPanel) IsMarkdownFile() bool {
+	c := p.content
+	return c.Loaded && c.Err == nil && !c.Item.Folder && c.Item.IsMarkdown()
+}
+
+func (p *RepoContentPanel) MarkdownSource() bool { return p.source }
+
+func (p *RepoContentPanel) SetMarkdownSource(source bool) {
+	if p.source == source {
+		return
+	}
+	p.source = source
+	if !source {
+		p.code.clearSelection()
+	}
+	p.syncCode()
+	p.render()
+}
+
+func (p *RepoContentPanel) MarkdownTabs(focused bool) string {
+	active := 1
+	if p.source {
+		active = 0
+	}
+	return Tabs([]string{"File", "Preview"}, active, focused)
 }
 
 func (p *RepoContentPanel) Line() int {
@@ -84,6 +118,27 @@ func (p *RepoContentPanel) Line() int {
 }
 
 func (p *RepoContentPanel) Content() RepoContent { return p.content }
+
+func (p *RepoContentPanel) Selecting() bool {
+	return p.ShowsCode() && p.code.selecting()
+}
+
+func (p *RepoContentPanel) ClearSelection() {
+	p.code.clearSelection()
+}
+
+func (p *RepoContentPanel) SelectedLines() (share.Lines, bool) {
+	if !p.ShowsCode() || len(p.code.lines) == 0 {
+		return share.Lines{}, false
+	}
+	lo, hi := p.code.selection()
+	text := strings.Split(strings.ReplaceAll(p.content.Text, "\r\n", "\n"), "\n")
+	var code []string
+	if hi < len(text) {
+		code = text[lo : hi+1]
+	}
+	return share.Lines{From: lo + 1, To: hi + 1, Code: code}, true
+}
 
 func (p *RepoContentPanel) Loading() bool {
 	return p.content.Item.Path != "" && (!p.content.Loaded || (p.content.HasReadme && !p.content.ReadmeLoaded))
@@ -228,11 +283,19 @@ func (p RepoContentPanel) Update(msg tea.Msg) (RepoContentPanel, tea.Cmd) {
 func (p *RepoContentPanel) KeyBindings() []key.Binding {
 	k := p.keys
 	move := widgets.Combine("scroll", k.Up, k.Down)
-	if p.ShowsCode() {
-		move = widgets.Combine("line", k.Up, k.Down)
+	if n := p.code.selectedLines(); p.ShowsCode() && n > 0 {
+		return []key.Binding{widgets.Combine("extend", k.Up, k.Down), widgets.Relabel(k.Share, fmt.Sprintf("share %d lines", n)),
+			k.OpenBrowser, widgets.Relabel(k.Back, "cancel selection")}
 	}
-	return []key.Binding{move, widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
-		widgets.Relabel(k.Copy, "copy path"), k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Relabel(k.Back, "tree")}
+	bindings := []key.Binding{move}
+	if p.ShowsCode() {
+		bindings = []key.Binding{widgets.Combine("line", k.Up, k.Down), k.SelectLines}
+	}
+	if p.IsMarkdownFile() {
+		bindings = append(bindings, widgets.Combine("file/preview", k.Panel1, k.Panel2))
+	}
+	return append(bindings, k.Share, widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
+		k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Relabel(k.Back, "tree"))
 }
 
 func (p *RepoContentPanel) View() string {

@@ -12,6 +12,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
@@ -281,7 +282,7 @@ func (p *ReleaseDefinitionsPanel) KeyBindings() []key.Binding {
 	} else {
 		bindings = append(bindings, widgets.Relabel(k.Search, "search"))
 	}
-	return append(bindings, star, k.CreateRelease, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh)
+	return append(bindings, star, k.CreateRelease, k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh)
 }
 
 func (p ReleaseDefinitionsPanel) Update(msg tea.Msg) (ReleaseDefinitionsPanel, tea.Cmd) {
@@ -336,6 +337,9 @@ func (p ReleaseDefinitionsPanel) handleKey(msg tea.KeyPressMsg) (ReleaseDefiniti
 		return p, func() tea.Msg { return StarReleaseDefinitionMsg{ID: chosen.ID, Star: star} }
 	case key.Matches(msg, k.OpenBrowser):
 		return p, func() tea.Msg { return BrowseReleaseMsg{DefinitionID: chosen.ID, URL: chosen.WebURL} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return p, shareCmd(share.ReleaseDefinition(chosen), now)
 	}
 	return p, nil
 }
@@ -514,7 +518,7 @@ func (p *ReleasesPanel) KeyBindings() []key.Binding {
 	if r := p.Selected(); r != nil && hasPendingApproval(*r) {
 		bindings = append(bindings, k.Approve)
 	}
-	return append(bindings, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Relabel(k.Back, "release pipelines"), k.Refresh)
+	return append(bindings, k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Relabel(k.Back, "release pipelines"), k.Refresh)
 }
 
 func hasPendingApproval(r models.Release) bool {
@@ -563,6 +567,9 @@ func (p ReleasesPanel) handleKey(msg tea.KeyPressMsg) (ReleasesPanel, tea.Cmd) {
 		return p, func() tea.Msg { return OpenReleaseMsg{ReleaseID: chosen.ID} }
 	case key.Matches(msg, k.OpenBrowser):
 		return p, func() tea.Msg { return BrowseReleaseMsg{ReleaseID: chosen.ID, URL: chosen.WebURL} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return p, shareCmd(share.Release(chosen), now)
 	case key.Matches(msg, k.Approve):
 		for _, s := range chosen.Stages {
 			if a, ok := s.PendingApproval(); ok {
@@ -694,7 +701,7 @@ func (p *ApprovalsPanel) KeyBindings() []key.Binding {
 	if mine {
 		bindings = append(bindings, k.Approve)
 	}
-	return append(bindings, k.OpenBrowser, widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh)
+	return append(bindings, k.Share, k.OpenBrowser, widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh)
 }
 
 func (p ApprovalsPanel) Update(msg tea.Msg) (ApprovalsPanel, tea.Cmd) {
@@ -726,6 +733,11 @@ func (p ApprovalsPanel) handleKey(msg tea.KeyPressMsg) (ApprovalsPanel, tea.Cmd)
 		return p, func() tea.Msg { return OpenReleaseMsg{ReleaseID: chosen.ReleaseID} }
 	case key.Matches(msg, k.OpenBrowser):
 		return p, func() tea.Msg { return BrowseReleaseMsg{ReleaseID: chosen.ReleaseID} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return p, func() tea.Msg {
+			return ShareReleaseMsg{ReleaseID: chosen.ReleaseID, Name: chosen.ReleaseName, Definition: chosen.Definition, Now: now}
+		}
 	case key.Matches(msg, k.Approve) && mine:
 		return p, func() tea.Msg { return ApproveReleaseMsg{Approval: chosen} }
 	case key.Matches(msg, k.Approve):

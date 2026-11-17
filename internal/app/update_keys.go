@@ -8,6 +8,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 )
 
 type itemAction int
@@ -21,15 +22,16 @@ const (
 	actionTask
 	actionEdit
 	actionDelete
-	actionInfo
+	actionShare
+	actionShareLink
 )
 
-var detailActions = []itemAction{actionState, actionAssign, actionTask, actionEdit, actionDelete, actionInfo}
+var detailActions = []itemAction{actionState, actionAssign, actionTask, actionEdit, actionDelete, actionShare, actionShareLink}
 
 var panelActions = map[Panel][]itemAction{
-	PanelWorkItems: {actionState, actionAssign, actionComment, actionTask, actionEdit, actionDelete, actionInfo},
-	PanelDetails:   {actionView, actionState, actionAssign, actionComment, actionEdit},
-	PanelComments:  {actionComment},
+	PanelWorkItems: {actionState, actionAssign, actionComment, actionTask, actionEdit, actionDelete, actionShare, actionShareLink},
+	PanelDetails:   {actionView, actionState, actionAssign, actionComment, actionEdit, actionShare, actionShareLink},
+	PanelComments:  {actionComment, actionShare, actionShareLink},
 }
 
 func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
@@ -275,8 +277,10 @@ func (a *App) runAction(action itemAction, item models.WorkItem) tea.Cmd {
 		return a.openModal(a.editForm(item))
 	case actionDelete:
 		return a.openModal(modals.NewDeleteWorkItemModal(a.env(), item))
-	case actionInfo:
-		return a.openModal(modals.NewInfoModal(a.env(), item))
+	case actionShare:
+		return a.share(share.WorkItem(item), false)
+	case actionShareLink:
+		return a.share(share.WorkItem(item), true)
 	}
 	return nil
 }
@@ -294,7 +298,8 @@ func (a *App) actionFor(msg tea.KeyPressMsg) itemAction {
 		{k.CreateTask, actionTask},
 		{k.EditTask, actionEdit},
 		{k.DeleteTask, actionDelete},
-		{k.Info, actionInfo},
+		{k.Share, actionShare},
+		{k.ShareLink, actionShareLink},
 	}
 	for _, b := range bindings {
 		if key.Matches(msg, b.binding) {

@@ -9,6 +9,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -182,11 +183,11 @@ func TestCloneDialogCopiesTheHTTPSAndSSHURLs(t *testing.T) {
 
 func TestFilesWebURLPointsAtThePathAndVersion(t *testing.T) {
 	a := openFilesHub(t, 160, 45)
-	got := a.fileWebURL("/src/cart.go", 0)
+	got := a.fileWebURL("/src/cart.go", share.Lines{})
 	if !strings.Contains(got, "path=%2Fsrc%2Fcart.go") || !strings.Contains(got, "version=GBmain") || strings.Contains(got, "line=") {
 		t.Fatalf("got %s", got)
 	}
-	if got := a.fileWebURL("/src/cart.go", 12); !strings.Contains(got, "line=12") || !strings.Contains(got, "lineEnd=13") {
+	if got := a.fileWebURL("/src/cart.go", share.Lines{From: 12, To: 12}); !strings.Contains(got, "line=12") || !strings.Contains(got, "lineEnd=13") {
 		t.Fatalf("the browser must open at the cursor line, got %s", got)
 	}
 }

@@ -221,7 +221,7 @@ func (p *CommitsPanel) KeyBindings() []key.Binding {
 	if p.Filtered() {
 		bindings = append(bindings, widgets.Relabel(k.Back, "clear filter"))
 	}
-	return append(bindings, k.Version, k.Repository, widgets.Relabel(k.Copy, "copy ID"), k.OpenBrowser, k.Refresh)
+	return append(bindings, k.Version, k.Repository, k.Share, k.OpenBrowser, k.Refresh)
 }
 
 func (p CommitsPanel) Update(msg tea.Msg) (CommitsPanel, tea.Cmd) {

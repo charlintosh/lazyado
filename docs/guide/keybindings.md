@@ -5,6 +5,7 @@ Every key in lazyado, grouped by where it works. Press `?` in the app for the sa
 Some keys mean different things in different places. For example, `a` assigns a work item on the Boards hubs but votes in the Pull requests hub. The tables below say which applies where.
 
 - [Everywhere](#everywhere)
+- [Share menu](#share-menu)
 - [Navigation](#navigation)
 - [Boards hubs](#boards-hubs)
 - [Work item form](#work-item-form)
@@ -34,12 +35,38 @@ Some keys mean different things in different places. For example, `a` assigns a 
 | `P` | Pull requests hub |
 | `D` | [Pipelines › Builds hub](pipelines.md) |
 | `R` | [Pipelines › Releases hub](releases.md) |
+| `y` | [Share](sharing.md) the selected item, or the selected lines: copy its link, ID, path, Markdown and more |
+| `Y` | Copy the selected item's link right away |
+| `o` | Open the selected item in the browser |
 | `Ctrl+f` | [Quick search](getting-started.md#quick-search): `1234`, `!1234`, `#1234` or a link |
 | `Ctrl+r` | Reload from Azure DevOps (also retries identifying you) |
 | `z` | Full screen (hide the navigation rail) |
 | `,` | Dismiss the notification |
 | `?` | Help |
 | `q` / `Ctrl+c` | Quit |
+
+## Share menu
+
+Opened with `y`. Each format keeps its letter in every hub; a letter that doesn't apply to the item does nothing. See [Sharing](sharing.md).
+
+| Key | Copies |
+| --- | ------ |
+| `u` | Link (the first row; `Y` copies it too) |
+| `p` | Permalink, pinned to a commit (files, lines) |
+| `i` | ID or number (work item ID, `!1234`, build number, definition ID, commit ID) |
+| `n` | Name (branch, tag, release, pipeline, a pull request's source branch) |
+| `f` | Path, with the line range when lines are selected |
+| `c` | Code snippet as a Markdown code block, with its link |
+| `m` | Markdown link |
+| `t` | Title and link |
+| `h` | Work item mention: `#1234` |
+| `g` | GitHub commit link: `AB#1234` |
+| `r` | Run ID of a build |
+| `l` | Link to the selected job's logs |
+| `d` | Link to the pipeline or release pipeline |
+| `j` / `k`, `enter` | Move, then copy the highlighted row |
+| `o` | Open the link in the browser |
+| `esc` | Close |
 
 ## Navigation
 
@@ -88,7 +115,7 @@ Backlogs, Boards and Sprints. See [Boards](boards.md) for details.
 | `s` | Change state |
 | `a` | Assign |
 | `c` | Add a comment |
-| `i` | Info: copy ID or URL |
+| `y` | Share: link, ID, `#mention`, `AB#` link, Markdown |
 
 ### Board and taskboard
 
@@ -107,7 +134,7 @@ Opened with `v`.
 | --- | ------ |
 | `Tab` | Switch between Details and Discussion |
 | `j` / `k` | Scroll, or move between comments |
-| `s` `a` `e` `t` `d` `i` `c` | Same as in the lists. With Discussion focused, `e` / `d` act on your selected comment and `+` likes someone else's. |
+| `s` `a` `e` `t` `d` `c` `y` | Same as in the lists. With Discussion focused, `e` / `d` act on your selected comment and `+` likes someone else's. |
 | `esc` / `q` | Back to the hub |
 
 ## Files hub
@@ -119,13 +146,15 @@ See [Repos](repos.md) for details.
 | `l` / `enter` | Expand a folder, or open a file's contents |
 | `h` | Collapse a folder, or go to its parent |
 | `Tab` | Switch between the tree and the contents |
-| `esc` | Back to the tree |
+| `v` | In the contents: select lines; `j` / `k` extend, `esc` cancels |
+| `1` / `2` | Markdown files: File (source, to select lines) / Preview tab (`[` / `]` also switch) |
+| `esc` | Clear the selection, then back to the tree |
 | `b` | Choose a branch or tag |
 | `r` | Choose the repository |
 | `c` | [Clone](repos.md#cloning): copy the HTTPS or SSH URL, or a `git clone` command |
 | `H` | History of the selected file or folder |
-| `y` | Copy the selected item's path |
-| `o` | Open in the browser |
+| `y` | Share the file or folder, or the selected lines (link, permalink, path, snippet) |
+| `o` | Open in the browser, at the cursor line or selection |
 
 ## Commits hub
 
@@ -138,7 +167,7 @@ See [Repos](repos.md#commits) for details.
 | `esc` | Clear the filter |
 | `b` | Choose a branch or tag |
 | `r` | Choose the repository |
-| `y` | Copy the commit ID |
+| `y` | Share the commit (link, full ID, Markdown) |
 | `o` | Open the commit in the browser |
 
 ## Branches hub
@@ -155,7 +184,7 @@ See [Repos](repos.md#branches) for details.
 | `H` | The branch's commits |
 | `p` | New pull request from the branch |
 | `/` | Search by name |
-| `y` | Copy the branch name |
+| `y` | Share the branch (link, name, Markdown) |
 | `o` | Open in the browser |
 
 ## Tags hub
@@ -168,7 +197,7 @@ See [Repos](repos.md#tags) for details.
 | `enter` | Browse the files at the tag |
 | `H` | The commits up to the tag |
 | `/` | Search by name |
-| `y` | Copy the tag name |
+| `y` | Share the tag (link, name, Markdown) |
 | `o` | Open in the browser |
 
 ## Pull requests list
@@ -184,6 +213,7 @@ See [Repos](repos.md#tags) for details.
 | `a` | Vote |
 | `c` | Comment on the pull request |
 | `b` | Open the build behind a policy or status check |
+| `y` | Share the pull request (link, `!1234`, Markdown, source branch) |
 | `o` | Open in the browser |
 
 ## Pull request review
@@ -198,6 +228,7 @@ See [Pull requests](pull-requests.md) for details.
 | `c` | Comment on the pull request, or on the current line or selection in Files |
 | `w` | Open a linked work item |
 | `b` | Open the build behind a policy or status check; `esc` comes back |
+| `y` | Share the pull request; in Files, the file or the current line or selection |
 | `o` | Open the pull request, or the focused thread, in the browser |
 | `esc` | Back to the list |
 
@@ -221,7 +252,7 @@ These keys act on the focused comment, on Overview and in the Files diff.
 | `J` / `K` | Next / previous file |
 | `n` / `N` | Next / previous change |
 | `Tab` | Switch between the file list and the diff |
-| `v` | Select lines; `j` / `k` extend, `c` comments, `esc` cancels |
+| `v` | Select lines; `j` / `k` extend, `c` comments, `y` shares, `esc` cancels |
 | `enter` | On a file that is too large or generated: load its diff anyway |
 | `o` | Open the selected file in the browser |
 
@@ -237,6 +268,7 @@ See [Pipelines](pipelines.md) for details.
 | `enter` | Open the pipeline's runs, or the run |
 | `v` | Open the pipeline's latest run |
 | `n` | [Run the pipeline](pipelines.md#running-a-pipeline) |
+| `y` | Share the pipeline (link, definition ID, name) or the run (link, build number, run ID) |
 | `o` | Open in the browser |
 | `esc` | From a pipeline's runs: back to the hub |
 
@@ -250,6 +282,7 @@ See [Pipelines](pipelines.md) for details.
 | `Tab` / `Shift+Tab` | Logs: move between jobs, steps and the log |
 | `F` | Follow the log of a running step |
 | `n` | Run the pipeline again on the same branch |
+| `y` | Share the run: link, build number, run ID, the selected job's logs, the pipeline |
 | `o` | Open the run, or the selected job and step, in the browser |
 | `esc` | Back a pane, then back to the list |
 
@@ -267,6 +300,7 @@ See [Releases](releases.md) for details.
 | `v` | Release pipeline: open its latest release. Release: open it |
 | `a` | Approve or reject |
 | `n` | Create a release |
+| `y` | Share the release pipeline, release or approval's release |
 | `o` | Open in the browser |
 | `esc` | From the releases: back to the release pipelines. In the release pipelines: clear the filter |
 
@@ -282,6 +316,7 @@ See [Releases](releases.md) for details.
 | `enter` | Open the stage's logs |
 | `Tab` / `Shift+Tab`, `j` / `k`, `F` | In Logs: as in a [pipeline run](#pipeline-run) |
 | `n` | Create another release |
+| `y` | Share the release: link, name, stages, its release pipeline |
 | `o` | Open in the browser |
 | `esc` | Back a pane, then back to the hub |
 
@@ -295,7 +330,7 @@ See [Releases](releases.md) for details.
 | `Tab` / `Shift+Tab` | Next / previous form field |
 | `@` | Mention a team member in a comment |
 | `Ctrl+s` | Save / submit |
-| `y` | Confirm |
+| `y` | Confirm (in confirmation dialogs) |
 | `Ctrl+t` | Star / unstar a repository (repository picker) |
 | `Ctrl+s` | In the new branch and new tag forms: create it |
 | `Tab` | In the pull request search bar: complete the suggested filter |

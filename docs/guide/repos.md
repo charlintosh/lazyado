@@ -27,7 +27,7 @@ Press `r` to switch. The picker lists your starred repositories first, the same 
 The hub has two panes: the folder tree on the left and the selected item on the right. On narrow terminals only the focused pane is shown.
 
 - **A folder** shows its files and subfolders with the last commit that changed each one: when, the short commit ID and the commit message. If the folder has a `README.md`, it is rendered below the list.
-- **A file** shows its contents with line numbers and syntax highlighting, the same way as the [pull request diff](pull-requests.md#the-files-tab): `j` / `k` move a line cursor, and `o` opens the file in the browser at that line. Markdown files are rendered. Binary files and files over the [`diff.max_file_kb` limit](configuration.md#large-files-in-diffs) aren't shown; `o` opens them in the browser.
+- **A file** shows its contents with line numbers and syntax highlighting, the same way as the [pull request diff](pull-requests.md#the-files-tab): `j` / `k` move a line cursor, `v` selects lines, `y` [shares](sharing.md#sharing-lines-of-code) the line or selection, and `o` opens the file in the browser at that line. Markdown files have two tabs: **Preview** (rendered, the default) and **File** (the highlighted source, where you can select and share lines). `1` / `2` or `[` / `]` switch between them, and the tab you pick stays for the next Markdown file. Binary files and files over the [`diff.max_file_kb` limit](configuration.md#large-files-in-diffs) aren't shown; `o` opens them in the browser.
 
 Folders load when you open them, and a file loads once the cursor rests on it.
 
@@ -40,12 +40,14 @@ The header shows the branch you're browsing. It starts on the repository's defau
 | `l` / `enter` | Expand a folder, or open a file's contents |
 | `h` | Collapse a folder, or go to its parent |
 | `Tab` | Switch between the tree and the contents |
-| `esc` | Back to the tree |
+| `v` | In a file's contents: select lines; `j` / `k` extend |
+| `1` / `2` | Markdown files: File (source) / Preview tab (`[` / `]` also switch) |
+| `esc` | Clear the selection, then back to the tree |
 | `b` | Choose a branch or tag |
 | `r` | Choose the repository |
 | `H` | [History](#commits) of the selected file or folder |
-| `y` | Copy the selected item's path |
-| `o` | Open the selected item in the browser, at the branch or tag you're browsing (and at the cursor line, from a file's contents) |
+| `y` | [Share](sharing.md) the selected item, or the current line or selected lines: link, permalink, path, code snippet, Markdown |
+| `o` | Open the selected item in the browser, at the branch or tag you're browsing (and at the cursor line or selection, from a file's contents) |
 | `Ctrl+r` | Reload |
 
 ## Cloning
@@ -84,7 +86,7 @@ Press `/` to filter. What you type filters the loaded commits as you type, match
 | `esc` | Clear the filter |
 | `b` | Choose a branch or tag |
 | `r` | Choose the repository |
-| `y` | Copy the full commit ID |
+| `y` | [Share](sharing.md) the commit: link, full commit ID, Markdown |
 | `o` | Open the commit, with its diff, in the browser |
 
 ## Branches
@@ -108,7 +110,7 @@ The Branches hub lists the repository's branches in three views:
 | `enter` | Browse the branch's files |
 | `H` | The branch's commits |
 | `p` | New pull request from the branch |
-| `y` | Copy the branch name |
+| `y` | [Share](sharing.md) the branch: link, name, Markdown |
 | `o` | Open the branch in the browser |
 | `r` | Choose the repository |
 
@@ -139,7 +141,7 @@ The Tags hub lists the repository's tags by name, each with the commit it points
 | `n` | [New tag](#creating-a-tag) |
 | `enter` | Browse the files at the tag |
 | `H` | The commits up to the tag |
-| `y` | Copy the tag name |
+| `y` | [Share](sharing.md) the tag: link, name, Markdown |
 | `o` | Open the tag in the browser |
 | `r` | Choose the repository |
 

@@ -12,6 +12,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -122,7 +123,7 @@ func (p *PullRequestsPanel) KeyBindings() []key.Binding {
 		return []key.Binding{p.keys.NewPullRequest, search, p.keys.Repository, widgets.Combine("view", p.keys.PrevPanel, p.keys.NextPanel), p.keys.Refresh}
 	}
 	return []key.Binding{
-		widgets.Relabel(p.keys.Select, "review"), p.keys.NewPullRequest, search, p.keys.Vote, p.keys.AddComment, p.keys.Repository, p.keys.OpenBrowser,
+		widgets.Relabel(p.keys.Select, "review"), p.keys.NewPullRequest, search, p.keys.Share, p.keys.Vote, p.keys.AddComment, p.keys.Repository, p.keys.OpenBrowser,
 		widgets.Combine("view", p.keys.PrevPanel, p.keys.NextPanel), p.keys.Refresh,
 	}
 }
@@ -151,6 +152,12 @@ func (p PullRequestsPanel) Update(msg tea.Msg) (PullRequestsPanel, tea.Cmd) {
 
 func (p PullRequestsPanel) handleKey(msg tea.KeyPressMsg) (PullRequestsPanel, tea.Cmd) {
 	k := p.keys
+	if now, ok := ShareRequested(k, msg); ok {
+		if pr := p.Selected(); pr != nil {
+			return p, shareCmd(share.PullRequest(*pr), now)
+		}
+		return p, nil
+	}
 	page := max(p.height/(styles.PullRequestRowHeight+styles.PullRequestRowGap)/2, 1)
 	switch {
 	case key.Matches(msg, k.Up):

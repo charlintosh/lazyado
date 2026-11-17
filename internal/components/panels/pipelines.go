@@ -14,6 +14,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -366,10 +367,10 @@ func (p *PipelinesPanel) KeyBindings() []key.Binding {
 	}
 	if p.mode == ListPipelineRuns || p.mode == ListBranches {
 		views = widgets.Combine("runs/branches", k.Panel1, k.Panel2)
-		bindings = append(bindings, search, k.OpenBrowser, views, widgets.Relabel(k.Back, "back"), k.Refresh)
+		bindings = append(bindings, search, k.Share, k.OpenBrowser, views, widgets.Relabel(k.Back, "back"), k.Refresh)
 		return bindings
 	}
-	return append(bindings, search, k.OpenBrowser, views, k.Refresh)
+	return append(bindings, search, k.Share, k.OpenBrowser, views, k.Refresh)
 }
 
 func (p PipelinesPanel) Update(msg tea.Msg) (PipelinesPanel, tea.Cmd) {
@@ -396,6 +397,9 @@ func (p PipelinesPanel) Update(msg tea.Msg) (PipelinesPanel, tea.Cmd) {
 
 func (p PipelinesPanel) handleKey(msg tea.KeyPressMsg) (PipelinesPanel, tea.Cmd) {
 	k := p.keys
+	if now, ok := ShareRequested(k, msg); ok {
+		return p, p.share(now)
+	}
 	page := max(p.height/(pipelineRowHeight+pipelineRowGap)/2, 1)
 	switch {
 	case key.Matches(msg, k.Up):
@@ -434,6 +438,17 @@ func (p *PipelinesPanel) open() tea.Cmd {
 	}
 	chosen := *r.pipeline
 	return func() tea.Msg { return OpenPipelineMsg{Pipeline: chosen} }
+}
+
+func (p *PipelinesPanel) share(now bool) tea.Cmd {
+	r, ok := p.selectedRow()
+	switch {
+	case !ok:
+		return nil
+	case r.run != nil:
+		return shareCmd(share.Run(*r.run, "", ""), now)
+	}
+	return shareCmd(share.Pipeline(*r.pipeline), now)
 }
 
 func (p *PipelinesPanel) browse() tea.Cmd {

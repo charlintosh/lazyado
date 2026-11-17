@@ -10,6 +10,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 )
 
 const (
@@ -169,8 +170,8 @@ func (a App) handleCommitsKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		s.panel.SetText("")
 	case key.Matches(msg, k.Select) && sel != nil:
 		return a, a.browseFilesAt(models.GitVersion{Kind: models.VersionCommit, Name: sel.ID})
-	case key.Matches(msg, k.Copy) && sel != nil:
-		return a, copyCmd(sel.ID, "Commit ID copied to clipboard")
+	case a.isShareKey(msg) && sel != nil:
+		return a, a.share(share.Commit(a.code.repo.WebURL, sel.CommitRef), a.shareNow(msg))
 	case key.Matches(msg, k.OpenBrowser) && sel != nil:
 		return a, openBrowserCmd(a.commitWebURL(sel.ID))
 	default:

@@ -16,6 +16,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/diff"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -674,6 +675,41 @@ func (f *pullRequestFiles) anchor() (models.ThreadAnchor, bool) {
 	return anchor, anchor.Line > 0
 }
 
+func (f *pullRequestFiles) shareTarget(pr models.PullRequest) share.Target {
+	file, ok := f.file()
+	if !ok {
+		return share.PullRequest(pr)
+	}
+	if anchor, ok := f.anchor(); ok {
+		commit := f.changes.HeadCommit
+		if anchor.LeftSide {
+			commit = f.changes.BaseCommit
+		}
+		lines := share.Lines{From: anchor.Line, To: max(anchor.EndLine, anchor.Line), Code: f.selectedCode(anchor.LeftSide)}
+		return share.PullRequestLines(pr, commit, anchor.FilePath, lines)
+	}
+	if file.Kind == models.ChangeDelete {
+		return share.PullRequestFile(pr, f.changes.BaseCommit, file.Path)
+	}
+	return share.PullRequestFile(pr, f.changes.HeadCommit, file.Path)
+}
+
+func (f *pullRequestFiles) selectedCode(leftSide bool) []string {
+	d, _ := f.current()
+	lo, hi := f.selection()
+	var code []string
+	for _, l := range d.lines[lo : hi+1] {
+		n := l.New
+		if leftSide {
+			n = l.Old
+		}
+		if l.Kind != diff.Hunk && n > 0 {
+			code = append(code, l.Text)
+		}
+	}
+	return code
+}
+
 func lineNumber(n int) string {
 	if n == 0 {
 		return strings.Repeat(" ", styles.DiffGutterWidth)
@@ -962,11 +998,12 @@ func (f *pullRequestFiles) keyBindings() []key.Binding {
 	if n := f.selectedLines(); n > 0 {
 		return []key.Binding{
 			widgets.Combine("extend", k.Up, k.Down),
+			widgets.Relabel(k.Share, fmt.Sprintf("share %d lines", n)),
 			widgets.Relabel(k.AddComment, fmt.Sprintf("comment on %d lines", n)),
 			widgets.Relabel(k.Back, "cancel selection"),
 		}
 	}
-	bindings := []key.Binding{widgets.Relabel(k.AddComment, "comment on line"), k.SelectLines}
+	bindings := []key.Binding{k.Share, widgets.Relabel(k.AddComment, "comment on line"), k.SelectLines}
 	if d, loaded := f.current(); loaded && d.collapsed() {
 		bindings = []key.Binding{widgets.Relabel(k.OpenBrowser, "open in browser")}
 		if d.loadable() {

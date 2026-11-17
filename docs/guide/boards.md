@@ -51,7 +51,7 @@ Select an item, then:
 | `s` | Change state |
 | `a` | Assign to someone, or unassign |
 | `c` | Add a comment |
-| `i` | Info: copy the ID or URL to the clipboard |
+| `y` | [Share](sharing.md): copy the link, ID, `#mention`, `AB#` GitHub link or a Markdown link (`Y` copies the link right away) |
 | `h` / `l` | Collapse / expand an item's child tasks |
 
 On wide terminals a side pane shows the selected item: `6` for **Details**, `7` for **Discussion**, and `5` returns to the grid or board.
@@ -74,7 +74,7 @@ On wide terminals a side pane shows the selected item: `6` for **Details**, `7` 
 - a *State · Reason · Area · Iteration* band, with the **Details** / **Discussion** tabs;
 - **Description**, **Acceptance Criteria** and **Discussion** on the left, and **Planning** and **Related work** on the right. Under 100 columns these stack.
 
-Descriptions and comments are rendered as Markdown (headings, lists, code blocks, tables and links). The form supports the same actions as the lists: `s`, `a`, `e`, `t`, `d`, `i` and `c`. It refreshes in place after a change and closes if the item is deleted.
+Descriptions and comments are rendered as Markdown (headings, lists, code blocks, tables and links). The form supports the same actions as the lists: `s`, `a`, `e`, `t`, `d`, `c` and `y`. It refreshes in place after a change and closes if the item is deleted.
 
 | Key | Action |
 | --- | ------ |

@@ -185,7 +185,7 @@ func (d *DetailView) KeyBindings() []key.Binding {
 	if d.item != nil && d.item.IsParentType() {
 		bindings = append(bindings, d.keys.CreateTask)
 	}
-	return append(bindings, d.keys.AddComment, d.keys.Info, d.keys.DeleteTask, d.keys.NextPanel, d.keys.Up, d.keys.Back)
+	return append(bindings, d.keys.AddComment, d.keys.Share, d.keys.DeleteTask, d.keys.NextPanel, d.keys.Up, d.keys.Back)
 }
 
 func (d *DetailView) revealComment() {
@@ -411,7 +411,7 @@ func (d DetailView) actions() []headerAction {
 	if d.item.IsParentType() {
 		out = append(out, headerAction{"New task", k.CreateTask})
 	}
-	return append(out, headerAction{"Comment", k.AddComment}, headerAction{"Info", k.Info}, headerAction{"Delete", k.DeleteTask})
+	return append(out, headerAction{"Comment", k.AddComment}, headerAction{"Share", k.Share}, headerAction{"Delete", k.DeleteTask})
 }
 
 func (d DetailView) peopleRow(width int) string {

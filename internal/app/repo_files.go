@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +11,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
@@ -28,12 +27,6 @@ const (
 	folderKey         = "d:"
 	fileKey           = "f:"
 )
-
-var webVersionPrefix = map[models.VersionKind]string{
-	models.VersionBranch: "GB",
-	models.VersionTag:    "GT",
-	models.VersionCommit: "GC",
-}
 
 type fileText struct {
 	text string
@@ -207,17 +200,24 @@ func (a *App) filesLoading() bool {
 	return a.pr.reposLoading || a.code.refsLoading || len(f.tree.WantedFolders()) > 0 || f.content.Loading()
 }
 
-func (a *App) fileWebURL(path string, line int) string {
-	q := url.Values{}
-	q.Set("path", path)
-	q.Set("version", webVersionPrefix[a.code.version.Kind]+a.code.version.Name)
-	if line > 0 {
-		q.Set("line", strconv.Itoa(line))
-		q.Set("lineEnd", strconv.Itoa(line+1))
-		q.Set("lineStartColumn", "1")
-		q.Set("lineEndColumn", "1")
+func (a *App) fileWebURL(path string, lines share.Lines) string {
+	return share.FileURL(a.code.repo.WebURL, path, share.VersionParam(a.code.version), lines)
+}
+
+func (a *App) fileShareTarget(item models.GitItem) share.Target {
+	f := &a.code.files
+	code := share.Code{
+		RepoURL:  a.code.repo.WebURL,
+		RepoName: a.code.repo.Name,
+		Path:     item.Path,
+		Version:  a.code.version,
+		Commit:   item.Last.ID,
+		Folder:   item.Folder,
 	}
-	return a.code.repo.WebURL + "?" + q.Encode()
+	if lines, ok := f.content.SelectedLines(); ok && f.pane == paneContent {
+		return share.FileLines(code, lines)
+	}
+	return share.File(code)
 }
 
 func (a App) handleFilesKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
@@ -246,14 +246,22 @@ func (a App) handleFilesKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		return a, a.openVersionPicker()
 	case key.Matches(msg, k.Clone):
 		return a, a.openClone()
-	case key.Matches(msg, k.Copy) && sel != nil:
-		return a, copyCmd(sel.Path, "Path copied to clipboard")
+	case a.isShareKey(msg) && sel != nil:
+		return a, a.share(a.fileShareTarget(*sel), a.shareNow(msg))
 	case key.Matches(msg, k.OpenBrowser) && sel != nil:
-		line := 0
+		lines := share.Lines{}
 		if f.pane == paneContent {
-			line = f.content.Line()
+			lines, _ = f.content.SelectedLines()
 		}
-		return a, openBrowserCmd(a.fileWebURL(sel.Path, line))
+		return a, openBrowserCmd(a.fileWebURL(sel.Path, lines))
+	case key.Matches(msg, k.Back) && f.pane == paneContent && f.content.Selecting():
+		f.content.ClearSelection()
+	case f.content.IsMarkdownFile() && key.Matches(msg, k.Panel1):
+		f.content.SetMarkdownSource(true)
+	case f.content.IsMarkdownFile() && key.Matches(msg, k.Panel2):
+		f.content.SetMarkdownSource(false)
+	case f.content.IsMarkdownFile() && (key.Matches(msg, k.PrevView) || key.Matches(msg, k.NextView)):
+		f.content.SetMarkdownSource(!f.content.MarkdownSource())
 	case key.Matches(msg, k.NextPanel), key.Matches(msg, k.PrevPanel):
 		f.pane = 1 - f.pane
 	case key.Matches(msg, k.Back) && f.pane == paneContent:
@@ -355,7 +363,11 @@ func (a *App) renderFilesBody(width, height int) string {
 	if right == 0 {
 		contentWidth = width
 	}
-	content := panels.Pane(panels.PaneTitle("", f.content.Title(a.code.repo.Name), contentFocused), f.content.View(), contentWidth, height, contentFocused)
+	title := panels.PaneTitle("", f.content.Title(a.code.repo.Name), contentFocused)
+	if f.content.IsMarkdownFile() {
+		title += " " + f.content.MarkdownTabs(contentFocused)
+	}
+	content := panels.Pane(title, f.content.View(), contentWidth, height, contentFocused)
 	switch {
 	case right > 0:
 		return lipgloss.JoinHorizontal(lipgloss.Top, tree, content)

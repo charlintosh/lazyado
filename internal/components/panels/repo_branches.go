@@ -280,7 +280,7 @@ func (p *BranchesPanel) KeyBindings() []key.Binding {
 	if p.Filter() != "" {
 		bindings = append(bindings, widgets.Relabel(k.Back, "clear filter"))
 	}
-	return append(bindings, widgets.Relabel(k.Search, "search"), widgets.Relabel(k.Copy, "copy name"), k.Repository, k.OpenBrowser, k.Refresh)
+	return append(bindings, widgets.Relabel(k.Search, "search"), k.Share, k.Repository, k.OpenBrowser, k.Refresh)
 }
 
 func (p BranchesPanel) Update(msg tea.Msg) (BranchesPanel, tea.Cmd) {

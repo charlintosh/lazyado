@@ -19,6 +19,7 @@ type codeView struct {
 	lines    []components.CodeLine
 	rows     []string
 	cursor   int
+	mark     int
 	focused  bool
 	width    int
 	height   int
@@ -27,16 +28,63 @@ type codeView struct {
 func newCodeView(k keys.KeyMap) codeView {
 	vp := widgets.NewViewport(k)
 	vp.KeyMap = viewport.KeyMap{}
-	return codeView{viewport: vp, keys: k}
+	return codeView{viewport: vp, keys: k, mark: -1}
 }
 
 func (v *codeView) setLines(lines []components.CodeLine) {
-	v.lines, v.cursor = lines, 0
+	v.lines, v.cursor, v.mark = lines, 0, -1
 	v.render()
 	v.viewport.GotoTop()
 }
 
 func (v *codeView) line() int { return v.cursor + 1 }
+
+func (v *codeView) selecting() bool { return v.mark >= 0 }
+
+func (v *codeView) selection() (int, int) {
+	if !v.selecting() {
+		return v.cursor, v.cursor
+	}
+	return min(v.mark, v.cursor), max(v.mark, v.cursor)
+}
+
+func (v *codeView) selectedLines() int {
+	if !v.selecting() {
+		return 0
+	}
+	lo, hi := v.selection()
+	return hi - lo + 1
+}
+
+func (v *codeView) toggleSelection() {
+	if v.selecting() {
+		v.clearSelection()
+		return
+	}
+	if len(v.lines) == 0 {
+		return
+	}
+	v.mark = v.cursor
+	v.renderRow(v.cursor)
+	v.commit()
+}
+
+func (v *codeView) clearSelection() {
+	if !v.selecting() {
+		return
+	}
+	lo, hi := v.selection()
+	v.mark = -1
+	for i := lo; i <= hi; i++ {
+		v.renderRow(i)
+	}
+	v.commit()
+}
+
+func (v *codeView) inSelection(i int) bool {
+	lo, hi := v.selection()
+	return i >= lo && i <= hi
+}
 
 func (v *codeView) setFocused(focused bool) {
 	if v.focused == focused {
@@ -71,7 +119,7 @@ func (v *codeView) renderRow(i int) {
 	}
 	base := lipgloss.NewStyle()
 	bar := " "
-	if i == v.cursor {
+	if v.inSelection(i) {
 		base = base.Background(styles.ColorHighlight)
 		if v.focused {
 			bar = railBar
@@ -95,8 +143,16 @@ func (v *codeView) moveTo(target int) {
 	}
 	old := v.cursor
 	v.cursor = target
-	v.renderRow(old)
-	v.renderRow(target)
+	if !v.selecting() {
+		v.renderRow(old)
+		v.renderRow(target)
+		v.commit()
+		return
+	}
+	for i := min(old, target); i <= max(old, target); i++ {
+		v.renderRow(i)
+	}
+	v.renderRow(v.mark)
 	v.commit()
 }
 
@@ -118,6 +174,8 @@ func (v codeView) update(msg tea.Msg) codeView {
 			v.moveTo(0)
 		case key.Matches(msg, k.Bottom):
 			v.moveTo(len(v.lines) - 1)
+		case key.Matches(msg, k.SelectLines):
+			v.toggleSelection()
 		}
 	case tea.MouseWheelMsg:
 		if msg.Button == tea.MouseWheelUp {

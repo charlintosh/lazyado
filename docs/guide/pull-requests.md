@@ -36,6 +36,7 @@ Press `r` to switch. The picker is searchable, includes an explicit **All reposi
 | `a` | Vote |
 | `c` | Comment on the pull request |
 | `b` | [Open its build](#builds) |
+| `y` | [Share](sharing.md): link, `!1234`, Markdown, title, source branch (`Y` copies the link) |
 | `o` | Open in the browser |
 
 ## Searching
@@ -84,7 +85,7 @@ The header shows the ID and title, the status, who wants to merge which branch i
 - **Work items** linked to the pull request. Press `w` to open one in the [work item form](boards.md#the-work-item-form); `esc` brings you back to the review;
 - **Tags**, the **Description** (rendered as Markdown), and the **Activity**: every comment thread, plus system events such as votes and updates.
 
-`o` opens the pull request in the browser.
+`o` opens the pull request in the browser, and `y` [shares](sharing.md) it.
 
 ## Builds
 
@@ -132,6 +133,10 @@ The file list flags files with active comments. Comment threads appear under the
 - `v` starts a selection. Extend it with `j` / `k` (within the same hunk), then press `c` to comment on the whole range, or `esc` to cancel. Range threads appear under their last line, with the covered lines marked.
 
 When the cursor is on a comment rather than a code line, the [comment keys](#comments) apply instead.
+
+### Sharing code
+
+`y` [shares](sharing.md#sharing-lines-of-code) the file, or the line under the cursor, or the selected lines: a link to the file in the pull request, a permalink to the lines at the pull request's latest commit, the path with its line range, or the code as a Markdown snippet.
 
 ### Large and generated files
 

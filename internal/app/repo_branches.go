@@ -11,6 +11,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 )
 
 var branchPivots = []string{"Mine", "All", "Stale"}
@@ -128,7 +129,7 @@ func (a *App) openDeleteBranch(b models.Branch) tea.Cmd {
 
 func (a *App) branchWebURL(name string) string {
 	q := url.Values{}
-	q.Set("version", webVersionPrefix[models.VersionBranch]+name)
+	q.Set("version", share.VersionParam(models.BranchVersion(name)))
 	return a.code.repo.WebURL + "?" + q.Encode()
 }
 
@@ -185,8 +186,8 @@ func (a App) handleBranchesKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		return a, a.openCommitsFor(models.CommitCriteria{})
 	case key.Matches(msg, k.PullRequestFrom) && !sel.Default:
 		return a, a.openPullRequestFormFrom(a.code.repo, sel.Name)
-	case key.Matches(msg, k.Copy):
-		return a, copyCmd(sel.Name, "Branch name copied to clipboard")
+	case a.isShareKey(msg):
+		return a, a.share(share.Ref("Branch", sel.Name, a.branchWebURL(sel.Name)), a.shareNow(msg))
 	case key.Matches(msg, k.OpenBrowser):
 		return a, openBrowserCmd(a.branchWebURL(sel.Name))
 	default:

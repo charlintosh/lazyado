@@ -6,6 +6,23 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- feat: Share (`y`) everywhere — one key opens a Share menu for whatever is selected, with a letter per format that is the same in every hub: `u` link, `p` permalink pinned to a commit, `i` ID or number, `n` name, `f` path and lines, `c` Markdown code snippet, `m` Markdown link, `t` title and link, `h` `#mention`, `g` `AB#` GitHub link, `r` run ID, `l` job logs link, `d` pipeline or release pipeline link; `enter` copies the highlighted row and `o` opens the link. Covers work items (lists, board, taskboard, work item form), pull requests, a pull request's files and lines, files, folders and lines in the Files hub, commits, branches, tags, pipelines, runs (with their build number), release pipelines, releases and approvals. See [Sharing](docs/guide/sharing.md)
+- feat: `Y` copies the selected item's link without opening the menu
+- feat: line selection in the Files hub (`v`, then `j` / `k`), shared with `y`; `o` opens the browser at the selection; `esc` clears the selection before going back to the tree
+- feat: Markdown files in the Files hub have a **File** tab (highlighted source with the line cursor, so lines can be selected and shared) and a **Preview** tab (rendered, the default); `1` / `2` or `[` / `]` switch, and the choice carries over to the next Markdown file
+- feat: when no clipboard command is available (for example over SSH), copying falls back to the terminal clipboard (OSC 52) and shows the text in a dialog to select by hand
+
+### Changed
+
+- feat: `y` in the Files, Commits, Branches and Tags hubs opens the Share menu instead of copying one value; the path, commit ID or name is one of its rows
+- fix: the clipboard tries `wl-copy` (Wayland), `xclip`, `xsel` and WSL's `clip.exe` on Linux, and Windows pipes the text into `clip` instead of `cmd /c echo`, which broke on links containing `&`
+
+### Removed
+
+- feat: `i` (Info: copy ID or URL) on the Boards hubs and the work item form — `y` shares instead
+
 ## [v1.4.0] - 2026-11-17
 
 Repos release: browse a repository's files, commit history, branches and tags, create and delete branches, create annotated tags, copy clone URLs, and syntax highlighting in file views and pull request diffs.

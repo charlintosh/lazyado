@@ -12,6 +12,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
 
@@ -320,6 +321,9 @@ func (v PipelineRunView) handleKey(msg tea.KeyPressMsg) (PipelineRunView, tea.Cm
 		return v, nil
 	case key.Matches(msg, k.Back):
 		return v, func() tea.Msg { return CloseRunViewMsg{} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return v, shareCmd(v.shareTarget(run), now)
 	case key.Matches(msg, k.Panel1):
 		v.setTab(RunSummaryTab)
 		return v, nil
@@ -349,6 +353,17 @@ func (v *PipelineRunView) setTab(tab RunTab) {
 	}
 	v.tab = tab
 	v.render()
+}
+
+func (v *PipelineRunView) shareTarget(run models.PipelineRun) share.Target {
+	label := ""
+	if j, ok := v.selectedJob(); ok && v.tab == RunLogsTab {
+		label = j.Name
+		if s, ok := v.selectedStep(); ok {
+			label += " / " + s.Name
+		}
+	}
+	return share.Run(run, v.browseURL(), label)
 }
 
 func (v *PipelineRunView) browseURL() string {
@@ -395,9 +410,9 @@ func (v *PipelineRunView) KeyBindings() []key.Binding {
 	back := widgets.Relabel(k.Back, "back")
 	again := widgets.Relabel(k.RunPipeline, "run again")
 	if v.tab == RunSummaryTab {
-		return []key.Binding{widgets.Relabel(k.Select, "job logs"), widgets.Combine("job", k.Up, k.Down), again, tabs, k.OpenBrowser, back}
+		return []key.Binding{widgets.Relabel(k.Select, "job logs"), widgets.Combine("job", k.Up, k.Down), again, tabs, k.Share, k.OpenBrowser, back}
 	}
-	return append(v.logsBindings(), again, tabs, k.OpenBrowser, back)
+	return append(v.logsBindings(), again, tabs, k.Share, k.OpenBrowser, back)
 }
 
 func (v *PipelineRunView) Mode() string {

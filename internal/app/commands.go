@@ -109,7 +109,7 @@ func openBrowserCmd(url string) tea.Cmd {
 func copyCmd(text, notice string) tea.Cmd {
 	return func() tea.Msg {
 		if err := clipboard.Copy(text); err != nil {
-			return errMsg{err: err}
+			return clipboardFallbackMsg{text: text, notice: notice}
 		}
 		return copiedMsg{notice: notice}
 	}

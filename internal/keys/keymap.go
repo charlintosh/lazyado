@@ -30,7 +30,6 @@ type KeyMap struct {
 	AddComment          key.Binding
 	EditComment         key.Binding
 	DeleteComment       key.Binding
-	Info                key.Binding
 	Save                key.Binding
 	Confirm             key.Binding
 	QuickSearch         key.Binding
@@ -96,12 +95,27 @@ type KeyMap struct {
 	HubCommits      key.Binding
 	Version         key.Binding
 	Clone           key.Binding
-	Copy            key.Binding
 	NewRef          key.Binding
 	DeleteRef       key.Binding
 	HubBranches     key.Binding
 	PullRequestFrom key.Binding
 	HubTags         key.Binding
+
+	Share                key.Binding
+	ShareLink            key.Binding
+	ShareFormatLink      key.Binding
+	ShareFormatPermalink key.Binding
+	ShareFormatID        key.Binding
+	ShareFormatName      key.Binding
+	ShareFormatPath      key.Binding
+	ShareFormatSnippet   key.Binding
+	ShareFormatMarkdown  key.Binding
+	ShareFormatTitle     key.Binding
+	ShareFormatMention   key.Binding
+	ShareFormatGitHub    key.Binding
+	ShareFormatRunID     key.Binding
+	ShareFormatLogs      key.Binding
+	ShareFormatPipeline  key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -214,10 +228,6 @@ func DefaultKeyMap() KeyMap {
 		DeleteComment: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete comment"),
-		),
-		Info: key.NewBinding(
-			key.WithKeys("i"),
-			key.WithHelp("i", "info"),
 		),
 		Save: key.NewBinding(
 			key.WithKeys("ctrl+s"),
@@ -463,10 +473,39 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("c"),
 			key.WithHelp("c", "clone"),
 		),
-		Copy: key.NewBinding(
+		Share: key.NewBinding(
 			key.WithKeys("y"),
-			key.WithHelp("y", "copy"),
+			key.WithHelp("y", "share"),
 		),
+		ShareLink: key.NewBinding(
+			key.WithKeys("Y"),
+			key.WithHelp("Y", "copy link"),
+		),
+		ShareFormatLink:      shareFormat("u", "link"),
+		ShareFormatPermalink: shareFormat("p", "permalink"),
+		ShareFormatID:        shareFormat("i", "ID or number"),
+		ShareFormatName:      shareFormat("n", "name"),
+		ShareFormatPath:      shareFormat("f", "path and lines"),
+		ShareFormatSnippet:   shareFormat("c", "code snippet"),
+		ShareFormatMarkdown:  shareFormat("m", "Markdown link"),
+		ShareFormatTitle:     shareFormat("t", "title and link"),
+		ShareFormatMention:   shareFormat("h", "#mention"),
+		ShareFormatGitHub:    shareFormat("g", "AB# GitHub link"),
+		ShareFormatRunID:     shareFormat("r", "run ID"),
+		ShareFormatLogs:      shareFormat("l", "job logs link"),
+		ShareFormatPipeline:  shareFormat("d", "pipeline link"),
+	}
+}
+
+func shareFormat(k, desc string) key.Binding {
+	return key.NewBinding(key.WithKeys(k), key.WithHelp(k, "share: "+desc))
+}
+
+func (k KeyMap) ShareFormats() []key.Binding {
+	return []key.Binding{
+		k.ShareFormatLink, k.ShareFormatPermalink, k.ShareFormatID, k.ShareFormatName, k.ShareFormatPath,
+		k.ShareFormatSnippet, k.ShareFormatMarkdown, k.ShareFormatTitle, k.ShareFormatMention,
+		k.ShareFormatGitHub, k.ShareFormatRunID, k.ShareFormatLogs, k.ShareFormatPipeline,
 	}
 }
 
@@ -476,10 +515,12 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.HubBuilds, k.HubReleases, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
 		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
-		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
+		{k.Share, k.ShareLink, k.OpenBrowser},
+		k.ShareFormats(),
+		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
-		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBuild, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
+		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBuild, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
 		{k.RunPipeline, k.FollowLog, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy},
-		{k.HubFiles, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.Copy, k.NewRef, k.DeleteRef, k.PullRequestFrom},
+		{k.HubFiles, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.NewRef, k.DeleteRef, k.PullRequestFrom},
 	}
 }

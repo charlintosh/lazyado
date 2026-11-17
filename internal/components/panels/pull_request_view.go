@@ -13,6 +13,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/keys"
 	"github.com/charlintosh/lazyado/internal/models"
+	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -472,6 +473,9 @@ func (v PullRequestView) handleKey(msg tea.KeyPressMsg) (PullRequestView, tea.Cm
 		return v, nil
 	case key.Matches(msg, k.Back):
 		return v, func() tea.Msg { return ClosePullRequestViewMsg{} }
+	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
+		now, _ := ShareRequested(k, msg)
+		return v, shareCmd(v.shareTarget(pr), now)
 	case key.Matches(msg, k.Panel1):
 		v.tab = PullRequestOverview
 		return v, nil
@@ -498,6 +502,13 @@ func (v PullRequestView) handleKey(msg tea.KeyPressMsg) (PullRequestView, tea.Cm
 		return v.handleFilesKey(msg)
 	}
 	return v.handleOverviewKey(msg)
+}
+
+func (v *PullRequestView) shareTarget(pr models.PullRequest) share.Target {
+	if v.tab != PullRequestFiles {
+		return share.PullRequest(pr)
+	}
+	return v.files.shareTarget(pr)
 }
 
 func (v *PullRequestView) browseURL(pr models.PullRequest) string {
@@ -635,7 +646,7 @@ func (v *PullRequestView) KeyBindings() []key.Binding {
 	if v.tab == PullRequestFiles {
 		return append(v.files.keyBindings(), k.Vote, tabs, back)
 	}
-	bindings := []key.Binding{k.Vote, k.AddComment}
+	bindings := []key.Binding{k.Share, k.Vote, k.AddComment}
 	if t, c, ok := v.selectedComment(); ok {
 		bindings = append(bindings, commentActions(k, v.me, t, c, v.expanded)...)
 		if t.FilePath != "" && !t.Collapsed(v.expanded) {
