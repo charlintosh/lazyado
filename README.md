@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
 [![Go Report Card](https://goreportcard.com/badge/github.com/charlintosh/lazyado)](https://goreportcard.com/report/github.com/charlintosh/lazyado)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
-![version](https://img.shields.io/badge/version-1.4.0-purple)
+![version](https://img.shields.io/badge/version-1.4.1-purple)
 
 **A keyboard-driven terminal UI for Azure DevOps.** Plan work on your boards and review pull requests without leaving the terminal.
 
