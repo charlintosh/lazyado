@@ -23,6 +23,34 @@
 - Quick search looks pull requests up by ID with the project-scoped `/git/pullrequests/{id}`, so no repository is needed.
 - Policy evaluations are a preview API (`getPreview`) keyed by `vstfs:///CodeReview/CodeReviewId/{projectId}/{pullRequestId}`; a status-check policy and a raw pull request status with the same `genre/name` are shown once.
 
+## Pipelines
+
+- [internal/api/pipelines.go](../../internal/api/pipelines.go) uses the Build API (`_apis/build/...`) for reading, because it is the one that filters runs by state, branch, pipeline and requester on the server and searches pipeline names. Starting a YAML run uses the Pipelines API.
+- Lists page with the `x-ms-continuationtoken` response header, passed back as `continuationToken` (`getPage`).
+- *Recent* reads the latest 100 runs (`builds?queryOrder=queueTimeDescending`) and keeps the first run of each pipeline (`models.LatestPerPipeline`).
+- *All* is `build/definitions?includeLatestBuilds=true&queryOrder=definitionNameAscending`; a search sends `name=*text*`. The list response has no repository or process, so the run dialog loads `build/definitions/{id}` for the repository, the YAML path and the variables with `allowOverride`.
+- Stages, jobs, steps and issues come from `build/builds/{id}/timeline`, which is empty until the run starts. `models.BuildStages` walks Stage → Phase → Job → Task; classic pipelines have no Stage records and get one synthetic stage.
+- Logs are plain text from `build/builds/{id}/logs/{logId}`, read up to `diff.max_file_kb`. A running step is tailed with `startLine`. `CleanLogLine` strips the timestamp prefix and ANSI escapes and keeps the `##[error]` style markers for rendering.
+- The run dialog reads the YAML at the chosen branch or tag through the Items API (`versionDescriptor.versionType` `branch` or `tag`) and `models.ParsePipelineSpec` keeps top-level scalar `parameters:` and `stages:`. Parameters and stages that only exist in templates are not seen.
+- YAML pipelines start with `POST pipelines/{id}/runs` (`resources.repositories.self.refName` and `version`, `templateParameters`, `variables`, `stagesToSkip`). Classic pipelines queue with `POST build/builds` (`sourceBranch`, `sourceVersion`, and the variables JSON-encoded in `parameters`). *System diagnostics* sets `system.debug`.
+
+## Azure DevOps REST API reference
+
+Official Microsoft Learn docs. Use them when you need a route, method, parameter or response schema that isn't already used in [internal/api](../../internal/api).
+
+- [REST API reference](https://learn.microsoft.com/en-us/rest/api/azure/devops/?view=azure-devops-rest-7.1): every API area (Work Item Tracking, Git, Policy and so on). The page has a version picker; lazyado pins `7.1`.
+- [Calling the REST API](https://learn.microsoft.com/en-us/azure/devops/integrate/how-to/call-rest-api?view=azure-devops): URL structure, headers and `api-version`.
+- [REST API samples](https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/rest/samples?view=azure-devops)
+- [Authentication guidance](https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops)
+- [Rate limits and throttling](https://learn.microsoft.com/en-us/azure/devops/integrate/concepts/rate-limits?view=azure-devops)
+
+How to look something up:
+
+1. Open the reference, pick the API area, then pick the operation. The operation page has the exact route, method, parameters, request body, response and examples.
+2. Check that the operation exists in `7.1`. If it's only in preview (`7.1-preview.N`), call it through `getPreview` or pass the explicit version, as the likes and policy evaluation calls above do.
+3. Treat the Microsoft Learn pages as the source of truth. Preview endpoints and versions can change without notice.
+4. Authentication stays the same: a PAT over Basic auth through the [internal/api](../../internal/api) helpers. Never hard-code, log or print credentials.
+
 ## Error handling
 
 - Wrap errors with context using `fmt.Errorf("context: %w", err)` to preserve the original cause.

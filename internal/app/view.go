@@ -72,6 +72,8 @@ func (a *App) renderBase() string {
 		return a.renderTooSmall()
 	case a.reviewing():
 		return a.renderReview()
+	case a.viewingRun():
+		return a.renderRun()
 	case a.viewMode == ViewDetail:
 		return a.renderDetailView()
 	default:
@@ -91,7 +93,7 @@ func (a *App) renderHeader(crumbs ...string) string {
 		Organization: a.client.Organization(),
 		Project:      a.client.Project(),
 		Crumbs:       crumbs,
-		Loading:      a.loading || a.pr.loading,
+		Loading:      a.loading || a.pr.loading || a.pl.loading,
 		Spinner:      a.spinner.View(),
 		Notice:       a.notification.View(),
 		SearchKey:    a.keys.QuickSearch.Help().Key,
@@ -124,6 +126,9 @@ func (a *App) hubCrumbs() []string {
 	if a.inPullRequests() && a.pr.repo.ID != "" {
 		crumbs = append(crumbs, a.pr.repo.Name)
 	}
+	if a.inPipelines() {
+		crumbs = append(crumbs, a.pipelineCrumb())
+	}
 	return crumbs
 }
 
@@ -148,6 +153,8 @@ func (a *App) mainPanelView() (string, string) {
 		return a.taskboardPanel.Title(), a.taskboardPanel.View()
 	case viewPullRequests:
 		return a.pr.panel.Title(), a.pr.panel.View()
+	case viewPipelines:
+		return a.pl.panel.Title(), a.pl.panel.View()
 	default:
 		return a.workItemsPanel.Title(), a.workItemsPanel.View()
 	}
@@ -196,6 +203,9 @@ func (a *App) renderPane(width, height int) string {
 	if a.inPullRequests() {
 		return a.renderPullRequestPane(width, height)
 	}
+	if a.inPipelines() {
+		return a.renderPipelinePane(width, height)
+	}
 	focused := a.isPanePanel()
 	discussion := "Discussion"
 	if n := a.commentsPanel.Count(); n > 0 {
@@ -232,11 +242,13 @@ func (a *App) modeLabel() string {
 	switch {
 	case a.reviewing():
 		return a.pr.view.Mode()
+	case a.viewingRun():
+		return a.pl.view.Mode()
 	case a.viewMode == ViewDetail:
 		return "WORK ITEM"
 	case a.keyword.Focused():
 		return "FILTER"
-	case a.searchingPullRequests():
+	case a.searchingPullRequests(), a.searchingPipelines():
 		return "SEARCH"
 	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging():
 		return "MOVING"
@@ -266,6 +278,8 @@ func (a *App) statusBindings() []key.Binding {
 	switch {
 	case a.reviewing():
 		return a.pr.view.KeyBindings()
+	case a.viewingRun():
+		return a.pl.view.KeyBindings()
 	case a.viewMode == ViewDetail:
 		return a.detailView.KeyBindings()
 	case a.keyword.Focused():
@@ -282,6 +296,8 @@ func (a *App) statusBindings() []key.Binding {
 		return a.taskboardPanel.KeyBindings()
 	case viewPullRequests:
 		return a.pr.panel.KeyBindings()
+	case viewPipelines:
+		return a.pl.panel.KeyBindings()
 	default:
 		return a.workItemsPanel.KeyBindings()
 	}

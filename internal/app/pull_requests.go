@@ -319,6 +319,8 @@ func (a App) handlePullRequestKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, k.HubSprint):
 		a.switchHub(panels.HubSprint)
 	case key.Matches(msg, k.HubPullRequests):
+	case key.Matches(msg, k.HubBuilds):
+		return a, a.openPipelines()
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.PrevPanel), key.Matches(msg, k.Left):
 		return a, a.cyclePullRequestPivot(-1)
 	case key.Matches(msg, k.NextView), key.Matches(msg, k.NextPanel), key.Matches(msg, k.Right):

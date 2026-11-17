@@ -7,7 +7,7 @@ lazyado is a single Bubble Tea program that follows The Elm Architecture: one ro
 | Package                           | Role                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------ |
 | `internal/app`                    | Root model, message routing, modal stack, layout reconciliation, commands                 |
-| `internal/components/panels`      | Long-lived screen regions: navigation rail, hub page header, backlog table, board, taskboard, details, comments |
+| `internal/components/panels`      | Long-lived screen regions: navigation rail, hub page header, backlog table, board, taskboard, details, comments, pull request and pipeline lists and views |
 | `internal/components/modals`      | Short-lived dialogs implementing `modals.Modal`                                            |
 | `internal/components/widgets`     | Reusable building blocks on top of Bubbles: `Picker`, `Dropdown`, `Dialog`, `Overlay`/`OverlayAt`, `Hints`, list/viewport/help factories |
 | `internal/components`             | Markdown rendering (`RenderMarkdown`, `RenderHTML`, `CommentMarkdown`) and HTML conversion |
@@ -64,6 +64,15 @@ Bubble Tea calls `View` after every `Update`, and some messages arrive in bursts
 - Azure DevOps has no diff endpoint, so the Files tab fetches both versions of a file (merge base and source commit of the latest iteration) through the Items API the first time the file is selected and diffs them with `internal/diff` (Myers, unified hunks). `reconcile` asks the view which file it still needs (`WantedFile`), so file loads stay commands.
 - Diff rows are rendered once per file and only the two rows under the old and new cursor are re-rendered on a move.
 - The view never calls the API. It emits intents (`VotePullRequestMsg`, `CommentPullRequestMsg`, `ReplyPullRequestMsg`, `ResolvePullRequestThreadMsg`); the app opens the dialog or runs the command, then reloads threads, the pull request and its policies.
+
+## Pipelines
+
+- The Pipelines › Builds hub is a fifth `panels.Hub` (`HubBuilds`). Its state lives in `App.pl` (`internal/app/pipelines.go`). One `panels.PipelinesPanel` renders every list (`ListRecent`, `ListAll`, `ListRuns`, `ListPipelineRuns`, `ListBranches`); the app keeps the loaded pipelines or runs and the continuation token, and every list load carries `pl.seq` so an outdated or wrong-mode response is dropped.
+- Typing in the search bar filters the panel locally; `Enter` emits `SearchPipelinesMsg` and the app reloads with a name pattern (pipelines) or the text, whose qualifiers become `models.RunCriteria` inside the command (`pipeline:` is resolved with a name search there). A query error comes back as `searchErr` without calling the run list.
+- Active runs schedule a silent reload every 15 seconds (`pipelinePollMsg` with `pollSeq`); for runs, `mergeRuns` keeps the pages loaded beyond the first.
+- The preview pane loads the selected run's timeline and the selected pipeline's last runs debounced, like pull request policies.
+- `ViewRun` shows `panels.PipelineRunView` (`internal/app/pipeline_run.go`). Opening it loads the run, its timeline and its changes. `reconcile` asks the view which log it needs (`WantedLog`), the same way the review asks for files. While the run is active a 5 second `runPollMsg` (guarded by `runSeq`) reloads the run and the timeline and marks logs stale, so the selected running step is tailed from its next line.
+- The run dialog (`modals.RunPipelineForm`) never calls the API. It asks for the definition and refs (`RunDefinitionRequestMsg`) and for the YAML spec of a ref (`RunSpecRequestMsg`); the app answers with `RunDefinitionMsg` / `RunSpecMsg` only while the form is on top. `RunPipelineRequestMsg` starts the run; on success the app closes the form and opens the run's logs.
 
 ## Modals
 

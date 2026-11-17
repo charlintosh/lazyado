@@ -6,6 +6,18 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- feat: Pipelines › Builds hub (`D`, a new *Pipelines* group in the navigation rail) — **Recent** lists the 10 pipelines that ran last with their latest run, **All** lists every pipeline grouped by folder, and **Runs** lists the latest runs of every pipeline; long lists load more as you scroll, a preview pane shows the selected pipeline's last 10 runs, pass rate, median duration and the stages of its latest run, and lists with a queued or running run refresh every 15 seconds
+- feat: search pipelines and runs (`/` in the Builds hub) — text filters the loaded list as you type, `Enter` searches every pipeline name on Azure DevOps (with `*` wildcards), and `state:`, `branch:`, `pipeline:` and `by:@me` search runs on Azure DevOps
+- feat: a pipeline's runs (`enter` on a pipeline) with **Runs** and **Branches** (latest run per branch) views
+- feat: run details (`enter` on a run, `v` for a pipeline's latest run) — **Summary** shows stages and jobs with progress and durations, errors and warnings with where they came from, run details and the commits it includes; **Logs** shows the jobs by stage, the steps of the selected job and the step's log with Azure DevOps' error, warning and section markers, opens on the failed or running step, and follows a running step (`F`); a running run refreshes every 5 seconds
+- feat: run a pipeline (`n` in the Builds hub, `n` on a run to run it again on the same branch) — choose a branch or tag and an optional commit, set the parameters read from the pipeline's YAML at that branch or tag, untick the stages to skip, override queue-time variables and turn on system diagnostics; classic pipelines queue a build with the branch and variables, and the new run's logs open once it is queued
+
+### Fixed
+
+- fix: the selected pull request row is highlighted edge to edge; the spaces between reviewer vote chips no longer break the highlight
+
 ## [v1.2.1] - 2026-11-17
 
 Pull requests release: create pull requests from the TUI and search the pull request list.

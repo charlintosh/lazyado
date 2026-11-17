@@ -60,9 +60,9 @@ lazyado is laid out like the Azure DevOps web UI.
 | Area | What it shows |
 | ---- | ------------- |
 | **Top bar** | `organization / project / section / hub`, the quick search hint, and whether data is syncing. Notifications appear on the right. |
-| **Navigation rail** (left) | *Boards* → Boards (`B`), Backlogs (`L`), Sprints (`S`), and *Repos* → Pull requests (`P`). On narrow terminals it shrinks to the hub keys; `z` hides it. |
+| **Navigation rail** (left) | *Boards* → Boards (`B`), Backlogs (`L`), Sprints (`S`), *Repos* → Pull requests (`P`), and *Pipelines* → Builds (`D`). On narrow terminals it shrinks to the hub keys; `z` hides it. |
 | **Hub header** | The team (and sprint, on Sprints), the view pivots on the left, and the pickers and filter funnel on the right. |
-| **Content** | The backlog grid, board, taskboard or pull request list, with a details or preview pane on wide terminals. |
+| **Content** | The backlog grid, board, taskboard, pull request list or pipeline list, with a details or preview pane on wide terminals. |
 | **Status bar** (bottom) | The current mode and the keys that work right now. |
 
 The status bar only lists keys that apply where you are. Press `?` for the full list.
@@ -71,7 +71,7 @@ The status bar only lists keys that apply where you are. Press `?` for the full 
 
 | Key | Does |
 | --- | ---- |
-| `L` `B` `S` `P` | Backlogs, Boards, Sprints, Pull requests |
+| `L` `B` `S` `P` `D` | Backlogs, Boards, Sprints, Pull requests, Builds |
 | `j` `k` / `↓` `↑` | Move down / up |
 | `h` `l` / `←` `→` | Move left / right, collapse / expand |
 | `g` / `G` | First / last item |
@@ -100,4 +100,5 @@ Links to another organization or project are refused with a message naming the p
 
 - [Boards](boards.md): backlogs, boards, sprints and work items.
 - [Pull requests](pull-requests.md): reviewing code.
+- [Pipelines](pipelines.md): runs, logs, and running a pipeline.
 - [Keybindings](keybindings.md): the complete key reference.

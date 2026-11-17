@@ -204,7 +204,7 @@ func (p *PullRequestsPanel) render() {
 	widgets.Reveal(&p.viewport, top, top+styles.PullRequestRowHeight)
 }
 
-func (p *PullRequestsPanel) reviewerChips(pr models.PullRequest) string {
+func (p *PullRequestsPanel) reviewerChips(pr models.PullRequest, base lipgloss.Style) string {
 	chips := make([]string, 0, styles.PullRequestMaxChips)
 	for i, r := range pr.Reviewers {
 		if i == styles.PullRequestMaxChips {
@@ -212,7 +212,7 @@ func (p *PullRequestsPanel) reviewerChips(pr models.PullRequest) string {
 		}
 		chips = append(chips, VoteChip(r, p.me.Is(r.ID, r.UniqueName)))
 	}
-	return strings.Join(chips, " ")
+	return strings.Join(chips, base.Render(" "))
 }
 
 func (p *PullRequestsPanel) row(pr models.PullRequest, selected bool) string {
@@ -234,7 +234,7 @@ func (p *PullRequestsPanel) row(pr models.PullRequest, selected bool) string {
 		right = pad(styles.PullRequestColAge-lipgloss.Width(age)) + base.Foreground(styles.ColorTextMuted).Render(age)
 	}
 	if p.width >= styles.PullRequestReviewersWidth {
-		chips := p.reviewerChips(pr)
+		chips := p.reviewerChips(pr, base)
 		right = pad(1) + chips + pad(styles.PullRequestColReviewers-lipgloss.Width(chips)) + right
 	}
 

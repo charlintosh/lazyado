@@ -10,6 +10,7 @@ Start here if you want to use lazyado.
 | [Configuration](guide/configuration.md) | Config file, environment variables, token scopes, identity, saved state |
 | [Boards](guide/boards.md) | Backlogs, Kanban boards, sprint taskboards, filters, work items and comments |
 | [Pull requests](guide/pull-requests.md) | The pull request list, reviews, comments, the diff and voting |
+| [Pipelines](guide/pipelines.md) | Pipeline lists, runs, stages and logs, and running a pipeline with its options |
 | [Keybindings](guide/keybindings.md) | Every key, grouped by screen |
 | [Troubleshooting](guide/troubleshooting.md) | Common problems, API errors and debug logging |
 
@@ -23,7 +24,7 @@ Start with [CONTRIBUTING.md](../CONTRIBUTING.md), then dig into whichever area y
 | [Conventions](development/agents-guidelines.md) | Non-negotiable rules: styles, keys, logging, comments |
 | [Key bindings](development/keymap.md) | Adding and wiring bindings through the central `KeyMap` |
 | [Styling](development/styling.md) | Colors and layout constants |
-| [API client](development/api-client.md) | Azure DevOps API patterns, pull request endpoints, error handling |
+| [API client](development/api-client.md) | Azure DevOps API patterns, pull request and pipeline endpoints, error handling |
 | [Workflow](development/workflow.md) | Building and running during development |
 | [Bubble Tea guide](development/bubbletea-guide.md) | In-depth Bubble Tea and Bubbles reference |
 | [Skills](development/skills.md) | Prompts and skills for AI coding agents |

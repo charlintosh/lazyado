@@ -42,6 +42,9 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	if a.searchingPullRequests() {
 		return a.handlePullRequestKey(msg)
 	}
+	if a.searchingPipelines() {
+		return a.handlePipelineKey(msg)
+	}
 	if a.notification.IsVisible() && (key.Matches(msg, a.keys.Back) || key.Matches(msg, a.keys.DismissNotification)) {
 		a.notification = a.notification.Dismiss()
 		return a, nil
@@ -59,6 +62,11 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		a.pr.view, cmd = a.pr.view.Update(msg)
 		return a, cmd
 	}
+	if a.viewingRun() {
+		var cmd tea.Cmd
+		a.pl.view, cmd = a.pl.view.Update(msg)
+		return a, cmd
+	}
 	if a.viewMode == ViewDetail {
 		if cmd, ok := a.handleDetailAction(msg); ok {
 			return a, cmd
@@ -69,6 +77,9 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	}
 	if a.inPullRequests() {
 		return a.handlePullRequestKey(msg)
+	}
+	if a.inPipelines() {
+		return a.handlePipelineKey(msg)
 	}
 	if next, cmd, ok := a.handleNavigationKey(msg); ok {
 		return next, cmd
@@ -113,6 +124,8 @@ func (a App) handleNavigationKey(msg tea.KeyPressMsg) (App, tea.Cmd, bool) {
 		a.switchHub(panels.HubSprint)
 	case key.Matches(msg, k.HubPullRequests):
 		return a, a.openPullRequests(), true
+	case key.Matches(msg, k.HubBuilds):
+		return a, a.openPipelines(), true
 	case key.Matches(msg, k.PrevView):
 		a.cycleView(-1)
 	case key.Matches(msg, k.NextView):
@@ -148,8 +161,14 @@ func (a *App) refresh() tea.Cmd {
 	if a.reviewing() {
 		return a.refreshReview()
 	}
+	if a.viewingRun() {
+		return a.refreshRun()
+	}
 	if a.inPullRequests() {
 		return a.refreshPullRequests()
+	}
+	if a.inPipelines() {
+		return a.refreshPipelines()
 	}
 	if !a.me.Known() {
 		return tea.Batch(a.reload(), loadIdentityCmd(a.client))

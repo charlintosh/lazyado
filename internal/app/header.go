@@ -44,7 +44,7 @@ func (a *App) filterKeys() []key.Binding {
 }
 
 func (a *App) barFilters() []models.FilterType {
-	if a.inPullRequests() {
+	if a.inPullRequests() || a.inPipelines() {
 		return nil
 	}
 	if a.hub == panels.HubSprint {
@@ -133,7 +133,7 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 	p := panels.PageHeaderProps{
 		Width:      width,
 		Title:      a.headerTitle(),
-		ShowBar:    a.filterBar && !a.inPullRequests(),
+		ShowBar:    a.filterBar && !a.inPullRequests() && !a.inPipelines(),
 		Keyword:    panels.Line(a.keyword.View(), styles.KeywordInputWidth),
 		KeywordKey: a.keys.Search,
 		Clear:      panels.HeaderControl{Label: clearIcon + " Clear", Short: clearIcon, Key: a.keys.ClearFilters, Group: -1},
@@ -162,6 +162,14 @@ func (a *App) pageHeader(width int) panels.PageHeader {
 			Key: a.keys.Repository, Set: a.pr.scoped(), Open: open, Group: repositoryGroup,
 		}
 		p.Controls = []panels.HeaderControl{repo, fullscreen}
+	case panels.HubBuilds:
+		p.Action = a.plainControl(newIcon+"Run pipeline", a.keys.RunPipeline)
+		p.Pivots = a.pipelinePivotLabels()
+		p.Pivot = a.pl.pivot
+		if a.pl.page != nil {
+			p.Pivot = a.pl.pagePivot
+		}
+		p.Controls = []panels.HeaderControl{fullscreen}
 	case panels.HubBoard:
 		p.Action = a.plainControl(newIcon+"New item", a.keys.CreateParent)
 		p.Pivots = []string{"Board"}
@@ -185,6 +193,9 @@ func (a *App) headerTitle() string {
 	}
 	bold := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true)
 	title := bold.Render(team)
+	if a.inPipelines() && a.pl.page != nil {
+		return a.pipelinePageTitle()
+	}
 	if a.hub != panels.HubSprint {
 		return title
 	}

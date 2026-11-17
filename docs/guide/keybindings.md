@@ -10,6 +10,8 @@ Some keys mean different things in different places. For example, `a` assigns a 
 - [Work item form](#work-item-form)
 - [Pull requests list](#pull-requests-list)
 - [Pull request review](#pull-request-review)
+- [Builds hub](#builds-hub)
+- [Pipeline run](#pipeline-run)
 - [Dialogs and pickers](#dialogs-and-pickers)
 
 ## Everywhere
@@ -20,6 +22,7 @@ Some keys mean different things in different places. For example, `a` assigns a 
 | `B` | Boards hub (Kanban) |
 | `S` | Sprints hub (taskboard) |
 | `P` | Pull requests hub |
+| `D` | [Pipelines › Builds hub](pipelines.md) |
 | `Ctrl+f` | [Quick search](getting-started.md#quick-search): `1234`, `!1234`, `#1234` or a link |
 | `Ctrl+r` | Reload from Azure DevOps (also retries identifying you) |
 | `z` | Full screen (hide the navigation rail) |
@@ -148,6 +151,34 @@ These keys act on the focused comment, on Overview and in the Files diff.
 | `enter` | On a file that is too large or generated: load its diff anyway |
 | `o` | Open the selected file in the browser |
 
+## Builds hub
+
+See [Pipelines](pipelines.md) for details.
+
+| Key | Action |
+| --- | ------ |
+| `1` – `3` | Recent / All / Runs. On a pipeline's runs: `1` Runs, `2` Branches |
+| `Tab` / `Shift+Tab`, `h` / `l`, `[` / `]` | Next / previous view |
+| `/` | [Search](pipelines.md#searching): pipeline names, or `state:`, `branch:`, `pipeline:`, `by:@me` for runs |
+| `enter` | Open the pipeline's runs, or the run |
+| `v` | Open the pipeline's latest run |
+| `n` | [Run the pipeline](pipelines.md#running-a-pipeline) |
+| `o` | Open in the browser |
+| `esc` | From a pipeline's runs: back to the hub |
+
+## Pipeline run
+
+| Key | Action |
+| --- | ------ |
+| `1` / `2` | Summary / Logs tab (`[` / `]` also switch) |
+| `j` / `k` | Summary: next / previous job. Logs: next / previous job or step, or scroll the log |
+| `enter` | Summary: open the job's logs. Logs: go to the next pane |
+| `Tab` / `Shift+Tab` | Logs: move between jobs, steps and the log |
+| `F` | Follow the log of a running step |
+| `n` | Run the pipeline again on the same branch |
+| `o` | Open the run, or the selected job and step, in the browser |
+| `esc` | Back a pane, then back to the list |
+
 ## Dialogs and pickers
 
 | Key | Action |
@@ -162,4 +193,5 @@ These keys act on the focused comment, on Overview and in the Files diff.
 | `Ctrl+t` | Star / unstar a repository (repository picker) |
 | `Tab` | In the pull request search bar: complete the suggested filter |
 | `enter` | In a reviewer list: add or remove the highlighted person. On *Create as draft*: toggle it |
+| `enter` / `space` | In *Stages to run*: skip or include the highlighted stage. On a checkbox: toggle it |
 | `esc` | Clear the filter, then close |

@@ -78,8 +78,10 @@ Create the token under *User settings → Personal access tokens* in Azure DevOp
 | **Project and Team** · Read | Iterations, areas and team members |
 | **Code** · Read | Repositories, pull requests, threads, policies and file contents |
 | **Code** · Read & write | Creating pull requests, and voting, commenting, replying, liking and resolving threads on them |
+| **Build** · Read | Pipelines, runs, stages and logs |
+| **Build** · Read & execute | Running pipelines. Reading a pipeline's branches, tags and YAML parameters also needs *Code* · Read |
 
-You can skip the *Code* scopes if you only use the Boards hubs, and the *Read & write* scopes if you only want to browse.
+You can skip the *Code* scopes if you only use the Boards hubs, the *Build* scopes if you don't use the Builds hub, and the *Read & write* and *execute* scopes if you only want to browse.
 
 ## Who you are
 

@@ -80,6 +80,10 @@ type KeyMap struct {
 	ToggleFavorite  key.Binding
 	SelectLines     key.Binding
 	LinkedWorkItems key.Binding
+
+	HubBuilds   key.Binding
+	RunPipeline key.Binding
+	FollowLog   key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -369,17 +373,30 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("N"),
 			key.WithHelp("N", "previous change"),
 		),
+		HubBuilds: key.NewBinding(
+			key.WithKeys("D"),
+			key.WithHelp("D", "builds"),
+		),
+		RunPipeline: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "run pipeline"),
+		),
+		FollowLog: key.NewBinding(
+			key.WithKeys("F"),
+			key.WithHelp("F", "follow log"),
+		),
 	}
 }
 
 // FullHelp returns all key bindings for the help panel
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
+		{k.HubBoard, k.HubBacklog, k.HubSprint, k.HubPullRequests, k.HubBuilds, k.PrevView, k.NextView, k.Panel1, k.Panel2, k.Panel3, k.Panel4, k.Search, k.FilterBar, k.ClearFilters, k.Fullscreen},
 		{k.Panel5, k.Panel6, k.Panel7},
 		{k.Up, k.Down, k.Left, k.Right, k.Top, k.Bottom, k.HalfPageUp, k.HalfPageDown, k.NextPanel, k.PrevPanel},
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask, k.Info},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.LinkedWorkItems, k.OpenBrowser, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
+		{k.RunPipeline, k.FollowLog},
 	}
 }

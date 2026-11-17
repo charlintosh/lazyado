@@ -23,6 +23,11 @@ lazyado follows the layout of the Azure DevOps web UI (a navigation rail, hub pi
 - A review screen with the description, policies, status checks, reviewer votes and linked work items.
 - A file browser with an inline diff. Comment on a line or a range of lines, reply, like comments, resolve threads and vote.
 
+**Pipelines**
+- Recently run pipelines, every pipeline by folder, and the latest runs, with server-side search by name, state, branch, pipeline and requester.
+- Run details with stages, jobs, errors and step logs that follow a running job.
+- Run a pipeline from a branch or tag, with its YAML parameters, the stages to run and queue-time variables.
+
 **Everywhere**
 - Quick search (`Ctrl+F`) for a work item or pull request by ID or by pasted link.
 - Vim-style navigation, contextual key hints in the status bar, and full help on `?`.
@@ -60,6 +65,7 @@ Other options are covered in [Getting started](docs/guide/getting-started.md#ins
 | [Configuration](docs/guide/configuration.md) | Config file, environment variables, token scopes, saved state |
 | [Boards](docs/guide/boards.md) | Backlogs, boards, sprints, filters and work items |
 | [Pull requests](docs/guide/pull-requests.md) | Browsing, reviewing, commenting and voting on pull requests |
+| [Pipelines](docs/guide/pipelines.md) | Pipelines, runs, logs, and running a pipeline |
 | [Keybindings](docs/guide/keybindings.md) | Every key, by screen |
 | [Troubleshooting](docs/guide/troubleshooting.md) | Common problems and debug logging |
 

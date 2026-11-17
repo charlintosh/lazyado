@@ -35,6 +35,7 @@ const (
 	viewBoard
 	viewTaskboard
 	viewPullRequests
+	viewPipelines
 )
 
 const (
@@ -50,6 +51,7 @@ const (
 	ViewMain ViewMode = iota
 	ViewDetail
 	ViewPullRequest
+	ViewRun
 )
 
 type App struct {
@@ -60,6 +62,7 @@ type App struct {
 	commentsPanel  panels.CommentsPanel
 	detailView     panels.DetailView
 	pr             pullRequestState
+	pl             pipelineState
 	splashScreen   screens.SplashScreen
 	notification   notification.Notification
 	statusHelp     help.Model
@@ -114,6 +117,7 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		commentsPanel:  panels.NewCommentsPanel(st, k),
 		detailView:     panels.NewDetailView(st, k),
 		pr:             pullRequestState{panel: panels.NewPullRequestsPanel(k), view: panels.NewPullRequestView(k, limits)},
+		pl:             pipelineState{panel: panels.NewPipelinesPanel(k), view: panels.NewPipelineRunView(k)},
 		splashScreen:   screens.NewSplashScreen(st),
 		statusHelp:     widgets.NewHelp(),
 		spinner: spinner.New(
@@ -163,6 +167,11 @@ func (a App) update(msg tea.Msg) (App, tea.Cmd) {
 			a.pr.panel, cmd = a.pr.panel.Update(msg)
 			return a, cmd
 		}
+		if a.searchingPipelines() {
+			var cmd tea.Cmd
+			a.pl.panel, cmd = a.pl.panel.Update(msg)
+			return a, cmd
+		}
 	case spinner.TickMsg:
 		return a.tick(msg)
 	case screens.FrameMsg:
@@ -190,6 +199,8 @@ func (a App) handleMouse(msg tea.MouseMsg) (App, tea.Cmd) {
 	switch {
 	case a.reviewing():
 		a.pr.view, cmd = a.pr.view.Update(msg)
+	case a.viewingRun():
+		a.pl.view, cmd = a.pl.view.Update(msg)
 	case a.viewMode == ViewDetail:
 		a.detailView, cmd = a.detailView.Update(msg)
 	case a.activePanel == PanelWorkItems:
@@ -236,14 +247,17 @@ func (a *App) reconcile() tea.Cmd {
 	a.syncLayout()
 	selection := a.syncSelection()
 	checks := a.syncPullRequestSelection()
+	preview := a.syncPipelinePreview()
 	a.syncSpinner()
-	return tea.Batch(selection, checks, a.syncReviewFile(), a.ensureSpinner())
+	return tea.Batch(selection, checks, preview, a.syncReviewFile(), a.syncRunLog(), a.ensureSpinner())
 }
 
 func (a *App) syncSpinner() {
 	frame := a.spinner.View()
 	a.pr.panel.SetSpinner(frame)
 	a.pr.view.SetSpinner(frame)
+	a.pl.panel.SetSpinner(frame)
+	a.pl.view.SetSpinner(frame)
 }
 
 func (a *App) syncSelection() tea.Cmd {
@@ -275,7 +289,8 @@ func (a *App) ensureSpinner() tea.Cmd {
 
 func (a *App) busy() bool {
 	return a.loading || a.pr.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading()) ||
-		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded)
+		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded) ||
+		(a.inPipelines() && (a.pl.loading || a.pl.panel.Loading() || a.previewLoading())) || (a.viewingRun() && a.pl.view.Loading())
 }
 
 func (a *App) showSplash() bool {
@@ -337,6 +352,8 @@ func (a *App) mainView() mainView {
 	switch {
 	case a.hub == panels.HubPullRequests:
 		return viewPullRequests
+	case a.hub == panels.HubBuilds:
+		return viewPipelines
 	case a.hub == panels.HubBoard:
 		return viewBoard
 	case a.hub == panels.HubSprint && a.sprintView == sprintTaskboard:
@@ -356,7 +373,7 @@ func (a *App) selectedItem() *models.WorkItem {
 		return a.boardPanel.SelectedItem()
 	case viewTaskboard:
 		return a.taskboardPanel.SelectedItem()
-	case viewPullRequests:
+	case viewPullRequests, viewPipelines:
 		return nil
 	default:
 		return a.workItemsPanel.SelectedItem()
@@ -372,6 +389,8 @@ func (a *App) updateMainPanel(msg tea.Msg) tea.Cmd {
 		a.taskboardPanel, cmd = a.taskboardPanel.Update(msg)
 	case viewPullRequests:
 		a.pr.panel, cmd = a.pr.panel.Update(msg)
+	case viewPipelines:
+		a.pl.panel, cmd = a.pl.panel.Update(msg)
 	default:
 		a.workItemsPanel, cmd = a.workItemsPanel.Update(msg)
 	}
