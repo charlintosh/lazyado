@@ -14,6 +14,13 @@ This document contains the detailed conventions, rules and patterns referenced f
   - Use `key.Matches(msg, keymap.KeyName)` for matching.
 - Components MUST derive status/help labels from the centralized `KeyMap` (via `KeyMap.Help()` or `components.ShortHelp()`) or expose a `GetAvailableActions()` method; never hardcode key strings in views.
 
+## Credentials and user data
+
+- lazyado authenticates only with a Personal Access Token read from `~/.config/lazyado/config.yaml` or `AZURE_DEVOPS_PAT`. Never add another credential source, never write the token anywhere, and never put it in a log, error or URL.
+- Never hardcode real user information: no real names, emails, organizations, projects, identity GUIDs or tokens in code, tests or docs. Fixtures use `name@example.com`, the `contoso`/`acme` organizations and obviously fake IDs. The current user is always resolved from the token at runtime (`connectionData`).
+- Files lazyado writes (`state.json`, `debug.log`) are private to the user (`0600` in a `0700` directory) and hold only UI choices or request paths: never tokens, identities, query strings or response bodies.
+- `hygiene_test.go` enforces the fixture and token rules; keep it passing rather than loosening it.
+
 ## Logging convention
 
 - Use the scoped logger API via `debug.Scope("<scope>")` in each file that emits logs. Do not call `debug.Log` directly.

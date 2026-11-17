@@ -18,8 +18,8 @@ func testEnv() Env {
 
 func members() []models.TeamMember {
 	return []models.TeamMember{
-		{ID: "id-dana", DisplayName: "Dana Reyes", UniqueName: "dana@acme.io"},
-		{ID: "id-marco", DisplayName: "Marco Lima", UniqueName: "marco@acme.io"},
+		{ID: "id-dana", DisplayName: "Dana Reyes", UniqueName: "dana@example.com"},
+		{ID: "id-marco", DisplayName: "Marco Lima", UniqueName: "marco@example.com"},
 	}
 }
 
@@ -199,7 +199,7 @@ func TestQuickSearchLetsTheUserChooseBetweenAWorkItemAndAPullRequest(t *testing.
 }
 
 func mentionTeam() []models.TeamMember {
-	return append(members(), models.TeamMember{ID: "id-priya", DisplayName: "Priya Nair", UniqueName: "priya@acme.io"})
+	return append(members(), models.TeamMember{ID: "id-priya", DisplayName: "Priya Nair", UniqueName: "priya@example.com"})
 }
 
 func listedMembers(m Modal, team []models.TeamMember) []models.TeamMember {

@@ -6,6 +6,14 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Security
+
+- security: the debug log moved from the shared temp directory to `lazyado/debug.log` in your user cache directory, readable only by you, and no longer records query strings, API error bodies or raw comment responses (which held names, emails and comment text)
+- security: `config.yaml` is read only from `~/.config/lazyado/`; a `./config.yaml` in the directory you start lazyado from is no longer used, so a token can't be picked up from (or left in) a project folder
+- security: `~/.config/lazyado/` is created readable only by you (`0700`)
+- security: release binaries are built with `-trimpath`, so they don't embed the build machine's paths
+- test: fixtures use reserved `example.com` addresses, and a repository check fails the tests on real-looking emails, token-shaped strings, encoded credentials or a non-placeholder `pat:`
+
 ## [v1.3.0] - 2026-11-17
 
 Pipelines release: a Builds hub with run details, logs and running pipelines with their YAML options, a Releases hub with stage deployments, approvals, canceling and creating releases, and opening a pull request's build in the run view.

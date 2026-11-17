@@ -67,21 +67,21 @@ func (c *Client) doRequestWithContentType(method, url string, body io.Reader, co
 	req.Header.Set("Content-Type", contentType)
 
 	// Log start
-	clientLogger.Debugf("fetching %s %s", method, url)
+	clientLogger.Debugf("fetching %s %s", method, debug.RedactURL(url))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		clientLogger.Debugf("error fetching %s %v", url, err)
+		clientLogger.Debugf("error fetching %s", debug.RedactURL(url))
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
 
 	// Log completion
-	clientLogger.Debugf("fetched %s %d", url, resp.StatusCode)
+	clientLogger.Debugf("fetched %s %d", debug.RedactURL(url), resp.StatusCode)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		clientLogger.Debugf("API error %d: %s", resp.StatusCode, string(body))
+		clientLogger.Debugf("API error %d from %s", resp.StatusCode, debug.RedactURL(url))
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, extractAPIMessage(body))
 	}
 

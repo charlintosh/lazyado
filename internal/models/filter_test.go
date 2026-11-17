@@ -4,11 +4,11 @@ import "testing"
 
 func peopleFixture() []WorkItem {
 	items := []WorkItem{
-		{ID: 1, Type: WorkItemTypePBI, Title: "Checkout", AssignedTo: "Ana Ruiz", AssignedToUniqueName: "ana@acme.io"},
-		{ID: 2, Type: WorkItemTypeTask, Title: "Card vault", AssignedTo: "Ben Okafor", AssignedToUniqueName: "ben@acme.io", ParentID: 1},
-		{ID: 3, Type: WorkItemTypeTask, Title: "Token API", AssignedTo: "Ben Okafor", AssignedToUniqueName: "ben@acme.io", ParentID: 1},
+		{ID: 1, Type: WorkItemTypePBI, Title: "Checkout", AssignedTo: "Ana Ruiz", AssignedToUniqueName: "ana@example.com"},
+		{ID: 2, Type: WorkItemTypeTask, Title: "Card vault", AssignedTo: "Ben Okafor", AssignedToUniqueName: "ben@example.com", ParentID: 1},
+		{ID: 3, Type: WorkItemTypeTask, Title: "Token API", AssignedTo: "Ben Okafor", AssignedToUniqueName: "ben@example.com", ParentID: 1},
 		{ID: 4, Type: WorkItemTypeTask, Title: "Date picker", ParentID: 1, Tags: []string{"ui"}},
-		{ID: 5, Type: WorkItemTypeBug, Title: "Invoice emails", AssignedTo: "Dana Kim", AssignedToUniqueName: "dana@acme.io"},
+		{ID: 5, Type: WorkItemTypeBug, Title: "Invoice emails", AssignedTo: "Dana Kim", AssignedToUniqueName: "dana@example.com"},
 	}
 	for i := range items {
 		if items[i].ParentID == 1 {
@@ -37,10 +37,10 @@ func TestFilterTreeDropsChildrenThatDoNotMatch(t *testing.T) {
 
 func TestPeopleOptionsListsActivePeopleThenIdleMembers(t *testing.T) {
 	members := []TeamMember{
-		{DisplayName: "Ana Ruiz", UniqueName: "ana@acme.io"},
-		{DisplayName: "Marco Silva", UniqueName: "marco@acme.io"},
+		{DisplayName: "Ana Ruiz", UniqueName: "ana@example.com"},
+		{DisplayName: "Marco Silva", UniqueName: "marco@example.com"},
 	}
-	me := Identity{DisplayName: "Ben Okafor", UniqueName: "BEN@acme.io"}
+	me := Identity{DisplayName: "Ben Okafor", UniqueName: "BEN@example.com"}
 	opts := PeopleOptions(peopleFixture(), members, me)
 	want := []struct {
 		value   string
@@ -51,10 +51,10 @@ func TestPeopleOptionsListsActivePeopleThenIdleMembers(t *testing.T) {
 		{FilterAll, 5, SectionNone, false},
 		{AssignedMe, 2, SectionNone, false},
 		{AssignedNone, 1, SectionNone, false},
-		{"ben@acme.io", 2, SectionActive, true},
-		{"ana@acme.io", 1, SectionActive, false},
-		{"dana@acme.io", 1, SectionActive, false},
-		{"marco@acme.io", 0, SectionIdle, false},
+		{"ben@example.com", 2, SectionActive, true},
+		{"ana@example.com", 1, SectionActive, false},
+		{"dana@example.com", 1, SectionActive, false},
+		{"marco@example.com", 0, SectionIdle, false},
 	}
 	if len(opts) != len(want) {
 		t.Fatalf("got %d options %+v, want %d", len(opts), opts, len(want))
@@ -81,18 +81,18 @@ func TestSetPeopleKeepsSelectionAcrossScopes(t *testing.T) {
 	if got := fs.GetSelectedAssigned(); got != AssignedMe {
 		t.Fatalf("selection = %q, want me", got)
 	}
-	fs.Group(FilterTypeAssigned).SelectByValue("dana@acme.io")
+	fs.Group(FilterTypeAssigned).SelectByValue("dana@example.com")
 	fs.SetPeople(peopleFixture()[:2], nil, Identity{})
 	g := fs.Group(FilterTypeAssigned)
-	if got := g.SelectedOption(); got.Value != "dana@acme.io" || got.Label != "Dana Kim" || got.Section != SectionIdle {
+	if got := g.SelectedOption(); got.Value != "dana@example.com" || got.Label != "Dana Kim" || got.Section != SectionIdle {
 		t.Fatalf("got %+v, want Dana kept as an idle option", got)
 	}
 }
 
 func TestApplySavedSelectionsKeepsAPersonNotLoadedYet(t *testing.T) {
 	fs := NewFilterState(nil, nil, nil)
-	fs.ApplySavedSelections("", "", "dana@acme.io", "")
-	if got := fs.GetSelectedAssigned(); got != "dana@acme.io" {
+	fs.ApplySavedSelections("", "", "dana@example.com", "")
+	if got := fs.GetSelectedAssigned(); got != "dana@example.com" {
 		t.Fatalf("assigned = %q, want the saved person", got)
 	}
 }
@@ -119,7 +119,7 @@ func TestMatchers(t *testing.T) {
 		{"me excludes others", MatchesAssignee(&items[0], AssignedMe, me), false},
 		{"unknown me defers to the server", MatchesAssignee(&items[0], AssignedMe, Identity{}), true},
 		{"unassigned", MatchesAssignee(&items[3], AssignedNone, me), true},
-		{"person by unique name", MatchesAssignee(&items[1], "BEN@acme.io", me), true},
+		{"person by unique name", MatchesAssignee(&items[1], "BEN@example.com", me), true},
 		{"keyword in title", MatchesKeyword(&items[1], "vault"), true},
 		{"keyword in id", MatchesKeyword(&items[4], "5"), true},
 		{"keyword in tag", MatchesKeyword(&items[3], "UI"), true},

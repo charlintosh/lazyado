@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-var reviewer = models.Identity{ID: "me-id", DisplayName: "Dana Reyes", UniqueName: "dana@acme.com"}
+var reviewer = models.Identity{ID: "me-id", DisplayName: "Dana Reyes", UniqueName: "dana@example.com"}
 
 func samplePullRequests() []models.PullRequest {
 	now := time.Now()
@@ -976,7 +976,7 @@ func TestPullRequestSearchOpensAnIDOutsideTheView(t *testing.T) {
 
 func TestPullRequestSearchCompletesReviewerNames(t *testing.T) {
 	a := openPullRequestHub(t, 160, 40)
-	a.teamMembers = append(a.teamMembers, models.TeamMember{ID: "pn-id", DisplayName: "Priya Nair", UniqueName: "priya@acme.io"})
+	a.teamMembers = append(a.teamMembers, models.TeamMember{ID: "pn-id", DisplayName: "Priya Nair", UniqueName: "priya@example.com"})
 	a.pr.panel.SetMembers(a.teamMembers)
 	a = typeText(t, feed(t, a, press("/")), "reviewer:pri")
 	a = feed(t, a, special(tea.KeyTab))

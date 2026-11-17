@@ -48,12 +48,11 @@ func Load() (*Config, error) {
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 
-	// Add config paths
 	home, err := os.UserHomeDir()
-	if err == nil {
-		v.AddConfigPath(filepath.Join(home, ".config", "lazyado"))
+	if err != nil {
+		return nil, fmt.Errorf("locating home directory: %w", err)
 	}
-	v.AddConfigPath(".")
+	v.AddConfigPath(filepath.Join(home, ".config", "lazyado"))
 
 	// Set defaults
 	v.SetDefault("theme", "default")
@@ -130,7 +129,7 @@ func CreateDefaultConfig() error {
 	}
 
 	configDir := filepath.Join(home, ".config", "lazyado")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return err
 	}
 

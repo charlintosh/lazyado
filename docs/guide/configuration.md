@@ -9,10 +9,7 @@
 
 ## Config file
 
-lazyado reads `config.yaml` from the first of these places that has one:
-
-1. `~/.config/lazyado/config.yaml`
-2. `./config.yaml`, in the directory you start lazyado from
+lazyado reads its configuration from `~/.config/lazyado/config.yaml` only. It never reads a `config.yaml` from the directory you start it in, so a token can't end up inside a project or repository by accident. lazyado creates the folder readable only by you; keep the file that way (`chmod 600`) if you put the token in it.
 
 ```yaml
 organization: "my-organization"
@@ -104,4 +101,4 @@ Some choices are saved to `~/.config/lazyado/state.json` and restored the next t
 - the repositories you starred locally (`Ctrl+t` in the repository picker);
 - the release pipelines you starred locally (`Ctrl+t` in the Releases hub).
 
-Delete the file to start fresh. Repositories you starred in Azure DevOps are read from your account each time and are not stored here. Azure DevOps doesn't expose release pipeline stars through its favorites API for most accounts, so star release pipelines in lazyado with `Ctrl+t`.
+These are only names and IDs of things you picked. lazyado never stores your token, your identity, or any work item, pull request or comment content on disk. Delete the file to start fresh. Repositories you starred in Azure DevOps are read from your account each time and are not stored here. Azure DevOps doesn't expose release pipeline stars through its favorites API for most accounts, so star release pipelines in lazyado with `Ctrl+t`.

@@ -421,7 +421,7 @@ func TestDeletingFromTheWorkItemViewClosesIt(t *testing.T) {
 }
 
 func TestCommentsCanOnlyBeChangedByTheirAuthor(t *testing.T) {
-	me := models.Identity{ID: "dana-id", DisplayName: "Dana Reyes", UniqueName: "dana@contoso.com"}
+	me := models.Identity{ID: "dana-id", DisplayName: "Dana Reyes", UniqueName: "dana@example.com"}
 	comments := []models.Comment{
 		{ID: 1, Text: "mine", CreatedBy: "Dana Reyes", CreatedByID: "dana-id"},
 		{ID: 2, Text: "not mine", CreatedBy: "Dana Reyes", CreatedByID: "namesake-id"},

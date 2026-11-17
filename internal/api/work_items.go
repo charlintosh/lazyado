@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/models"
 )
 
@@ -776,8 +775,6 @@ func (c *Client) DeleteWorkItem(id int) error {
 	return nil
 }
 
-var commentsLogger = debug.Scope("api.comments")
-
 // GetComments fetches comments for a work item
 func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 	// Request expanded data including mentions and rendered text
@@ -786,26 +783,6 @@ func (c *Client) GetComments(workItemID int) ([]models.Comment, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// DEBUG: Log the raw API response body for troubleshooting
-	if resp != nil && resp.Body != nil {
-		var rawBody bytes.Buffer
-		tee := io.TeeReader(resp.Body, &rawBody)
-		// Try to decode as JSON for pretty logging
-		var pretty map[string]interface{}
-		if err := json.NewDecoder(tee).Decode(&pretty); err == nil {
-			prettyJSON, _ := json.MarshalIndent(pretty, "", "  ")
-			commentsLogger.Debugf("Raw API comment response (pretty):\n%s", string(prettyJSON))
-		} else {
-			// Fallback: log as plain text
-			all, _ := io.ReadAll(&rawBody)
-			commentsLogger.Debugf("Raw API comment response (raw):\n%s", string(all))
-		}
-		// Reset resp.Body for downstream decode
-		resp.Body = io.NopCloser(&rawBody)
-	}
-
-	// Response body will be decoded directly; do not log full response on success.
 
 	// Azure DevOps uses "comments" field (not "value") for work item comments
 	var apiResp struct {

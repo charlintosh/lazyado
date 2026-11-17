@@ -18,7 +18,7 @@ type recorded struct {
 
 func clientRouting(t *testing.T, routes map[string]string, seen *[]recorded) *Client {
 	t.Helper()
-	c := NewClient(&config.Config{Organization: "contoso", Project: "web", Team: "web team", PAT: "secret"})
+	c := NewClient(&config.Config{Organization: "contoso", Project: "web", Team: "web team", PAT: "test-pat-not-real"})
 	c.httpClient.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 		body := ""
 		if r.Body != nil {
@@ -40,7 +40,7 @@ func clientRouting(t *testing.T, routes map[string]string, seen *[]recorded) *Cl
 func TestListPullRequestsMapsBranchesReviewersAndWebURL(t *testing.T) {
 	var seen []recorded
 	body := `{"value":[{"pullRequestId":4821,"title":"Add retry policy","status":"active","isDraft":true,` +
-		`"createdBy":{"id":"a1","displayName":"Marta Ruiz","uniqueName":"marta@contoso.com"},` +
+		`"createdBy":{"id":"a1","displayName":"Marta Ruiz","uniqueName":"marta@example.com"},` +
 		`"creationDate":"2026-11-14T09:30:00.123Z","sourceRefName":"refs/heads/feature/retry","targetRefName":"refs/heads/main",` +
 		`"mergeStatus":"conflicts","repository":{"id":"r1","name":"phoenix api","project":{"id":"p1"}},` +
 		`"reviewers":[{"id":"u1","displayName":"Deepak Kumar","vote":10,"isRequired":true},{"id":"g1","displayName":"Team","vote":-5,"isContainer":true}],` +
@@ -116,7 +116,7 @@ func TestThreadsKeepAnchorsAndDropDeletedOnes(t *testing.T) {
 	var seen []recorded
 	body := `{"value":[` +
 		`{"id":1,"status":"active","publishedDate":"2026-11-14T09:00:00Z","threadContext":{"filePath":"/a.go","rightFileStart":{"line":48,"offset":1}},` +
-		`"comments":[{"id":1,"content":"Seed the jitter?","commentType":"text","author":{"id":"u1","displayName":"Deepak"},"usersLiked":[{"id":"u2","uniqueName":"marta@contoso.com"}]},` +
+		`"comments":[{"id":1,"content":"Seed the jitter?","commentType":"text","author":{"id":"u1","displayName":"Deepak"},"usersLiked":[{"id":"u2","uniqueName":"marta@example.com"}]},` +
 		`{"id":2,"parentCommentId":1,"content":"gone","isDeleted":true}]},` +
 		`{"id":2,"publishedDate":"2026-11-14T10:00:00Z","comments":[{"id":1,"content":"Deepak voted 10","commentType":"system"}]},` +
 		`{"id":3,"isDeleted":true,"comments":[{"id":1,"content":"x","commentType":"text"}]},` +
@@ -135,7 +135,7 @@ func TestThreadsKeepAnchorsAndDropDeletedOnes(t *testing.T) {
 	if threads[1].FilePath != "/a.go" || threads[1].Line != 48 || threads[1].MultiLine() || len(threads[1].Comments) != 1 || !threads[1].Active() {
 		t.Fatalf("got %+v", threads[1])
 	}
-	if c := threads[1].Comments[0]; len(c.Likes) != 1 || !c.LikedBy(models.Identity{UniqueName: "Marta@contoso.com"}) {
+	if c := threads[1].Comments[0]; len(c.Likes) != 1 || !c.LikedBy(models.Identity{UniqueName: "Marta@example.com"}) {
 		t.Fatalf("the comment's likes must be kept, got %+v", c.Likes)
 	}
 	if !threads[2].LeftSide || threads[2].Line != 7 || threads[2].Active() {

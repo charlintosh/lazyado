@@ -10,7 +10,7 @@ tasks:
   build:
     desc: Build release binary
     cmds:
-      - go build -o {{.output}} {{.cmd_path}}
+      - go build -trimpath -o {{.output}} {{.cmd_path}}
 
   dev:
     desc: Run in development (rebuilds by Go on each run)

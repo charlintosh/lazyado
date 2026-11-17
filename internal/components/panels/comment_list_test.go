@@ -105,7 +105,7 @@ func TestCommentsPanelScrollsToSelectedComment(t *testing.T) {
 }
 
 func TestCommentThreadOnlyModifiesOwnComments(t *testing.T) {
-	me := models.Identity{ID: "me", UniqueName: "dana@contoso.com"}
+	me := models.Identity{ID: "me", UniqueName: "dana@example.com"}
 	comments := []models.Comment{
 		{ID: 1, CreatedBy: "Dana Kim", CreatedByID: "me"},
 		{ID: 2, CreatedBy: "Dana Kim", CreatedByID: "someone-else"},

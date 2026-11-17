@@ -18,6 +18,8 @@ builds:
     binary: lazyado
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos:
       - linux
       - windows

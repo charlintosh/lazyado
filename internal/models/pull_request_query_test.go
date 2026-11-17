@@ -51,7 +51,7 @@ func TestPullRequestQueryMatchesTextAndQualifiers(t *testing.T) {
 }
 
 func TestPullRequestQueryBuildsServerCriteria(t *testing.T) {
-	members := []TeamMember{{ID: "pn", DisplayName: "Priya Nair", UniqueName: "priya@acme.io"}}
+	members := []TeamMember{{ID: "pn", DisplayName: "Priya Nair", UniqueName: "priya@example.com"}}
 	q := ParsePullRequestQuery(`author:@me reviewer:priya source:feature/x target:main retry`)
 	c, err := q.Criteria(members, Identity{ID: "me"})
 	if err != nil {

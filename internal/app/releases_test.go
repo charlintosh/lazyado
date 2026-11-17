@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-var releaseApprover = models.Identity{ID: "u7", DisplayName: "Dana Reyes", UniqueName: "dana@acme.com"}
+var releaseApprover = models.Identity{ID: "u7", DisplayName: "Dana Reyes", UniqueName: "dana@example.com"}
 
 func sampleDefinitions() []models.ReleaseDefinition {
 	now := time.Now()

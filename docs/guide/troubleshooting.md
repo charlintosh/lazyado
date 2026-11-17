@@ -43,7 +43,7 @@ Start lazyado with `-debug` to log every API request and its result:
 lazyado -debug
 ```
 
-The log is written to `lazyado-debug.log` in your system's temporary directory (`/tmp/lazyado-debug.log` on Linux, `$TMPDIR/lazyado-debug.log` on macOS, `%TEMP%\lazyado-debug.log` on Windows). It is cleared each time you start with `-debug`.
+The log is written to `lazyado/debug.log` in your user cache directory (`~/.cache/lazyado/debug.log` on Linux, `~/Library/Caches/lazyado/debug.log` on macOS, `%LocalAppData%\lazyado\debug.log` on Windows), readable only by you. It is replaced each time you start with `-debug`.
 
 ## Reporting a bug
 
@@ -53,4 +53,4 @@ Open an issue on [GitHub](https://github.com/charlintosh/lazyado/issues) with:
 - what you did, what you expected, and what happened;
 - the relevant part of the debug log.
 
-The log contains request URLs, which include your organization and project names. Remove anything you don't want to share before posting it. Your token is not written to the log.
+The log contains request paths, which include your organization and project names. Remove anything you don't want to share before posting it. Your token, query strings (which can hold your email or user ID) and response bodies are never written to the log.

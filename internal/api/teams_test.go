@@ -15,7 +15,7 @@ func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f
 
 func clientReplying(t *testing.T, status int, body string, seen *http.Request) *Client {
 	t.Helper()
-	c := NewClient(&config.Config{Organization: "contoso", Project: "web", Team: "web team", PAT: "secret"})
+	c := NewClient(&config.Config{Organization: "contoso", Project: "web", Team: "web team", PAT: "test-pat-not-real"})
 	c.httpClient.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 		*seen = *r
 		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
@@ -26,13 +26,13 @@ func clientReplying(t *testing.T, status int, body string, seen *http.Request) *
 func TestGetCurrentUserReadsTheIdentityBehindThePAT(t *testing.T) {
 	var req http.Request
 	body := `{"authenticatedUser":{"id":"6f1c2e7a-0000-4b1d-9c55-1f0e2d3c4b5a","providerDisplayName":"Ana Ruiz",` +
-		`"properties":{"Account":{"$type":"System.String","$value":"ana@contoso.com"}}},` +
+		`"properties":{"Account":{"$type":"System.String","$value":"ana@example.com"}}},` +
 		`"authorizedUser":{"id":"6f1c2e7a-0000-4b1d-9c55-1f0e2d3c4b5a"}}`
 	me, err := clientReplying(t, http.StatusOK, body, &req).GetCurrentUser()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if me.ID != "6f1c2e7a-0000-4b1d-9c55-1f0e2d3c4b5a" || me.UniqueName != "ana@contoso.com" || me.DisplayName != "Ana Ruiz" {
+	if me.ID != "6f1c2e7a-0000-4b1d-9c55-1f0e2d3c4b5a" || me.UniqueName != "ana@example.com" || me.DisplayName != "Ana Ruiz" {
 		t.Fatalf("got %+v", me)
 	}
 	if req.URL.String() != "https://dev.azure.com/contoso/_apis/connectionData" || !strings.HasPrefix(req.Header.Get("Authorization"), "Basic ") {

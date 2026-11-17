@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// Parse flags at program entry to improve testability of cmd.Execute.
-	debugFlag := flag.Bool("debug", false, "Enable debug logging to /tmp/lazyado-debug.log")
+	debugFlag := flag.Bool("debug", false, "Enable debug logging to lazyado/debug.log in your user cache directory")
 	flag.Parse()
 
 	if *debugFlag {

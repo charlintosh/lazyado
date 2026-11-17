@@ -96,11 +96,11 @@ func TestMyApprovalsIncludeGroupApprovals(t *testing.T) {
 	body := `{"value":[{"id":91,"approvalType":"preDeploy","status":"pending","approver":{"displayName":"QA Leads","isContainer":true},` +
 		`"release":{"id":64,"name":"Release-64"},"releaseDefinition":{"id":12,"name":"smartHotel"},"releaseEnvironment":{"id":2,"name":"QA"}},` +
 		`{"id":92,"approvalType":"preDeploy","status":"pending","isAutomated":true}]}`
-	approvals, err := clientRouting(t, map[string]string{"/release/approvals": body}, &seen).ListReleaseApprovals("dana@contoso.com")
+	approvals, err := clientRouting(t, map[string]string{"/release/approvals": body}, &seen).ListReleaseApprovals("dana@example.com")
 	if err != nil || len(approvals) != 1 || approvals[0].ReleaseID != 64 || approvals[0].StageName != "QA" {
 		t.Fatalf("got %+v, %v", approvals, err)
 	}
-	for _, want := range []string{"assignedToFilter=dana%40contoso.com", "includeMyGroupApprovals=true", "statusFilter=pending"} {
+	for _, want := range []string{"assignedToFilter=dana%40example.com", "includeMyGroupApprovals=true", "statusFilter=pending"} {
 		if !strings.Contains(seen[0].url, want) {
 			t.Errorf("asked %s, missing %s", seen[0].url, want)
 		}

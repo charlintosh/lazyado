@@ -71,7 +71,7 @@ func SaveFilterState(state *FilterState) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(statePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
