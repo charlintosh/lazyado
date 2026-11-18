@@ -6,26 +6,27 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.5.0] - 2026-11-17
+
+Builds and files release: redesigned Builds runs, run screen and logs with stages that scale to any pipeline, Builds search as you type, Go to file (`Ctrl+p`) in the Files hub, and vim-like yank of selected lines.
+
 ### Added
 
-- feat: Go to file (`Ctrl+p`) in the Files hub — fuzzy-find any file by name or path, with highlighted matches, recent files, a preview of the highlighted file and `enter` to open it in the tree; one request lists the repository (cached per branch or tag, last three kept), typing makes no requests, previews load once you rest on a file and share the Files pane's cache, and very large repositories are indexed up to 50,000 files
-
-- feat: vim-like yank in the Files hub and a pull request's Files tab — select lines with `v`, then `y` copies them as plain text at once ("Copied 3 lines") and ends the selection; with lines selected, `s` opens the share menu for them (it was `y`) and `Y` still copies their link
-
-- feat: Builds search asks Azure DevOps as you type, 0.4 s after the last keystroke, instead of waiting for `Enter`; typing on cancels the pending request, the same text is never searched twice, the bar shows *searching* while it loads, and the list stays on screen until the results arrive; `Enter` now just closes the bar
-- feat: Builds runs are grouped under Today, Yesterday, Last 7 days and Older, and a Stages column shows one coloured cell per stage (`█░░·`, `+N` past 12), loaded for the rows on screen
-- feat: `e` on a failed run opens its logs at the first error; in a run, `e` / `E` jump between errors in the log, or to the next failed step
-- feat: run logs fold `##[group]` sections, showing how many lines they hide; groups with errors or warnings, or still running, stay open, and `C` folds or unfolds them all
-- feat: the Builds preview shows the run's stages as a strip (one cell per stage, or counts when they don't fit) and at most four of them — failed, running, last finished, next — with `+ N more` for the rest; then Where it failed (the first error) or Running now, and the last 10 runs of the run's pipeline
+- feat: Go to file (`Ctrl+p`) in the Files hub — fuzzy-find any file by name or path, with highlighted matches, recent files, a preview of the highlighted file and `enter` to open it in the tree; one request lists the repository (cached per branch or tag, last three kept), typing sends no requests, previews load once you rest on a file and share the Files pane's cache, and very large repositories are indexed up to 50,000 files (bb5da12)
+- feat: vim-like yank in the Files hub and a pull request's Files tab — select lines with `v`, then `y` copies them as plain text at once ("Copied 3 lines") and ends the selection; with lines selected, `s` opens the share menu for them (it was `y`) and `Y` still copies their link (70dfb94)
+- feat: Builds search asks Azure DevOps as you type, 0.4 s after the last keystroke, instead of waiting for `Enter`; typing on cancels the pending request, the same text is never searched twice, the bar shows *searching* while it loads, and the list stays on screen until the results arrive; `Enter` now just closes the bar (8370b5b)
+- feat: Builds runs are grouped under Today, Yesterday, Last 7 days and Older, and a Stages column shows one coloured cell per stage (`█░░·`, `+N` past 12), loaded for the rows on screen (8370b5b)
+- feat: `e` on a failed run opens its logs at the first error; in a run, `e` / `E` jump between errors in the log, or to the next failed step (8370b5b)
+- feat: run logs fold `##[group]` sections, showing how many lines they hide; groups with errors or warnings, or still running, stay open, and `C` folds or unfolds them all (8370b5b)
+- feat: the Builds preview shows the run's stages as a strip (one cell per stage, or counts when they don't fit) and at most four of them — failed, running, last finished, next — with `+ N more` for the rest; then Where it failed (the first error) or Running now, and the last 10 runs of the run's pipeline (8370b5b)
 
 ### Changed
 
-- perf: moving through Go to file is about twice as fast per key (16 → 7 ms on a 50,000-file index at 200×50): result rows style runs of letters instead of each letter, the list and preview are fitted without word-wrapping, the preview is drawn once per file, and dialogs are framed and placed over the screen without lipgloss's wrapper and compositor, which speeds up every dialog
-
-- feat: Builds lists, stages, jobs and steps show one state symbol (`✓ ✗ ! ◐ ○ ⊘ –`) instead of labels; the run header spells the state out (`✗ FAILED`), followed by the number, title and run details, with underlined Summary / Logs tabs
-- feat: the run Summary is two panes: every stage, one line each, and the selected stage's jobs with where they failed or what they are running; `Tab` or `h` / `l` switch panes, and errors and warnings are tinted cards
-- feat: run and release logs use a jobs tree (stages, jobs, expandable steps) and the log, in two framed panes; the focused pane has a blue border and the status bar names it (`LOGS · JOBS` / `LOGS · LOG`); the log header shows `Stage › Job › Step`, the agent, and error and warning counts
-- feat: a selected row in a pane without focus keeps a dimmer tint, so the selection never disappears
+- feat: Builds lists, stages, jobs and steps show one state symbol (`✓ ✗ ! ◐ ○ ⊘ –`) instead of labels; the run header spells the state out (`✗ FAILED`), followed by the number, title and run details, with underlined Summary / Logs tabs (8370b5b)
+- feat: the run Summary is two panes: every stage, one line each, and the selected stage's jobs with where they failed or what they are running; `Tab` or `h` / `l` switch panes, and errors and warnings are tinted cards (8370b5b)
+- feat: run and release logs use a jobs tree (stages, jobs, expandable steps) and the log, in two framed panes; the focused pane has a blue border and the status bar names it (`LOGS · JOBS` / `LOGS · LOG`); the log header shows `Stage › Job › Step`, the agent, and error and warning counts (8370b5b)
+- feat: a selected row in a pane without focus keeps a dimmer tint, so the selection never disappears (8370b5b)
+- perf: dialogs draw faster — rows style runs of letters instead of each letter, blocks are fitted without word-wrapping, and dialogs are framed and placed over the screen without lipgloss's wrapper and compositor; moving through Go to file drops from 16 to 7 ms per key on a 50,000-file index (bb5da12)
 
 ## [v1.4.2] - 2026-11-17
 
