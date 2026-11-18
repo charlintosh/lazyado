@@ -173,7 +173,7 @@ func TestSelectedRowsAreHighlightedEdgeToEdge(t *testing.T) {
 			assertSolidSelection(t, "runs", runs)
 			view := openRunView(t, width, 40)
 			assertSolidSelection(t, "run summary", view)
-			assertSolidSelection(t, "run logs", feed(t, view, press("2"), special(tea.KeyTab)))
+			assertSolidSelection(t, "run logs", feed(t, view, press("2")))
 			releases := openReleasesHub(t, width, 40)
 			assertSolidSelection(t, "release pipelines", releases)
 			assertSolidSelection(t, "releases", feed(t, releases, special(tea.KeyTab)))

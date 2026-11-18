@@ -25,8 +25,22 @@ const (
 )
 
 const (
-	runHeaderHeight = 4
-	runIssuesShown  = 20
+	summaryPaneStages = iota
+	summaryPaneJobs
+	summaryPanes
+)
+
+const (
+	runSidebarShow    = 150
+	runStageListShare = 2
+	runStageListParts = 5
+	runStageListMax   = 48
+	stageRowLead      = " "
+	runHeaderHeight   = 4
+	runIssuesShown    = 20
+	summaryJobRows    = 2
+	summaryIssueLines = 2
+	noJobsInStage     = "No jobs ran in this stage."
 )
 
 type CloseRunViewMsg struct{}
@@ -40,6 +54,7 @@ type PipelineRunView struct {
 	run     *models.PipelineRun
 	changes []models.RunChange
 	tab     RunTab
+	focus   int
 	summary viewport.Model
 	keys    keys.KeyMap
 	spinner string
@@ -144,22 +159,33 @@ func (v *PipelineRunView) SetSize(width, height int) {
 func (v *PipelineRunView) bodyHeight() int { return max(v.height-runHeaderHeight, 0) }
 
 func (v *PipelineRunView) sidebarWidth() int {
-	if v.width < styles.PullRequestSidebarShow {
+	if v.width < runSidebarShow {
 		return 0
 	}
 	return styles.PullRequestSidebarWidth
 }
 
-func (v *PipelineRunView) mainWidth() int {
+func (v *PipelineRunView) stageListWidth() int {
+	return min(max(v.width*runStageListShare/runStageListParts, runTreeMinWidth), runStageListMax)
+}
+
+func (v *PipelineRunView) jobsPaneWidth() int {
+	w := v.width - v.stageListWidth() - runPaneGap
 	if side := v.sidebarWidth(); side > 0 {
-		return max(v.width-side-styles.DetailColumnGap-2, 1)
+		w -= side + styles.DetailColumnGap
 	}
-	return max(v.width-2, 1)
+	return max(w, 0)
+}
+
+func (v *PipelineRunView) mainWidth() int {
+	w, _ := PaneContentSize(v.jobsPaneWidth(), v.bodyHeight())
+	return max(w, 1)
 }
 
 func (v *PipelineRunView) layout() {
+	_, h := PaneContentSize(v.jobsPaneWidth(), v.bodyHeight())
 	v.summary.SetWidth(v.mainWidth())
-	v.summary.SetHeight(v.bodyHeight())
+	v.summary.SetHeight(max(h, 1))
 	v.resizeLogs(v.width, v.bodyHeight())
 	v.render()
 }
@@ -178,7 +204,8 @@ func (v *PipelineRunView) renderSummary() {
 	}
 	width := v.mainWidth()
 	now := time.Now()
-	parts := []string{v.stagesSection(width, now)}
+	jobs, top := v.jobsSection(width, now)
+	parts := []string{jobs}
 	if issues := models.RunIssues(v.stages); len(issues) > 0 {
 		parts = append(parts, issuesSection(issues, width))
 	}
@@ -186,55 +213,137 @@ func (v *PipelineRunView) renderSummary() {
 		parts = append(parts, v.sideSections(width)...)
 	}
 	v.summary.SetContent(strings.Join(parts, "\n\n"))
+	if v.tab == RunSummaryTab && top >= 0 {
+		widgets.Reveal(&v.summary, top, top+summaryJobRows)
+	}
 }
 
-func (v *PipelineRunView) stagesSection(width int, now time.Time) string {
-	lines := []string{sectionTitle("Stages and jobs", width)}
+func (v *PipelineRunView) jobsSection(width int, now time.Time) (string, int) {
 	switch {
 	case !v.stagesLoaded:
-		return strings.Join(append(lines, Loading(v.spinner, loadingRun)), "\n")
+		return Loading(v.spinner, loadingRun), -1
 	case len(v.stages) == 0:
-		return strings.Join(append(lines, Muted(noStages)), "\n")
+		return Muted(noStages), -1
 	}
-	index := 0
-	top := 0
-	for _, s := range v.stages {
-		lines = append(lines, RenderStageRows([]models.RunStage{s}, now, width)...)
-		for _, j := range s.Jobs {
-			selected := index == v.job
-			if selected {
-				top = len(lines)
-			}
-			lines = append(lines, jobRow(j, selected, v.tab == RunSummaryTab, width, now, "  "))
-			index++
+	start, end := v.stageJobs(v.stage)
+	if start == end {
+		return Muted(noJobsInStage), -1
+	}
+	jobs := v.jobs()
+	focused := v.focus == summaryPaneJobs
+	var lines []string
+	top := -1
+	for i := start; i < end; i++ {
+		if i > start {
+			lines = append(lines, "")
+		}
+		if i == v.job {
+			top = len(lines)
+		}
+		lines = append(lines, summaryJobRow(jobs[i], i == v.job, focused, width, now)...)
+	}
+	return strings.Join(lines, "\n"), top
+}
+
+func (v *PipelineRunView) stageList(width, height int, now time.Time) string {
+	switch {
+	case !v.stagesLoaded:
+		return Block(" "+Loading(v.spinner, loadingRun), width, height)
+	case len(v.stages) == 0:
+		return Block(" "+Muted(noStages), width, height)
+	}
+	focused := v.focus == summaryPaneStages
+	lines := make([]string, len(v.stages))
+	for i, s := range v.stages {
+		lines[i] = pickLine(s.State, s.Name, stageDetail(s, now), stageRowLead, "", i == v.stage, focused, stageNotRun(s), width)
+	}
+	start := min(max(v.stage-height/2, 0), max(len(lines)-height, 0))
+	return Block(strings.Join(lines[start:], "\n"), width, height)
+}
+
+func (v *PipelineRunView) summaryBody() string {
+	now := time.Now()
+	h := v.bodyHeight()
+	sw, jw := v.stageListWidth(), v.jobsPaneWidth()
+	stagesFocused := v.focus == summaryPaneStages
+	siw, sih := PaneContentSize(sw, h)
+	stagesTitle := PaneTitle("", "Stages", stagesFocused)
+	if tally := StageTally(v.stages); lipgloss.Width(stagesTitle)+lipgloss.Width(tally)+1 <= siw {
+		stagesTitle = spreadLine(stagesTitle, Muted(tally), siw)
+	}
+	stages := Pane(stagesTitle, v.stageList(siw, sih, now), sw, h, stagesFocused)
+	jiw, jih := PaneContentSize(jw, h)
+	jobsTitle := PaneTitle("", "Jobs", !stagesFocused)
+	if v.stagesLoaded && len(v.stages) > 0 {
+		stage := v.stages[v.stage]
+		done, total := stage.JobCounts()
+		jobsTitle = spreadLine(PaneTitle("", "Jobs in "+stage.Name, !stagesFocused), Muted(fmt.Sprintf("%d of %d done", done, total)), jiw)
+	}
+	jobs := Pane(jobsTitle, Block(v.summary.View(), jiw, jih), jw, h, !stagesFocused)
+	parts := []string{stages, strings.Repeat(" ", runPaneGap), jobs}
+	if side := v.sidebarWidth(); side > 0 {
+		parts = append(parts, strings.Repeat(" ", styles.DetailColumnGap), Block(strings.Join(v.sideSections(side), "\n\n"), side, h))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
+}
+
+func summaryJobRow(j models.RunJob, selected, focused bool, width int, now time.Time) []string {
+	base := lipgloss.NewStyle()
+	bar := " "
+	nameStyle := base.Foreground(styles.ColorText)
+	detailStyle := base.Foreground(styles.ColorTextMuted)
+	switch {
+	case selected && focused:
+		base, bar = base.Background(styles.ColorHighlight), railBar
+		nameStyle = base.Foreground(styles.ColorText).Bold(true)
+		detailStyle = base.Foreground(styles.ColorLight)
+	case selected:
+		base = base.Background(styles.ColorHighlightDim)
+		nameStyle = base.Foreground(styles.ColorLight).Bold(true)
+		detailStyle = base.Foreground(styles.ColorTextMuted)
+	}
+	lead := base.Foreground(styles.ColorPrimary).Render(bar) + base.Render(" ")
+	inner := max(width-lipgloss.Width(lead), 1)
+	duration := base.Foreground(styles.ColorTextMuted).Render(recordRight(j.TimelineRecord, now))
+	first := fill(runGlyphStyle(j.State, base)+base.Render(" ")+nameStyle.Render(j.Name), base.Render(" ")+duration+base.Render(" "), base, inner)
+	second := fill(base.Render("  ")+detailStyle.Render(jobDetail(j)), "", base, inner)
+	return []string{lead + first, lead + second}
+}
+
+func jobDetail(j models.RunJob) string {
+	where := countOf(len(j.Steps), "step")
+	for i, s := range j.Steps {
+		progress := fmt.Sprintf("step %d of %d", i+1, len(j.Steps))
+		switch s.State {
+		case models.RunFailed:
+			return joinMeta("Failed at "+s.Name, progress, j.Worker)
+		case models.RunRunning:
+			return joinMeta("Running "+s.Name, progress, j.Worker)
 		}
 	}
-	if v.tab == RunSummaryTab {
-		widgets.Reveal(&v.summary, top, top)
+	if j.State == models.RunQueued {
+		where = "Waiting for an agent"
 	}
-	return strings.Join(lines, "\n")
+	return joinMeta(where, j.Worker)
 }
 
 func issuesSection(issues []models.RunIssue, width int) string {
-	errors := 0
-	for _, is := range issues {
-		if is.Error {
-			errors++
-		}
-	}
-	title := fmt.Sprintf("Errors %d · warnings %d", errors, len(issues)-errors)
-	lines := []string{sectionTitle(title, width)}
+	errors, warnings := issueCounts(issues)
+	lines := []string{sectionTitle(fmt.Sprintf("Errors %d · warnings %d", errors, warnings), width)}
 	for i, is := range issues {
 		if i == runIssuesShown {
 			lines = append(lines, Muted(fmt.Sprintf("and %d more", len(issues)-i)))
 			break
 		}
-		badge := Badge("WARN", styles.ColorWarning, styles.ColorOnAccent)
-		if is.Error {
-			badge = Badge("FAIL", styles.ColorError, styles.ColorOnAccent)
+		if i > 0 {
+			lines = append(lines, "")
 		}
-		lines = append(lines, Line(badge+" "+Muted(is.Where), width))
-		lines = append(lines, lipgloss.NewStyle().Foreground(styles.ColorText).Width(width).Render(firstLogLine(is.Message)))
+		state := models.RunPartial
+		if is.Error {
+			state = models.RunFailed
+		}
+		lines = append(lines, Line(RunGlyph(state)+" "+Muted(is.Where), width))
+		lines = append(lines, issueBlock(is, width, summaryIssueLines)...)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -315,9 +424,8 @@ func (v PipelineRunView) handleKey(msg tea.KeyPressMsg) (PipelineRunView, tea.Cm
 	k := v.keys
 	run := *v.run
 	switch {
-	case key.Matches(msg, k.Back) && v.tab == RunLogsTab && v.pane > runPaneJobs:
+	case key.Matches(msg, k.Back) && v.tab == RunLogsTab && v.pane > runPaneTree:
 		v.pane--
-		v.renderLogs()
 		return v, nil
 	case key.Matches(msg, k.Back):
 		return v, func() tea.Msg { return CloseRunViewMsg{} }
@@ -352,6 +460,14 @@ func (v *PipelineRunView) setTab(tab RunTab) {
 		return
 	}
 	v.tab = tab
+	if tab == RunSummaryTab && len(v.jobs()) > 0 {
+		v.stage = v.stageOfJob(v.job)
+	}
+	v.render()
+}
+
+func (v *PipelineRunView) JumpToFirstError() {
+	v.startAtFirstError()
 	v.render()
 }
 
@@ -382,19 +498,30 @@ func (v *PipelineRunView) browseURL() string {
 
 func (v PipelineRunView) handleSummaryKey(msg tea.KeyPressMsg) (PipelineRunView, tea.Cmd) {
 	k := v.keys
+	move := v.moveStageJob
+	if v.focus == summaryPaneStages {
+		move = v.moveStage
+	}
 	switch {
+	case key.Matches(msg, k.NextPanel), key.Matches(msg, k.PrevPanel):
+		v.focus = (v.focus + 1) % summaryPanes
+	case key.Matches(msg, k.Left):
+		v.focus = summaryPaneStages
+	case key.Matches(msg, k.Right):
+		v.focus = summaryPaneJobs
 	case key.Matches(msg, k.Up):
-		v.moveJob(-1)
+		move(-1)
 	case key.Matches(msg, k.Down):
-		v.moveJob(1)
+		move(1)
 	case key.Matches(msg, k.Top):
-		v.moveJob(-len(v.jobs()))
+		move(-1 << 20)
 	case key.Matches(msg, k.Bottom):
-		v.moveJob(len(v.jobs()))
+		move(1 << 20)
+	case key.Matches(msg, k.NextIssue), key.Matches(msg, k.PrevIssue):
+		v.tab, v.pane = RunLogsTab, runPaneTree
+		v.startAtFirstError()
 	case key.Matches(msg, k.Select):
-		if _, ok := v.selectedJob(); ok {
-			v.tab, v.pane = RunLogsTab, runPaneSteps
-		}
+		v.openStageLogs()
 	default:
 		var cmd tea.Cmd
 		v.summary, cmd = v.summary.Update(msg)
@@ -404,39 +531,93 @@ func (v PipelineRunView) handleSummaryKey(msg tea.KeyPressMsg) (PipelineRunView,
 	return v, nil
 }
 
+func (v *PipelineRunView) openStageLogs() {
+	start, end := v.stageJobs(v.stage)
+	if start == end {
+		return
+	}
+	job := v.job
+	if v.focus == summaryPaneStages || job < start || job >= end {
+		job = v.stageDefaultJob(start, end)
+	}
+	v.selectJob(job)
+	v.tab, v.pane = RunLogsTab, runPaneTree
+}
+
+func (v *PipelineRunView) stageDefaultJob(start, end int) int {
+	jobs := v.jobs()
+	for _, want := range []models.RunState{models.RunRunning, models.RunFailed} {
+		for i := start; i < end; i++ {
+			if jobs[i].State == want {
+				return i
+			}
+		}
+	}
+	return start
+}
+
+func (v *PipelineRunView) moveStage(delta int) {
+	if len(v.stages) == 0 {
+		return
+	}
+	next := min(max(v.stage+delta, 0), len(v.stages)-1)
+	if next == v.stage {
+		return
+	}
+	if start, end := v.stageJobs(next); start < end {
+		v.selectJob(v.stageDefaultJob(start, end))
+	}
+	v.stage = next
+}
+
+func (v *PipelineRunView) moveStageJob(delta int) {
+	start, end := v.stageJobs(v.stage)
+	if start == end {
+		return
+	}
+	next := start
+	if v.job >= start && v.job < end {
+		next = min(max(v.job+delta, start), end-1)
+	}
+	if next != v.job {
+		v.selectJob(next)
+	}
+}
+
 func (v *PipelineRunView) KeyBindings() []key.Binding {
 	k := v.keys
 	tabs := widgets.Combine("summary/logs", k.Panel1, k.Panel2)
 	back := widgets.Relabel(k.Back, "back")
 	again := widgets.Relabel(k.RunPipeline, "run again")
-	if v.tab == RunSummaryTab {
-		return []key.Binding{widgets.Relabel(k.Select, "job logs"), widgets.Combine("job", k.Up, k.Down), again, tabs, k.Share, k.OpenBrowser, back}
+	issue := widgets.Relabel(k.NextIssue, "first error")
+	switch {
+	case v.tab == RunSummaryTab && v.focus == summaryPaneStages:
+		return []key.Binding{widgets.Relabel(k.Select, "stage logs"), widgets.Combine("stage", k.Up, k.Down), widgets.Relabel(k.NextPanel, "jobs"), issue, again, tabs, k.Share, k.OpenBrowser, back}
+	case v.tab == RunSummaryTab:
+		return []key.Binding{widgets.Relabel(k.Select, "job logs"), widgets.Combine("job", k.Up, k.Down), widgets.Relabel(k.NextPanel, "stages"), issue, again, tabs, k.Share, k.OpenBrowser, back}
 	}
 	return append(v.logsBindings(), again, tabs, k.Share, k.OpenBrowser, back)
 }
 
 func (v *PipelineRunView) Mode() string {
 	if v.tab == RunLogsTab {
-		return "LOGS"
+		return "LOGS · " + v.paneLabel()
 	}
-	return "RUN"
+	if v.focus == summaryPaneJobs {
+		return "RUN · JOBS"
+	}
+	return "RUN · STAGES"
 }
 
 func (v *PipelineRunView) header() string {
 	r := *v.run
+	now := time.Now()
 	inner := max(v.width-2, 1)
-	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(" · " + r.Title())
-	first := RunBadge(r.State()) + " " + runNumber(r) + title
-	parts := []string{r.PipelineName, r.ReasonLabel()}
-	for _, p := range []string{r.Branch(), r.ShortCommit(), r.RequestedFor.DisplayName, RunDuration(r, time.Now())} {
-		if p != "" {
-			parts = append(parts, p)
-		}
-	}
-	meta := Muted(strings.Join(parts, " · "))
-	tabs := Tabs([]string{v.keys.Panel1.Help().Key + " Summary", v.keys.Panel2.Help().Key + " Logs"}, int(v.tab), true)
-	rule := lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat(ruleGlyph, v.width))
-	return strings.Join([]string{" " + Line(first, inner), " " + Line(meta, inner), Line(tabs, v.width), rule}, "\n")
+	title := lipgloss.NewStyle().Foreground(styles.ColorText).Bold(true).Render(r.Title())
+	first := RunPill(r.State()) + " " + runNumber(r) + "  " + title
+	meta := Muted(joinMeta(r.PipelineName, branchLabel(r), r.ShortCommit(), runTrigger(r), runStarted(r), RunDuration(r, now)))
+	tabs, rule := PivotTabs([]string{v.keys.Panel1.Help().Key + " Summary", v.keys.Panel2.Help().Key + " Logs"}, int(v.tab), v.width)
+	return strings.Join([]string{" " + Line(first, inner), " " + Line(meta, inner), tabs, rule}, "\n")
 }
 
 func (v PipelineRunView) View() string {
@@ -447,12 +628,7 @@ func (v PipelineRunView) View() string {
 	if v.tab == RunLogsTab {
 		body = Block(v.logsBody(), v.width, v.bodyHeight())
 	} else {
-		body = v.summary.View()
-		if side := v.sidebarWidth(); side > 0 {
-			sidebar := Block(strings.Join(v.sideSections(side), "\n\n"), side, v.bodyHeight())
-			body = lipgloss.JoinHorizontal(lipgloss.Top, Block(body, v.mainWidth(), v.bodyHeight()), strings.Repeat(" ", styles.DetailColumnGap), sidebar)
-		}
-		body = lipgloss.NewStyle().PaddingLeft(1).Render(Block(body, max(v.width-2, 1), v.bodyHeight()))
+		body = Block(v.summaryBody(), v.width, v.bodyHeight())
 	}
 	return Block(v.header()+"\n"+body, v.width, v.height)
 }

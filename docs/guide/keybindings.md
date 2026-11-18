@@ -265,9 +265,10 @@ See [Pipelines](pipelines.md) for details.
 | --- | ------ |
 | `1` – `3` | Recent / All / Runs. On a pipeline's runs: `1` Runs, `2` Branches |
 | `Tab` / `Shift+Tab`, `h` / `l`, `[` / `]` | Next / previous view |
-| `/` | [Search](pipelines.md#searching): pipeline names, or `state:`, `branch:`, `pipeline:`, `by:@me` for runs |
+| `/` | [Search](pipelines.md#searching) as you type (Azure DevOps is asked after a short pause): pipeline names, or `state:`, `branch:`, `pipeline:`, `by:@me` for runs. `Enter` closes the bar |
 | `enter` | Open the pipeline's runs, or the run |
 | `v` | Open the pipeline's latest run |
+| `e` | Open the run's logs at its first error |
 | `n` | [Run the pipeline](pipelines.md#running-a-pipeline) |
 | `y` | Share the pipeline (link, definition ID, name) or the run (link, build number, run ID) |
 | `o` | Open in the browser |
@@ -278,9 +279,12 @@ See [Pipelines](pipelines.md) for details.
 | Key | Action |
 | --- | ------ |
 | `1` / `2` | Summary / Logs tab (`[` / `]` also switch) |
-| `j` / `k` | Summary: next / previous job. Logs: next / previous job or step, or scroll the log |
-| `enter` | Summary: open the job's logs. Logs: go to the next pane |
-| `Tab` / `Shift+Tab` | Logs: move between jobs, steps and the log |
+| `j` / `k` | Summary: next / previous stage or job, in the focused pane. Logs: next / previous job or step in the tree, or scroll the log |
+| `Tab` / `Shift+Tab` | Summary: switch between Stages and Jobs. Logs: switch between the jobs tree and the log |
+| `h` / `l` | Summary: go to Stages / Jobs. Logs tree: collapse / expand a job (or go to its job / first step); in the log, `h` goes back to the tree |
+| `enter` | Summary: open the stage's or job's logs. Logs tree: expand the job, or go to the log |
+| `e` / `E` | Next / previous error. Summary: open the logs at the first error |
+| `C` | Logs: fold or unfold every group in the log |
 | `F` | Follow the log of a running step |
 | `n` | Run the pipeline again on the same branch |
 | `y` | Share the run: link, build number, run ID, the selected job's logs, the pipeline |

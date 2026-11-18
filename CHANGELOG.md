@@ -6,6 +6,22 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+
+- feat: Builds search asks Azure DevOps as you type, 0.4 s after the last keystroke, instead of waiting for `Enter`; typing on cancels the pending request, the same text is never searched twice, the bar shows *searching* while it loads, and the list stays on screen until the results arrive; `Enter` now just closes the bar
+- feat: Builds runs are grouped under Today, Yesterday, Last 7 days and Older, and a Stages column shows one coloured cell per stage (`█░░·`, `+N` past 12), loaded for the rows on screen
+- feat: `e` on a failed run opens its logs at the first error; in a run, `e` / `E` jump between errors in the log, or to the next failed step
+- feat: run logs fold `##[group]` sections, showing how many lines they hide; groups with errors or warnings, or still running, stay open, and `C` folds or unfolds them all
+- feat: the Builds preview shows the run's stages as a strip (one cell per stage, or counts when they don't fit) and at most four of them — failed, running, last finished, next — with `+ N more` for the rest; then Where it failed (the first error) or Running now, and the last 10 runs of the run's pipeline
+
+### Changed
+
+- feat: Builds lists, stages, jobs and steps show one state symbol (`✓ ✗ ! ◐ ○ ⊘ –`) instead of labels; the run header spells the state out (`✗ FAILED`), followed by the number, title and run details, with underlined Summary / Logs tabs
+- feat: the run Summary is two panes: every stage, one line each, and the selected stage's jobs with where they failed or what they are running; `Tab` or `h` / `l` switch panes, and errors and warnings are tinted cards
+- feat: run and release logs use a jobs tree (stages, jobs, expandable steps) and the log, in two framed panes; the focused pane has a blue border and the status bar names it (`LOGS · JOBS` / `LOGS · LOG`); the log header shows `Stage › Job › Step`, the agent, and error and warning counts
+- feat: a selected row in a pane without focus keeps a dimmer tint, so the selection never disappears
+
 ## [v1.4.2] - 2026-11-17
 
 Boards release: drag and drop on the Board like on Sprints, redesigned Board cards, and simpler Boards hub headers.

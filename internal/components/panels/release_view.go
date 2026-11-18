@@ -316,7 +316,7 @@ func (v ReleaseView) Update(msg tea.Msg) (ReleaseView, tea.Cmd) {
 func (v ReleaseView) handleKey(msg tea.KeyPressMsg) (ReleaseView, tea.Cmd) {
 	k := v.keys
 	switch {
-	case key.Matches(msg, k.Back) && v.tab == ReleaseLogsTab && v.pane > runPaneJobs:
+	case key.Matches(msg, k.Back) && v.tab == ReleaseLogsTab && v.pane > runPaneTree:
 		v.pane--
 		v.renderLogs()
 		return v, nil
@@ -415,7 +415,7 @@ func (v *ReleaseView) openStageLogs() {
 		index += len(s.Jobs)
 	}
 	v.selectJob(index)
-	v.tab, v.pane = ReleaseLogsTab, runPaneSteps
+	v.tab, v.pane = ReleaseLogsTab, runPaneTree
 	v.renderLogs()
 }
 

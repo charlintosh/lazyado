@@ -289,13 +289,14 @@ func (a *App) reconcile() tea.Cmd {
 	selection := a.syncSelection()
 	checks := a.syncPullRequestSelection()
 	preview := a.syncPipelinePreview()
+	listStages := a.syncListStages()
 	releases := a.syncReleaseSelection()
 	a.syncSpinner()
 	files := a.syncFiles()
 	commits := a.syncCommits()
 	branches := a.syncBranches()
 	tags := a.syncTags()
-	return tea.Batch(selection, checks, preview, releases, files, commits, branches, tags, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
+	return tea.Batch(selection, checks, preview, listStages, releases, files, commits, branches, tags, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
 }
 
 func (a *App) syncSpinner() {

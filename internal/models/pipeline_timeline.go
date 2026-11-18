@@ -44,9 +44,10 @@ func (r TimelineRecord) Duration(now time.Time) time.Duration {
 func (r TimelineRecord) kind() string { return strings.ToLower(r.Type) }
 
 type RunIssue struct {
-	Error   bool
-	Message string
-	Where   string
+	Error    bool
+	Message  string
+	Where    string
+	RecordID string
 }
 
 type RunJob struct {
@@ -149,19 +150,19 @@ func stepsOf(records []TimelineRecord, jobID string) []TimelineRecord {
 
 func RunIssues(stages []RunStage) []RunIssue {
 	var out []RunIssue
-	collect := func(issues []RunIssue, where ...string) {
+	collect := func(r TimelineRecord, where ...string) {
 		label := strings.Join(slices.DeleteFunc(where, func(s string) bool { return s == "" }), whereJoin)
-		for _, is := range issues {
-			is.Where = label
+		for _, is := range r.Issues {
+			is.Where, is.RecordID = label, r.ID
 			out = append(out, is)
 		}
 	}
 	for _, s := range stages {
-		collect(s.Issues, s.Name)
+		collect(s.TimelineRecord, s.Name)
 		for _, j := range s.Jobs {
-			collect(j.Issues, s.Name, j.Name)
+			collect(j.TimelineRecord, s.Name, j.Name)
 			for _, st := range j.Steps {
-				collect(st.Issues, s.Name, j.Name, st.Name)
+				collect(st, s.Name, j.Name, st.Name)
 			}
 		}
 	}

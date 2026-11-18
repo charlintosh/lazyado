@@ -46,7 +46,7 @@ func openPipelinesHub(t testing.TB, width, height int) App {
 func TestPipelinesHubListsRecentlyRunPipelines(t *testing.T) {
 	a := openPipelinesHub(t, 160, 45)
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Recently run pipelines 3", "storefront-web-ci", "#20261117.6", "Add guest checkout feature flag", "nightly-e2e", "FAIL", "1 Recent", "2 All", "3 Runs", "Run pipeline"} {
+	for _, want := range []string{"Recently run pipelines 3", "storefront-web-ci", "#20261117.6", "Add guest checkout feature flag", "nightly-e2e", "✗", "1 Recent", "2 All", "3 Runs", "Run pipeline"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("recent view is missing %q", want)
 		}
@@ -165,7 +165,7 @@ func openRunView(t testing.TB, width, height int) App {
 func TestRunViewSummaryShowsStagesJobsIssuesAndDetails(t *testing.T) {
 	a := openRunView(t, 160, 45)
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"#20261117.6", "Stages and jobs", "Build", "Integration tests", "Errors 0 · warnings 1", "shallow fetch", "Details", "Changes 1", "1 Summary", "2 Logs", "RUN"} {
+	for _, want := range []string{"#20261117.6", "◐ RUNNING", "Stages", "Build", "Jobs in Test", "Integration tests", "Running Run integration suite", "Errors 0 · warnings 1", "shallow fetch", "Details", "Changes 1", "1 Summary", "2 Logs", "RUN"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("summary is missing %q", want)
 		}
@@ -184,7 +184,7 @@ func TestRunViewLogsLoadTheRunningStepAndFollowIt(t *testing.T) {
 	}
 	a = feed(t, a, runLogMsg{id: 812, logID: 12, from: 1, lines: []string{"##[section]Starting: Run integration suite", "PASS checkout/guest.int.ts"}})
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Run integration suite", "Agent: Hosted Agent 14", "PASS checkout/guest.int.ts", "FOLLOWING", "LOGS"} {
+	for _, want := range []string{"Jobs in run", "TEST", "Run integration suite", "Test › Integration tests › Run integration suite", "Agent: Hosted Agent 14", "PASS checkout/guest.int.ts", "FOLLOWING", "LOGS · JOBS"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("logs tab is missing %q", want)
 		}
@@ -306,5 +306,168 @@ func TestPipelinePageKeepsALoadThatArrivesAfterSwitchingToBranches(t *testing.T)
 	a = feed(t, a, pipelineListMsg{seq: a.pl.seq, mode: panels.ListPipelineRuns, runs: sampleRuns()[:1]})
 	if a.pl.loading || a.pl.panel.Mode() != panels.ListBranches {
 		t.Fatalf("loading %v mode %v", a.pl.loading, a.pl.panel.Mode())
+	}
+}
+
+func TestRunsListGroupsByDayAndShowsStages(t *testing.T) {
+	a := openPipelinesHub(t, 200, 45)
+	a = feed(t, a, press("3"))
+	a = feed(t, a, pipelineListMsg{seq: a.pl.seq, mode: panels.ListRuns, runs: sampleRuns()})
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"TODAY", "YESTERDAY", "◐ #20261117.6", "✗ #20261117.1"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("runs list is missing %q", want)
+		}
+	}
+	if e, ok := a.pl.cachedStages(812); !ok || !e.loading {
+		t.Fatal("the stages of the visible runs must be requested")
+	}
+	a = feed(t, a, pipelineStagesMsg{run: 812, stages: models.BuildStages(sampleTimeline())})
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "flag  ") || !strings.Contains(out, "██") {
+		t.Errorf("a run row must show its stages once they load:\n%s", out)
+	}
+}
+
+func TestErrorKeyOnAFailedRunOpensItsLogsAtTheError(t *testing.T) {
+	a := openPipelinesHub(t, 160, 45)
+	a = feed(t, a, press("j"), press("j"))
+	if r := a.pl.panel.SelectedRun(); r == nil || r.ID != 805 {
+		t.Fatalf("expected the failed run to be selected, got %+v", r)
+	}
+	a, msgs := step(t, a, press("e"))
+	open, ok := find[panels.OpenRunMsg](msgs)
+	if !ok || !open.AtError {
+		t.Fatalf("e must open the run at its first error, got %v", msgs)
+	}
+	a = feed(t, a, open)
+	if !a.viewingRun() || a.pl.view.Tab() != panels.RunLogsTab {
+		t.Fatal("e must open the run's logs")
+	}
+}
+
+func TestRunSummaryListsStagesAndTheSelectedStagesJobs(t *testing.T) {
+	a := openRunView(t, 160, 45)
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"Stages", "1 done · 1 running", "Jobs in Test", "0 of 1 done", "RUN · STAGES"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary is missing %q", want)
+		}
+	}
+	a = feed(t, a, press("k"))
+	out = ansi.Strip(a.render())
+	for _, want := range []string{"Jobs in Build", "Compile", "1 step"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("k in the stage list must select the previous stage, missing %q", want)
+		}
+	}
+	a = feed(t, a, special(tea.KeyTab))
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "RUN · JOBS") {
+		t.Error("tab must move to the jobs pane")
+	}
+	a = feed(t, a, special(tea.KeyEnter))
+	if a.pl.view.Tab() != panels.RunLogsTab {
+		t.Error("enter on a job must open its logs")
+	}
+}
+
+func TestRunLogsTreeExpandsCollapsesAndJumpsToErrors(t *testing.T) {
+	a := openRunView(t, 160, 45)
+	a = feed(t, a, press("2"))
+	lines := []string{"##[section]Starting: Run integration suite", "##[group]Install", "npm ci", "added 812 packages", "##[endgroup]", "##[error]2 tests failed", "done"}
+	a = feed(t, a, runLogMsg{id: 812, logID: 12, from: 1, lines: lines})
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"▸ Install  2 lines", "✗ 2 tests failed", "1 error", "Checkout"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("logs are missing %q", want)
+		}
+	}
+	if strings.Contains(out, "added 812 packages") {
+		t.Error("a group without issues must start folded")
+	}
+	a = feed(t, a, press("C"))
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "▾ Install") || !strings.Contains(out, "added 812 packages") {
+		t.Errorf("C must unfold the log's groups:\n%s", out)
+	}
+	a = feed(t, a, press("e"))
+	if strings.Contains(ansi.Strip(a.render()), "FOLLOWING") {
+		t.Error("jumping to an error must stop following the log")
+	}
+	a = feed(t, a, press("h"), press("h"))
+	if out := ansi.Strip(a.render()); strings.Contains(out, "Checkout") {
+		t.Errorf("h on a job must collapse its steps:\n%s", out)
+	}
+	a = feed(t, a, press("l"))
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "Checkout") {
+		t.Errorf("l on a job must expand its steps:\n%s", out)
+	}
+}
+
+func typeSearch(t *testing.T, a App, text string) (App, []panels.PipelineSearchTypedMsg) {
+	t.Helper()
+	var typed []panels.PipelineSearchTypedMsg
+	for _, r := range text {
+		var msgs []tea.Msg
+		a, msgs = step(t, a, press(string(r)))
+		if m, ok := find[panels.PipelineSearchTypedMsg](msgs); ok {
+			typed = append(typed, m)
+			a = feed(t, a, m)
+		}
+	}
+	return a, typed
+}
+
+func TestTypingSearchesAzureDevOpsOnlyAfterAPause(t *testing.T) {
+	a := openPipelinesHub(t, 160, 45)
+	a = feed(t, a, press("3"))
+	a = feed(t, a, pipelineListMsg{seq: a.pl.seq, mode: panels.ListRuns, runs: sampleRuns()})
+	a = feed(t, a, press("/"))
+	listSeq := a.pl.seq
+	a, typed := typeSearch(t, a, "pay")
+	if len(typed) != 3 || typed[2].Text != "pay" {
+		t.Fatalf("each keystroke must report the text, got %+v", typed)
+	}
+	if a.pl.seq != listSeq || a.pl.loading {
+		t.Fatal("typing must not call Azure DevOps before the pause")
+	}
+	a, msgs := step(t, a, pipelineSearchDueMsg{seq: a.pl.searchSeq - 1, text: "pa"})
+	if len(msgs) != 0 || a.pl.seq != listSeq {
+		t.Fatal("a pause that was interrupted by more typing must not search")
+	}
+	a = feed(t, a, pipelineSearchDueMsg{seq: a.pl.searchSeq, text: "pay"})
+	if a.pl.seq != listSeq+1 || a.pl.query != "pay" || !a.pl.loading {
+		t.Fatalf("the pause must search Azure DevOps once: seq %d query %q loading %v", a.pl.seq, a.pl.query, a.pl.loading)
+	}
+	list := pipelineListMsg{seq: a.pl.seq, mode: panels.ListRuns, runs: sampleRuns()[1:2]}
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"#20261117.3", "searching", "/ pay"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("while searching, the filtered list and the text stay, missing %q", want)
+		}
+	}
+	a = feed(t, a, list)
+	if strings.Contains(ansi.Strip(a.render()), "searching") || a.pl.loading {
+		t.Error("the spinner must stop when the results arrive")
+	}
+	before := a.pl.seq
+	a = feed(t, a, pipelineSearchDueMsg{seq: a.pl.searchSeq, text: "pay"})
+	if a.pl.seq != before {
+		t.Error("the same text must not be searched twice")
+	}
+}
+
+func TestEnterClosesTheSearchWithoutSearchingAgain(t *testing.T) {
+	a := openPipelinesHub(t, 160, 45)
+	a = feed(t, a, press("3"))
+	a = feed(t, a, pipelineListMsg{seq: a.pl.seq, mode: panels.ListRuns, runs: sampleRuns()})
+	a = feed(t, a, press("/"))
+	a, _ = typeSearch(t, a, "pay")
+	a = feed(t, a, pipelineSearchDueMsg{seq: a.pl.searchSeq, text: "pay"})
+	inFlight := a.pl.seq
+	a, msgs := step(t, a, special(tea.KeyEnter))
+	if search, ok := find[panels.SearchPipelinesMsg](msgs); ok {
+		a = feed(t, a, search)
+	}
+	if a.pl.panel.Searching() || a.pl.seq != inFlight {
+		t.Fatal("enter must close the bar and keep the search that is already loading")
 	}
 }

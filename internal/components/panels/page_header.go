@@ -162,6 +162,11 @@ func (p PageHeaderProps) pivotRow() (string, []HeaderAnchor) {
 	}
 }
 
+func PivotTabs(labels []string, active, width int) (string, string) {
+	p := PageHeaderProps{Width: width, Pivots: labels, Pivot: active}
+	return spread(width, strings.Join(p.pivotLabels(), headerGap), ""), p.ruleRow()
+}
+
 func (p PageHeaderProps) ruleRow() string {
 	rule := lipgloss.NewStyle().Foreground(styles.ColorBorder)
 	if p.Pivot < 0 || p.Pivot >= len(p.Pivots) {

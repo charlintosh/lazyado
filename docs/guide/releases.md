@@ -93,7 +93,7 @@ A sidebar lists the release's artifacts, each stage's trigger, who created the r
 | `o` | Open the release in the browser |
 | `esc` | Back to the hub |
 
-**Logs** works like a build's [logs](pipelines.md#logs): jobs grouped by stage on the left, the selected job's tasks and the task's log on the right. `Tab` moves between them, and `F` follows a running task.
+**Logs** works like a build's [logs](pipelines.md#logs): a tree of stages, jobs and tasks on the left and the selected task's log on the right. `Tab` switches between them, `e` jumps to errors, and `F` follows a running task.
 
 ## Deploying a stage
 

@@ -35,12 +35,20 @@ const (
 	pipelineNameColumn  = 34
 	pipelineColumnsShow = 96
 	pipelineWhenColumn  = 11
+	pipelineStageColumn = 15
+	pipelineStageCells  = 12
+	pipelineStagesShow  = 72
+	dayToday            = "Today"
+	dayYesterday        = "Yesterday"
+	dayWeek             = "Last 7 days"
+	dayOlder            = "Older"
 	folderOpen          = "▾ "
 	pipelineSearchHint  = "pipeline name"
 	runSearchHint       = "text, state:failed, branch:main, pipeline:name, by:@me"
 	loadingPipelines    = "Loading pipelines"
 	loadingRuns         = "Loading runs"
 	loadingMoreRuns     = "Loading more"
+	searchingRemote     = "searching"
 	moreOnScroll        = "More load as you scroll"
 )
 
@@ -49,7 +57,8 @@ type OpenPipelineMsg struct {
 }
 
 type OpenRunMsg struct {
-	Run models.PipelineRun
+	Run     models.PipelineRun
+	AtError bool
 }
 
 type BrowsePipelineMsg struct {
@@ -63,8 +72,13 @@ type SearchPipelinesMsg struct {
 	Text string
 }
 
+type PipelineSearchTypedMsg struct {
+	Text string
+}
+
 type pipelineRow struct {
 	folder   string
+	day      bool
 	pipeline *models.Pipeline
 	run      *models.PipelineRun
 	top      int
@@ -95,16 +109,18 @@ type PipelinesPanel struct {
 	searching   bool
 	searchErr   string
 	applied     string
+	remote      bool
 	viewport    viewport.Model
 	keys        keys.KeyMap
 	spinner     string
 	focused     bool
+	stages      map[int][]models.RunState
 	width       int
 	height      int
 }
 
 func NewPipelinesPanel(k keys.KeyMap) PipelinesPanel {
-	return PipelinesPanel{viewport: widgets.NewViewport(k), keys: k, search: widgets.SearchInput(searchPrompt, pipelineSearchHint), loading: true}
+	return PipelinesPanel{viewport: widgets.NewViewport(k), keys: k, stages: map[int][]models.RunState{}, search: widgets.SearchInput(searchPrompt, pipelineSearchHint), loading: true}
 }
 
 func (p *PipelinesPanel) Mode() PipelineList { return p.mode }
@@ -183,6 +199,8 @@ func (p *PipelinesPanel) SetSearchError(err string) {
 
 func (p *PipelinesPanel) SetApplied(text string) { p.applied = text }
 
+func (p *PipelinesPanel) SetRemoteSearch(on bool) { p.remote = on }
+
 func (p *PipelinesPanel) Applied() string { return p.applied }
 
 func (p *PipelinesPanel) SearchText() string { return p.search.Value() }
@@ -241,10 +259,17 @@ func (p *PipelinesPanel) rebuild() {
 		if p.mode == ListBranches {
 			runs = models.LatestPerBranch(runs)
 		}
+		day := ""
+		now := time.Now()
 		for i := range runs {
-			if q.Matches(runs[i]) {
-				p.rows = append(p.rows, pipelineRow{run: &runs[i]})
+			if !q.Matches(runs[i]) {
+				continue
 			}
+			if label := dayLabel(runs[i].When(), now); p.mode != ListBranches && label != day {
+				day = label
+				p.rows = append(p.rows, pipelineRow{folder: label, day: true})
+			}
+			p.rows = append(p.rows, pipelineRow{run: &runs[i]})
 		}
 	} else {
 		terms := p.terms()
@@ -268,6 +293,60 @@ func (p *PipelinesPanel) rebuild() {
 		}
 	}
 	p.layout()
+}
+
+func dayLabel(t, now time.Time) string {
+	if t.IsZero() {
+		return dayOlder
+	}
+	day := func(v time.Time) time.Time {
+		y, m, d := v.Local().Date()
+		return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+	}
+	days := int(day(now).Sub(day(t)).Hours() / 24)
+	switch {
+	case days <= 0:
+		return dayToday
+	case days == 1:
+		return dayYesterday
+	case days < 7:
+		return dayWeek
+	}
+	return dayOlder
+}
+
+func (p *PipelinesPanel) SetRunStages(id int, states []models.RunState) {
+	p.stages[id] = states
+	p.render()
+}
+
+func (p *PipelinesPanel) StagesShown() bool {
+	return p.width >= pipelineStagesShow && p.mode != ListAll
+}
+
+func (p *PipelinesPanel) VisibleRuns() []models.PipelineRun {
+	top := p.viewport.YOffset()
+	bottom := top + p.viewport.Height()
+	var out []models.PipelineRun
+	for _, r := range p.rows {
+		if r.header() || r.top+pipelineRowHeight <= top || r.top >= bottom {
+			continue
+		}
+		if run := r.latest(); run != nil {
+			out = append(out, *run)
+		}
+	}
+	return out
+}
+
+func (r pipelineRow) latest() *models.PipelineRun {
+	if r.run != nil {
+		return r.run
+	}
+	if r.pipeline != nil {
+		return r.pipeline.Latest
+	}
+	return nil
 }
 
 func (p *PipelinesPanel) firstSelectable(from, dir int) int {
@@ -353,7 +432,7 @@ func (p *PipelinesPanel) KeyBindings() []key.Binding {
 		if p.search.Value() != "" {
 			back = widgets.Relabel(k.Back, "clear")
 		}
-		return []key.Binding{widgets.Relabel(k.Select, "search Azure DevOps"), widgets.Combine("move", k.PickerUp, k.PickerDown), back}
+		return []key.Binding{widgets.Relabel(k.Select, "done"), widgets.Combine("move", k.PickerUp, k.PickerDown), back}
 	}
 	search := widgets.Relabel(k.Search, "search")
 	views := widgets.Combine("view", k.PrevPanel, k.NextPanel)
@@ -364,6 +443,9 @@ func (p *PipelinesPanel) KeyBindings() []key.Binding {
 	bindings := []key.Binding{open, k.RunPipeline}
 	if !p.runMode() {
 		bindings = []key.Binding{widgets.Relabel(k.Select, "runs"), widgets.Relabel(k.View, "last run"), k.RunPipeline}
+	}
+	if run := p.SelectedRun(); run != nil && (run.State() == models.RunFailed || run.State() == models.RunPartial) {
+		bindings = append(bindings[:1:1], append([]key.Binding{widgets.Relabel(k.NextIssue, "first error")}, bindings[1:]...)...)
 	}
 	if p.mode == ListPipelineRuns || p.mode == ListBranches {
 		views = widgets.Combine("runs/branches", k.Panel1, k.Panel2)
@@ -423,6 +505,11 @@ func (p PipelinesPanel) handleKey(msg tea.KeyPressMsg) (PipelinesPanel, tea.Cmd)
 		}
 	case key.Matches(msg, k.OpenBrowser):
 		return p, p.browse()
+	case key.Matches(msg, k.NextIssue):
+		if run := p.SelectedRun(); run != nil {
+			chosen := *run
+			return p, func() tea.Msg { return OpenRunMsg{Run: chosen, AtError: true} }
+		}
 	}
 	return p, nil
 }
@@ -526,11 +613,13 @@ func (p PipelinesPanel) updateSearch(msg tea.Msg) (PipelinesPanel, tea.Cmd) {
 	before := p.search.Value()
 	var cmd tea.Cmd
 	p.search, cmd = p.search.Update(msg)
-	if p.search.Value() != before {
-		p.searchErr = ""
-		p.rebuild()
+	if p.search.Value() == before {
+		return p, cmd
 	}
-	return p, cmd
+	p.searchErr = ""
+	p.rebuild()
+	text := strings.TrimSpace(p.search.Value())
+	return p, tea.Batch(cmd, func() tea.Msg { return PipelineSearchTypedMsg{Text: text} })
 }
 
 func (p *PipelinesPanel) render() {
@@ -546,6 +635,10 @@ func (p *PipelinesPanel) render() {
 				lines = append(lines, "")
 			}
 			r.top = len(lines)
+			if r.day {
+				lines = append(lines, " "+Heading(r.folder))
+				continue
+			}
 			lines = append(lines, " "+lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(folderOpen+r.folder))
 			continue
 		}
@@ -607,16 +700,40 @@ func fill(left, right string, base lipgloss.Style, width int) string {
 	return left + base.Render(strings.Repeat(" ", max(room-lipgloss.Width(left), 0))) + right
 }
 
+func (p *PipelinesPanel) rightColumns(run *models.PipelineRun, base lipgloss.Style) (string, string) {
+	muted := base.Foreground(styles.ColorTextMuted)
+	if run == nil {
+		return "", ""
+	}
+	when := muted.Render(fmt.Sprintf("%*s", pipelineWhenColumn, ShortAgo(run.When())))
+	took := base.Foreground(durationColor(*run)).Render(fmt.Sprintf("%*s", pipelineWhenColumn, RunDuration(*run, time.Now())))
+	if !p.StagesShown() {
+		return when, took
+	}
+	pips := StageCells(p.stages[run.ID], pipelineStageCells, base)
+	pad := func(s string) string {
+		return s + base.Render(strings.Repeat(" ", max(pipelineStageColumn-lipgloss.Width(s), 0)))
+	}
+	return pad(pips) + when, pad("") + took
+}
+
+func rowStyles(base lipgloss.Style, selected bool) (lipgloss.Style, lipgloss.Style) {
+	if selected {
+		return base.Foreground(styles.ColorText).Bold(true), base.Foreground(styles.ColorLight)
+	}
+	return base.Foreground(styles.ColorText), base.Foreground(styles.ColorTextMuted)
+}
+
 func (p *PipelinesPanel) pipelineCells(pl models.Pipeline, base lipgloss.Style, selected bool) ([3]string, [3]string) {
 	terms := p.terms()
+	strong, muted := rowStyles(base, selected)
 	name := highlight(pl.Name, terms, base.Foreground(styles.ColorText).Bold(true))
 	state := models.RunUnknown
 	if pl.Latest != nil {
 		state = pl.Latest.State()
 	}
-	badge := RunBadge(state) + base.Render(" ")
+	badge := runGlyphStyle(state, base) + base.Render(" ")
 	indent := base.Render(strings.Repeat(" ", lipgloss.Width(badge)))
-	muted := base.Foreground(styles.ColorTextMuted)
 	run := pl.Latest
 	if run == nil {
 		if p.width < pipelineColumnsShow {
@@ -624,33 +741,31 @@ func (p *PipelinesPanel) pipelineCells(pl models.Pipeline, base lipgloss.Style, 
 		}
 		return [3]string{badge + name, muted.Render("Never run"), ""}, [3]string{indent + muted.Render(pl.FolderLabel()), "", ""}
 	}
-	summary := base.Foreground(styles.ColorAccent).Bold(true).Render("#"+run.Number) + base.Foreground(styles.ColorText).Render(" · "+run.Title())
-	when := muted.Render(fmt.Sprintf("%*s", pipelineWhenColumn, ShortAgo(run.When())))
-	took := base.Foreground(durationColor(*run)).Render(fmt.Sprintf("%*s", pipelineWhenColumn, RunDuration(*run, time.Now())))
+	summary := base.Foreground(styles.ColorAccent).Bold(true).Render("#"+run.Number) + strong.UnsetBold().Render(" "+run.Title())
+	first, second := p.rightColumns(run, base)
 	if p.width < pipelineColumnsShow {
-		return [3]string{badge + name, "", when}, [3]string{indent + summary, "", took}
+		return [3]string{badge + name, "", first}, [3]string{indent + summary, "", second}
 	}
-	return [3]string{badge + name, summary, when}, [3]string{indent + muted.Render(pl.FolderLabel()), muted.Render(run.Trigger()), took}
+	return [3]string{badge + name, summary, first}, [3]string{indent + muted.Render(pl.FolderLabel()), muted.Render(run.Trigger()), second}
 }
 
 func (p *PipelinesPanel) runCells(run models.PipelineRun, base lipgloss.Style, selected bool) ([3]string, [3]string) {
 	terms := p.terms()
-	badge := RunBadge(run.State()) + base.Render(" ")
+	strong, muted := rowStyles(base, selected)
+	badge := runGlyphStyle(run.State(), base) + base.Render(" ")
 	indent := base.Render(strings.Repeat(" ", lipgloss.Width(badge)))
-	muted := base.Foreground(styles.ColorTextMuted)
 	number := base.Foreground(styles.ColorAccent).Bold(true).Render("#" + run.Number)
-	title := highlight(run.Title(), terms, base.Foreground(styles.ColorText).Bold(selected))
-	when := muted.Render(fmt.Sprintf("%*s", pipelineWhenColumn, ShortAgo(run.When())))
-	took := base.Foreground(durationColor(run)).Render(fmt.Sprintf("%*s", pipelineWhenColumn, RunDuration(run, time.Now())))
+	title := highlight(run.Title(), terms, strong)
+	first, second := p.rightColumns(&run, base)
 	meta := RunMeta(run)
 	switch p.mode {
 	case ListRuns:
-		meta = run.PipelineName + " · " + meta
+		meta = joinMeta(run.PipelineName, meta)
 	case ListBranches:
-		branch := highlight(run.Branch(), terms, base.Foreground(styles.ColorText).Bold(true))
-		return [3]string{badge + branch, "", when}, [3]string{indent + number + base.Render(" ") + title, "", took}
+		branch := highlight(branchGlyph+run.Branch(), terms, strong)
+		return [3]string{badge + branch, "", first}, [3]string{indent + number + base.Render(" ") + highlight(run.Title(), terms, muted), "", second}
 	}
-	return [3]string{badge + number + base.Render(" ") + title, "", when}, [3]string{indent + highlight(meta, terms, muted), "", took}
+	return [3]string{badge + number + base.Render(" ") + title, "", first}, [3]string{indent + highlight(meta, terms, muted), "", second}
 }
 
 func durationColor(r models.PipelineRun) color.Color {
@@ -669,7 +784,11 @@ func (p *PipelinesPanel) searchView() string {
 		border = styles.ColorPrimary
 	}
 	box := lipgloss.NewStyle().Foreground(border).Render(strings.Repeat(ruleGlyph, max(p.width, 0)))
-	lines := []string{Line(p.search.View(), p.width), box}
+	input := Line(p.search.View(), p.width)
+	if p.remote {
+		input = spreadLine(p.search.View(), Loading(p.spinner, searchingRemote)+" ", p.width)
+	}
+	lines := []string{input, box}
 	if p.searchErr != "" {
 		lines = append(lines, Line(lipgloss.NewStyle().Foreground(styles.ColorError).Render(p.searchErr), p.width))
 	}

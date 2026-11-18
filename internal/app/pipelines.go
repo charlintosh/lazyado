@@ -25,12 +25,13 @@ const (
 )
 
 const (
-	recentPipelines   = 10
-	runsPageSize      = 50
-	previewRuns       = 10
-	pipelinesPageSize = 200
-	listPollInterval  = 15 * time.Second
-	runPollInterval   = 5 * time.Second
+	recentPipelines        = 10
+	runsPageSize           = 50
+	previewRuns            = 10
+	pipelinesPageSize      = 200
+	listPollInterval       = 15 * time.Second
+	pipelineSearchDebounce = 400 * time.Millisecond
+	runPollInterval        = 5 * time.Second
 )
 
 var (
@@ -53,6 +54,7 @@ type pipelineState struct {
 	pattern   string
 	query     string
 	pollSeq   int
+	searchSeq int
 
 	previewRun      int
 	previewPipeline int
@@ -63,6 +65,15 @@ type pipelineState struct {
 
 	runSeq     int
 	fromReview bool
+
+	stageCache map[int]stageEntry
+}
+
+type stageEntry struct {
+	stages  []models.RunStage
+	state   models.RunState
+	loading bool
+	stale   bool
 }
 
 type pipelineListMsg struct {
@@ -79,6 +90,11 @@ type pipelineListMsg struct {
 
 type pipelinePollMsg struct {
 	seq int
+}
+
+type pipelineSearchDueMsg struct {
+	seq  int
+	text string
 }
 
 type pipelinePreviewDueMsg struct {
@@ -155,6 +171,10 @@ func schedulePipelinePollCmd(seq int) tea.Cmd {
 	return tea.Tick(listPollInterval, func(time.Time) tea.Msg { return pipelinePollMsg{seq: seq} })
 }
 
+func schedulePipelineSearchCmd(seq int, text string) tea.Cmd {
+	return tea.Tick(pipelineSearchDebounce, func(time.Time) tea.Msg { return pipelineSearchDueMsg{seq: seq, text: text} })
+}
+
 func schedulePipelinePreviewCmd(run, pipeline int) tea.Cmd {
 	return tea.Tick(commentsDebounce, func(time.Time) tea.Msg { return pipelinePreviewDueMsg{run: run, pipeline: pipeline} })
 }
@@ -177,6 +197,64 @@ func loadPipelineHistoryCmd(client *api.Client, pipeline int) tea.Cmd {
 		}
 		return pipelineHistoryMsg{pipeline: pipeline, runs: runs}
 	}
+}
+
+func (s *pipelineState) cachedStages(id int) (stageEntry, bool) {
+	e, ok := s.stageCache[id]
+	return e, ok
+}
+
+func (s *pipelineState) requestStages(run models.PipelineRun) bool {
+	if s.stageCache == nil {
+		s.stageCache = map[int]stageEntry{}
+	}
+	e, ok := s.stageCache[run.ID]
+	if ok && (e.loading || (!e.stale && e.state == run.State())) {
+		return false
+	}
+	e.loading, e.state = true, run.State()
+	s.stageCache[run.ID] = e
+	return true
+}
+
+func (s *pipelineState) storeStages(id int, stages []models.RunStage) {
+	if s.stageCache == nil {
+		s.stageCache = map[int]stageEntry{}
+	}
+	e := s.stageCache[id]
+	e.stages, e.loading, e.stale = stages, false, false
+	s.stageCache[id] = e
+}
+
+func (s *pipelineState) markActiveStale() {
+	mark := func(r *models.PipelineRun) {
+		if r == nil || !r.State().Active() {
+			return
+		}
+		if e, ok := s.stageCache[r.ID]; ok && !e.loading {
+			e.stale = true
+			s.stageCache[r.ID] = e
+		}
+	}
+	for i := range s.runs {
+		mark(&s.runs[i])
+	}
+	for i := range s.pipelines {
+		mark(s.pipelines[i].Latest)
+	}
+}
+
+func (a *App) syncListStages() tea.Cmd {
+	if !a.inPipelines() || a.viewMode != ViewMain || !a.pl.panel.StagesShown() {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, run := range a.pl.panel.VisibleRuns() {
+		if a.pl.requestStages(run) {
+			cmds = append(cmds, loadPipelineStagesCmd(a.client, run.ID))
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
 func (a *App) inPipelines() bool {
@@ -322,6 +400,25 @@ func (a *App) closePipelinePage() tea.Cmd {
 }
 
 func (a *App) searchPipelines(text string) tea.Cmd {
+	a.pl.searchSeq++
+	a.pl.panel.SetRemoteSearch(false)
+	a.applySearch(text)
+	return a.loadPipelineList()
+}
+
+func (a *App) searchPipelinesLive(text string) tea.Cmd {
+	if text == a.searchText() {
+		return nil
+	}
+	a.applySearch(text)
+	a.pl.seq++
+	a.pl.loading = true
+	a.pl.token = ""
+	a.pl.panel.SetRemoteSearch(true)
+	return loadPipelineListCmd(a.client, a.listRequest())
+}
+
+func (a *App) applySearch(text string) {
 	switch a.pipelineMode() {
 	case panels.ListRecent:
 		a.pl.pivot = pipelinesAll
@@ -331,7 +428,6 @@ func (a *App) searchPipelines(text string) tea.Cmd {
 	default:
 		a.pl.query = text
 	}
-	return a.loadPipelineList()
 }
 
 func (a *App) refreshPipelines() tea.Cmd {
@@ -340,6 +436,7 @@ func (a *App) refreshPipelines() tea.Cmd {
 		cmds = append(cmds, loadIdentityCmd(a.client))
 	}
 	a.pl.previewRun, a.pl.previewPipeline = 0, 0
+	a.pl.stageCache = nil
 	return tea.Batch(cmds...)
 }
 
@@ -362,7 +459,7 @@ func (a *App) syncPipelinePreview() tea.Cmd {
 	if r := a.pl.panel.SelectedRun(); r != nil {
 		run = r.ID
 	}
-	if p := a.pl.panel.SelectedPipeline(); p != nil && a.pl.page == nil && a.pipelineMode() != panels.ListRuns {
+	if p := a.pl.panel.SelectedPipeline(); p != nil {
 		pipeline = p.ID
 	}
 	if run == a.pl.previewRun && pipeline == a.pl.previewPipeline {
@@ -370,6 +467,9 @@ func (a *App) syncPipelinePreview() tea.Cmd {
 	}
 	if run != a.pl.previewRun {
 		a.pl.stages, a.pl.stagesLoaded = nil, run == 0
+		if e, ok := a.pl.cachedStages(run); ok && !e.loading && !e.stale {
+			a.pl.stages, a.pl.stagesLoaded = e.stages, true
+		}
 	}
 	if pipeline != a.pl.previewPipeline {
 		a.pl.history, a.pl.historyLoaded = nil, pipeline == 0
@@ -476,10 +576,27 @@ func (a App) handlePipelineResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	case panels.MorePipelinesMsg:
 		return a, a.loadMorePipelines(), true
 	case panels.SearchPipelinesMsg:
+		if msg.Text == a.searchText() {
+			a.pl.searchSeq++
+			return a, nil, true
+		}
 		return a, a.searchPipelines(msg.Text), true
+	case panels.PipelineSearchTypedMsg:
+		a.pl.searchSeq++
+		return a, schedulePipelineSearchCmd(a.pl.searchSeq, msg.Text), true
+	case pipelineSearchDueMsg:
+		if msg.seq != a.pl.searchSeq || !a.pl.panel.Searching() {
+			return a, nil, true
+		}
+		return a, a.searchPipelinesLive(msg.text), true
 	case panels.OpenPipelineMsg:
 		return a, a.openPipelinePage(msg.Pipeline), true
 	case panels.OpenRunMsg:
+		if msg.AtError {
+			cmd := a.openRun(msg.Run, panels.RunLogsTab)
+			a.pl.view.JumpToFirstError()
+			return a, cmd, true
+		}
 		return a, a.openRun(msg.Run, panels.RunSummaryTab), true
 	case panels.BrowsePipelineMsg:
 		url := msg.URL
@@ -492,7 +609,7 @@ func (a App) handlePipelineResult(msg tea.Msg) (App, tea.Cmd, bool) {
 			return a, nil, true
 		}
 		var cmds []tea.Cmd
-		if msg.run != 0 {
+		if r := a.pl.panel.SelectedRun(); msg.run != 0 && !a.pl.stagesLoaded && r != nil && a.pl.requestStages(*r) {
 			cmds = append(cmds, loadPipelineStagesCmd(a.client, msg.run))
 		}
 		if msg.pipeline != 0 {
@@ -500,6 +617,8 @@ func (a App) handlePipelineResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, tea.Batch(cmds...), true
 	case pipelineStagesMsg:
+		a.pl.storeStages(msg.run, msg.stages)
+		a.pl.panel.SetRunStages(msg.run, panels.StageStates(msg.stages))
 		if msg.run == a.pl.previewRun {
 			a.pl.stages, a.pl.stagesLoaded = msg.stages, true
 		}
@@ -522,11 +641,14 @@ func (a App) setPipelineList(msg pipelineListMsg) (App, tea.Cmd, bool) {
 		a.pl.panel.SetLoadingMore(false)
 	} else if !msg.silent {
 		a.pl.loading = false
+		a.pl.panel.SetRemoteSearch(false)
 	}
 	if msg.searchErr != "" {
 		a.pl.loaded = true
-		a.pl.panel.SetPipelines(msg.mode, nil, false)
-		a.pl.panel.SetSearchText(a.searchText())
+		if !a.pl.panel.Searching() {
+			a.pl.panel.SetPipelines(msg.mode, nil, false)
+			a.pl.panel.SetSearchText(a.searchText())
+		}
 		a.pl.panel.SetSearchError(msg.searchErr)
 		return a, nil, true
 	}
@@ -548,6 +670,9 @@ func (a App) setPipelineList(msg pipelineListMsg) (App, tea.Cmd, bool) {
 		a.pl.runs = mergeRuns(a.pl.runs, msg.runs)
 	default:
 		a.pl.pipelines, a.pl.runs, a.pl.token = msg.pipelines, msg.runs, msg.token
+	}
+	if msg.silent {
+		a.pl.markActiveStale()
 	}
 	text := a.pl.panel.SearchText()
 	if msg.mode >= panels.ListRuns {
@@ -597,7 +722,8 @@ func (a *App) renderPipelinePane(width, height int) string {
 		HistoryLoaded: a.pl.historyLoaded,
 		Stages:        a.pl.stages,
 		StagesLoaded:  a.pl.stagesLoaded,
-		ShowPipeline:  a.pl.previewPipeline != 0,
+		ShowPipeline:  a.pipelineMode() < panels.ListRuns,
+		IssueKey:      a.keys.NextIssue.Help().Key,
 		Spinner:       a.spinner.View(),
 		Width:         cw,
 		Height:        ch,
