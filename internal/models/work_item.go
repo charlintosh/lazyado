@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const DefaultMaxWorkItems = 1000
+
 // WorkItemType represents the type of work item
 type WorkItemType string
 

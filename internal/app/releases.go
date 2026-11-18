@@ -39,6 +39,8 @@ const (
 var releasePivots = []string{"Releases", "Approvals"}
 
 type releaseState struct {
+	defsLoad  inflight
+	search    inflight
 	defs      panels.ReleaseDefinitionsPanel
 	list      panels.ReleasesPanel
 	approvals panels.ApprovalsPanel
@@ -241,7 +243,7 @@ func (a *App) loadReleaseDefinitions() tea.Cmd {
 	a.rl.seq++
 	a.rl.loading, a.rl.loaded = true, false
 	a.rl.defs.ShowLoading()
-	return loadReleaseDefinitionsCmd(a.client, a.rl.seq, "", "", false)
+	return loadReleaseDefinitionsCmd(a.rl.defsLoad.restart(a.client), a.rl.seq, "", "", false)
 }
 
 func (a *App) starredReleases() map[int]bool {
@@ -462,7 +464,7 @@ func (a App) handleReleaseHubResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		if msg.seq != a.rl.searchSeq {
 			return a, nil, true
 		}
-		return a, findReleaseDefinitionsCmd(a.client, msg.seq, msg.text), true
+		return a, findReleaseDefinitionsCmd(a.rl.search.restart(a.client), msg.seq, msg.text), true
 	case releaseSearchMsg:
 		if msg.seq != a.rl.searchSeq {
 			return a, nil, true

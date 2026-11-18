@@ -102,3 +102,36 @@ func TestFuzzyIsFastOnALargeIndex(t *testing.T) {
 		t.Errorf("matching %d files took %v", MaxIndexedItems, took)
 	}
 }
+
+func TestCompactIndexKeepsMatchingCaseAndUnicode(t *testing.T) {
+	x := NewFileIndex([]GitItem{
+		{Path: "/docs", Folder: true},
+		{Path: "/docs/Résumé Notes.md"},
+		{Path: "/web/src/ReleaseGate.tsx"},
+		{Path: "/README.md"},
+	}, "", false)
+	cases := map[string]string{
+		"résumé":    "docs/Résumé Notes.md",
+		"README":    "README.md",
+		"rgate":     "web/src/ReleaseGate.tsx",
+		"src/ gate": "web/src/ReleaseGate.tsx",
+	}
+	for q, want := range cases {
+		got := names(x, x.Match(q, nil))
+		if len(got) == 0 || got[0] != want {
+			t.Errorf("Match(%q) = %v, want %q first", q, got, want)
+		}
+	}
+	if got := x.Match("resume", nil); len(got) != 0 {
+		t.Errorf("accents are significant, got %v", names(x, got))
+	}
+	if !x.Has("/README.md") || x.Has("/docs") || x.Has("/missing.go") {
+		t.Error("Has must know every file and nothing else")
+	}
+	if got := x.Children("/docs"); len(got) != 1 || got[0].Path != "/docs/Résumé Notes.md" {
+		t.Errorf("children %+v", got)
+	}
+	if got := x.Children("/"); len(got) != 2 || !got[0].Folder || got[1].Path != "/README.md" {
+		t.Errorf("root children %+v, want the docs folder first then files", got)
+	}
+}

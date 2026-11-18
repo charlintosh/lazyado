@@ -231,6 +231,7 @@ func (a App) handleReviewResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, nil, true
 	case reviewChangedMsg:
 		a.loading = false
+		a.pr.lists.Clear()
 		pr := msg.pr
 		return a, tea.Batch(a.notify(msg.notice), loadThreadsCmd(c, pr, a.pr.view.Iteration()), loadPullRequestCmd(c, pr.ID), loadChecksCmd(c, pr)), true
 	case panels.VotePullRequestMsg:

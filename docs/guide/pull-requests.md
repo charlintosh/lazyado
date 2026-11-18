@@ -30,6 +30,8 @@ Press `r` to switch. The picker is searchable, includes an explicit **All reposi
 
 `Tab` / `Shift+Tab`, `h` / `l` and `[` / `]` also cycle through the views. Each row shows the reviewers' votes. On wide terminals a preview pane shows the selected pull request's policies, reviewers and description.
 
+Going back to a view, repository or search you already loaded shows it at once; if it is older than 30 seconds it refreshes in the background. Policies work the same way for a pull request you already looked at, except that pending or running checks always refresh. `Ctrl+r` always reloads.
+
 | Key | Action |
 | --- | ------ |
 | `enter` | Open the review |

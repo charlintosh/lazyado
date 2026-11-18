@@ -65,3 +65,12 @@ func TestLinksAndMentionsStillRender(t *testing.T) {
 		t.Fatalf("unexpected render:\n%s", plain)
 	}
 }
+
+func TestResizingKeepsOnlyAFewRenderers(t *testing.T) {
+	for width := 40; width < 80; width++ {
+		RenderMarkdown("# Release notes\n\n- faster boards", width)
+	}
+	if n := markdown.renderers.Len(); n > renderersKept {
+		t.Fatalf("%d glamour renderers kept after resizing, want at most %d", n, renderersKept)
+	}
+}

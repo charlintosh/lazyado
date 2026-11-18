@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 	"sync"
@@ -19,38 +20,47 @@ const commentsDebounce = 150 * time.Millisecond
 
 func loadDataCmd(client *api.Client) tea.Cmd {
 	return func() tea.Msg {
-		iterations, err := client.GetIterations()
-		if err != nil {
+		var (
+			wg      sync.WaitGroup
+			msg     dataLoadedMsg
+			iterErr error
+			areaErr error
+		)
+		wg.Go(func() { msg.iterations, iterErr = client.GetIterations() })
+		wg.Go(func() { msg.areas, areaErr = client.GetAreas() })
+		wg.Go(func() {
+			states, err := client.GetAllWorkItemTypeStates()
+			if err != nil {
+				states = map[string][]models.WorkItemStateInfo{}
+			}
+			msg.statesByType = states
+		})
+		wg.Go(func() {
+			members, err := client.GetTeamMembers()
+			if err != nil {
+				members = []models.TeamMember{}
+			}
+			msg.teamMembers = members
+		})
+		wg.Go(func() {
+			me, err := client.GetCurrentUser()
+			if err != nil {
+				me = models.Identity{}
+			}
+			msg.me = me
+		})
+		wg.Go(func() {
+			saved, err := config.LoadFilterState()
+			if err != nil {
+				saved = nil
+			}
+			msg.savedFilters = saved
+		})
+		wg.Wait()
+		if err := cmp.Or(iterErr, areaErr); err != nil {
 			return errMsg{err: err}
 		}
-		areas, err := client.GetAreas()
-		if err != nil {
-			return errMsg{err: err}
-		}
-		statesByType, err := client.GetAllWorkItemTypeStates()
-		if err != nil {
-			statesByType = map[string][]models.WorkItemStateInfo{}
-		}
-		members, err := client.GetTeamMembers()
-		if err != nil {
-			members = []models.TeamMember{}
-		}
-		me, err := client.GetCurrentUser()
-		if err != nil {
-			me = models.Identity{}
-		}
-		saved, err := config.LoadFilterState()
-		if err != nil {
-			saved = nil
-		}
-		return dataLoadedMsg{
-			iterations:   iterations,
-			areas:        areas,
-			statesByType: statesByType,
-			teamMembers:  members,
-			me:           me,
-			savedFilters: saved,
-		}
+		return msg
 	}
 }
 
@@ -66,11 +76,14 @@ func loadIdentityCmd(client *api.Client) tea.Cmd {
 
 func loadWorkItemsCmd(client *api.Client, seq int, q workItemQuery) tea.Cmd {
 	return func() tea.Msg {
-		items, err := client.QueryWorkItems(q.sprint, q.state, q.assigned, q.area)
+		page, err := client.QueryWorkItems(q.sprint, q.state, q.assigned, q.area)
+		if canceled(err) {
+			return nil
+		}
 		if err != nil {
 			return errMsg{err: err}
 		}
-		return workItemsLoadedMsg{seq: seq, items: items}
+		return workItemsLoadedMsg{seq: seq, items: page.Items, truncated: page.Truncated, limit: client.MaxWorkItems()}
 	}
 }
 
@@ -90,10 +103,7 @@ func scheduleCommentsCmd(workItemID int) tea.Cmd {
 func loadCommentsCmd(client *api.Client, workItemID int) tea.Cmd {
 	return func() tea.Msg {
 		comments, err := client.GetComments(workItemID)
-		if err != nil {
-			comments = []models.Comment{}
-		}
-		return commentsLoadedMsg{workItemID: workItemID, comments: comments}
+		return commentsLoadedMsg{workItemID: workItemID, comments: comments, err: err}
 	}
 }
 
@@ -115,12 +125,13 @@ func copyCmd(text, notice string) tea.Cmd {
 	}
 }
 
-func workItemCmd(notice string, run func() error) tea.Cmd {
+func workItemCmd(notice string, run func() (*models.WorkItem, error)) tea.Cmd {
 	return func() tea.Msg {
-		if err := run(); err != nil {
+		item, err := run()
+		if err != nil {
 			return errMsg{err: err}
 		}
-		return workItemChangedMsg{notice: notice}
+		return workItemChangedMsg{notice: notice, item: item}
 	}
 }
 
@@ -135,33 +146,34 @@ func commentCmd(workItemID int, notice string, run func() error) tea.Cmd {
 
 func moveWorkItemCmd(client *api.Client, id int, state string) tea.Cmd {
 	return func() tea.Msg {
-		if err := client.UpdateWorkItemState(id, state); err != nil {
+		item, err := client.UpdateWorkItemState(id, state)
+		if err != nil {
 			return workItemMoveFailedMsg{id: id, state: state, err: err}
 		}
-		return workItemMovedMsg{id: id, state: state}
+		return workItemMovedMsg{id: id, state: state, item: item}
 	}
 }
 
 func updateWorkItemStateCmd(client *api.Client, id int, state string) tea.Cmd {
-	return workItemCmd("State changed to "+state, func() error {
+	return workItemCmd("State changed to "+state, func() (*models.WorkItem, error) {
 		return client.UpdateWorkItemState(id, state)
 	})
 }
 
 func assignWorkItemCmd(client *api.Client, id int, email, name string) tea.Cmd {
-	return workItemCmd("Assigned to "+name, func() error {
+	return workItemCmd("Assigned to "+name, func() (*models.WorkItem, error) {
 		return client.AssignWorkItem(id, email)
 	})
 }
 
 func updateTaskCmd(client *api.Client, id int, title, description string) tea.Cmd {
-	return workItemCmd("Task updated", func() error {
+	return workItemCmd("Task updated", func() (*models.WorkItem, error) {
 		return client.UpdateWorkItem(id, title, description)
 	})
 }
 
 func updateWorkItemCmd(client *api.Client, req modals.WorkItemUpdateRequestMsg) tea.Cmd {
-	return workItemCmd("Work item updated", func() error {
+	return workItemCmd("Work item updated", func() (*models.WorkItem, error) {
 		return client.UpdatePBI(req.ItemID, req.Title, req.Description, req.Priority, req.Effort, req.Tags, req.AssignedTo)
 	})
 }

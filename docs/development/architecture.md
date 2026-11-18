@@ -12,6 +12,7 @@ lazyado is a single Bubble Tea program that follows The Elm Architecture: one ro
 | `internal/components/widgets`     | Reusable building blocks on top of Bubbles: `Picker`, `Dropdown`, `Dialog`, `Overlay`/`OverlayAt`, `Hints`, list/viewport/help factories |
 | `internal/components`             | Markdown rendering (`RenderMarkdown`, `RenderHTML`, `CommentMarkdown`) and HTML conversion |
 | `internal/keys`                   | The only source of key bindings                                                            |
+| `internal/cache`                  | `LRU`: a size- or count-bounded least-recently-used cache with entry ages, used for stale-while-revalidate data and render caches |
 | `internal/styles`                 | Colors and layout constants                                                                |
 
 Every interactive element is a Bubbles component: `table` (backlog), `list` (board columns, every picker), `viewport` (details, discussion, detail view, taskboard, scrolling dialogs and forms), `textinput`, `textarea`, `spinner`, `paginator`, `progress` and `help`.
@@ -56,6 +57,8 @@ Bubble Tea calls `View` after every `Update`, and some messages arrive in bursts
 - The signed-in user is the identity behind the PAT, read once from `_apis/connectionData` (`authenticatedUser`, falling back to `authorizedUser`) into `App.me`. `models.Identity.Owns` decides comment ownership by identity ID, then by unique name, and never by display name. `CommentThread` only emits edit/delete intents for owned comments, and `handlePanelIntent` checks again before opening a modal. An unknown identity makes comments read-only; `Ctrl+r` retries it.
 - Comment loads carry the work item ID and are debounced (`commentsDueMsg`) while the cursor moves; responses for another item are ignored by both the Discussion tab and the detail view.
 - Notification timers carry the notification ID, so an older timer never hides a newer toast.
+- Comments, pull request checks and pull request lists are stale-while-revalidate: the cached value (`internal/cache`, entry age from `Lookup`) is shown at once and refetched when older than `revalidateAfter` (30 s). Pending or running checks are always refetched. Your own changes drop the cached entry (`commentChangedMsg`, `reviewChangedMsg`, `pullRequestCreatedMsg`). A failed load never replaces cached data, and a failed *background* pull request list load is silent. `Ctrl+r` always fetches.
+- Memory is bounded: the Files hub's file text is a 32 MB LRU (at least twice `diff.max_file_kb`, so any allowed file fits); `requested` only marks files in flight, so an evicted file loads again when shown. Highlighted code and rendered Markdown are byte-bounded LRUs, glamour renderers are kept for three widths, and the Builds stage cache is pruned to the visible runs past 300 entries.
 
 ## Pull requests
 

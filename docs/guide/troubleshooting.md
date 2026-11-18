@@ -22,8 +22,17 @@ Errors from Azure DevOps are shown in a dialog with the message the server retur
 | `401` | The token is wrong or has expired. Create a new one. |
 | `403` | The token is missing a scope for that action. See [the scopes lazyado needs](configuration.md#personal-access-token). |
 | `404` | The organization, project or team name is misspelled, or you don't have access to it. |
+| `429` | Azure DevOps is rate limiting your account. See [below](#azure-devops-is-slowing-down-requests). |
 
 After fixing the token or configuration, restart lazyado. For temporary failures, `Ctrl+r` reloads.
+
+## Azure DevOps is slowing down requests
+
+Azure DevOps limits how much load each user puts on it: 200 TSTUs (an abstract unit of server load) in any five-minute window, counted across every tool that uses your account. Near the limit it delays requests, by up to 30 seconds each, and if the load continues it blocks them.
+
+lazyado watches the rate limit headers Azure DevOps sends. When they say to wait, every request waits, and lazyado shows a notice once. Reads that are blocked are retried up to twice; writes are never retried. If a read still fails, the error says Azure DevOps is rate limiting requests. Wait a minute and press `Ctrl+r`.
+
+lazyado keeps its own load low: at most six requests at a time, nothing fetched while you type, and lists, comments and policies you have already seen reused for 30 seconds. Other scripts or pipelines using the same account count toward the same limit. `lazyado -debug` logs what each request cost (see [Debug logging](#debug-logging)).
 
 ## I can't edit my comments or vote
 
@@ -37,7 +46,7 @@ Dragging tasks on the Sprints taskboard needs a terminal that reports mouse even
 
 ## Debug logging
 
-Start lazyado with `-debug` to log every API request and its result:
+Start lazyado with `-debug` to log every API request, its result, its rate limit cost and the running total for the session:
 
 ```bash
 lazyado -debug

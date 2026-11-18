@@ -6,6 +6,23 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- perf: lazyado follows Azure DevOps rate limits. It reads the `X-RateLimit-*` headers, waits as long as `Retry-After` asks (at most 30 s), retries a read up to twice when Azure DevOps blocks it (`429`, `503`), never retries a write, and shows a one-time notice when Azure DevOps starts slowing your requests; `-debug` logs each request's TSTU cost and the session total
+- feat: `boards.max_work_items` (default `1000`) caps a Boards query at the most recently changed items, with a notice when the cap is reached; before, *All* filters could load up to 20,000 items in 100 sequential requests
+
+### Changed
+
+- perf: at most six requests are in flight at once, and a load replaced by a newer one (Boards filters, pull request views, Builds lists and search, release search, Commits) is cancelled instead of finished and thrown away
+- perf: moving a card, changing state, assigning or editing a work item updates that item from Azure DevOps's reply instead of reloading the whole list. The list still reloads when the item no longer fits the query, and for creating or deleting. Other people's changes show up on `Ctrl+r` or the next filter change
+- perf: Boards start with fewer, parallel requests: the states of every work item type come with the type list (one request instead of one per type, with a per-type fallback), the startup requests run side by side, and work items load in parallel batches
+- perf: Discussion, pull request policies and pull request lists you have already seen show at once when you come back, then refresh in the background if they are older than 30 seconds. Pending or running checks always refresh, your own changes are never served from the cache, and a failed background refresh keeps what is on screen
+- perf: lower memory use. The Go to file index is about five times smaller (34 MB to 6 MB for 50,000 files); the Files hub keeps up to 32 MB of file text instead of every file opened; highlighted code (64 MB) and rendered Markdown (16 MB) are capped by size and drop the least recently used entry instead of starting over; resizing keeps three Markdown renderers instead of one per width; the Builds stage cache is capped
+
+### Fixed
+
+- fix: parent titles went missing on boards with more than 200 distinct parents, because they were asked for in one request over the API's 200-ID limit; parents already in the list are no longer fetched again
+
 ## [v1.5.0] - 2026-11-17
 
 Builds and files release: redesigned Builds runs, run screen and logs with stages that scale to any pipeline, Builds search as you type, Go to file (`Ctrl+p`) in the Files hub, and vim-like yank of selected lines.

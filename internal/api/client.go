@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/charlintosh/lazyado/internal/config"
@@ -19,6 +21,8 @@ const apiVersion = "7.1"
 // Client is the Azure DevOps API client
 type Client struct {
 	httpClient   *http.Client
+	gate         *gate
+	ctx          context.Context
 	baseURL      string
 	teamURL      string
 	releaseURL   string
@@ -28,6 +32,7 @@ type Client struct {
 	project      string
 	team         string
 	maxFileBytes int64
+	maxWorkItems int
 }
 
 // NewClient creates a new Azure DevOps API client
@@ -37,8 +42,10 @@ func NewClient(cfg *config.Config) *Client {
 
 	return &Client{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: newTransport(),
 		},
+		gate:         newGate(),
 		baseURL:      cfg.BaseURL(),
 		teamURL:      cfg.TeamURL(),
 		releaseURL:   cfg.ReleaseURL(),
@@ -48,7 +55,39 @@ func NewClient(cfg *config.Config) *Client {
 		project:      cfg.Project,
 		team:         cfg.Team,
 		maxFileBytes: cfg.DiffLimits().MaxFileBytes(),
+		maxWorkItems: cfg.MaxWorkItems(),
 	}
+}
+
+func newTransport() http.RoundTripper {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConnsPerHost = maxInFlight
+	return t
+}
+
+func (c *Client) WithContext(ctx context.Context) *Client {
+	cp := *c
+	cp.ctx = ctx
+	return &cp
+}
+
+func (c *Client) Throttle() Throttle {
+	return c.gate.throttle()
+}
+
+func (c *Client) MaxWorkItems() int {
+	return c.maxWorkItems
+}
+
+func (c *Client) Usage() Usage {
+	return c.gate.totals()
+}
+
+func (c *Client) context() context.Context {
+	if c.ctx == nil {
+		return context.Background()
+	}
+	return c.ctx
 }
 
 // doRequest performs an HTTP request with authentication
@@ -58,178 +97,114 @@ func (c *Client) doRequest(method, url string, body io.Reader) (*http.Response, 
 
 // doRequestWithContentType performs an HTTP request with authentication and custom content type
 func (c *Client) doRequestWithContentType(method, url string, body io.Reader, contentType string) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+	ctx := c.context()
+	for attempt := 0; ; attempt++ {
+		resp, rate, err := c.send(ctx, method, url, body, contentType)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, nil
+		}
+		msg, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if retryable(method, resp.StatusCode) && attempt < maxRetries {
+			wait := retryWait(rate, attempt)
+			clientLogger.Debugf("API %d from %s, retrying in %v", resp.StatusCode, debug.RedactURL(url), wait)
+			if rate.retryAfter == 0 {
+				if err := c.gate.sleep(ctx, wait); err != nil {
+					return nil, fmt.Errorf("executing request: %w", err)
+				}
+			}
+			continue
+		}
+		clientLogger.Debugf("API error %d from %s", resp.StatusCode, debug.RedactURL(url))
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("Azure DevOps is rate limiting requests, try again in a minute: %s", extractAPIMessage(msg))
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, extractAPIMessage(msg))
 	}
+}
 
+func (c *Client) send(ctx context.Context, method, url string, body io.Reader, contentType string) (*http.Response, rateHeaders, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, rateHeaders{}, fmt.Errorf("creating request: %w", err)
+	}
 	req.Header.Set("Authorization", c.authHeader)
 	req.Header.Set("Content-Type", contentType)
 
-	// Log start
-	clientLogger.Debugf("fetching %s %s", method, debug.RedactURL(url))
+	if err := c.gate.acquire(ctx); err != nil {
+		return nil, rateHeaders{}, fmt.Errorf("executing request: %w", err)
+	}
+	defer c.gate.release()
 
+	clientLogger.Debugf("fetching %s %s", method, debug.RedactURL(url))
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		clientLogger.Debugf("error fetching %s", debug.RedactURL(url))
-		return nil, fmt.Errorf("executing request: %w", err)
+		return nil, rateHeaders{}, fmt.Errorf("executing request: %w", err)
 	}
+	rate := c.gate.observe(resp.StatusCode, resp.Header)
+	usage := c.gate.totals()
+	clientLogger.Debugf("fetched %s %d cost=%.4f session=%d/%.3f", debug.RedactURL(url), resp.StatusCode, rate.cost, usage.Requests, usage.Cost)
+	return resp, rate, nil
+}
 
-	// Log completion
-	clientLogger.Debugf("fetched %s %d", debug.RedactURL(url), resp.StatusCode)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		clientLogger.Debugf("API error %d from %s", resp.StatusCode, debug.RedactURL(url))
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, extractAPIMessage(body))
+func versioned(baseURL, endpoint, version string) string {
+	url := baseURL + endpoint
+	if !strings.HasPrefix(endpoint, "/") {
+		url = baseURL + "/" + endpoint
 	}
-
-	return resp, nil
+	separator := "?"
+	if strings.Contains(url, "?") {
+		separator = "&"
+	}
+	return url + separator + "api-version=" + version
 }
 
 // get performs a GET request to base URL
 func (c *Client) get(endpoint string) (*http.Response, error) {
-	return c.getWithBase(c.baseURL, endpoint)
+	return c.doRequest(http.MethodGet, versioned(c.baseURL, endpoint, apiVersion), nil)
 }
 
 // getTeam performs a GET request to team-specific URL
 func (c *Client) getTeam(endpoint string) (*http.Response, error) {
-	return c.getWithBase(c.teamURL, endpoint)
+	return c.doRequest(http.MethodGet, versioned(c.teamURL, endpoint, apiVersion), nil)
 }
 
 // getPreview performs a GET request with preview API version
 func (c *Client) getPreview(endpoint string) (*http.Response, error) {
-	return c.getWithVersion(c.baseURL, endpoint, apiVersion+"-preview")
-}
-
-// getWithBase performs a GET request with a specific base URL
-func (c *Client) getWithBase(baseURL, endpoint string) (*http.Response, error) {
-	return c.getWithVersion(baseURL, endpoint, apiVersion)
-}
-
-// getWithVersion performs a GET request with a specific API version
-func (c *Client) getWithVersion(baseURL, endpoint, version string) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", baseURL, endpoint)
-	}
-
-	// Add API version
-	if len(url) > 0 {
-		separator := "?"
-		if len(url) > 0 && url[len(url)-1] != '?' {
-			for _, c := range url {
-				if c == '?' {
-					separator = "&"
-					break
-				}
-			}
-		}
-		url = fmt.Sprintf("%s%sapi-version=%s", url, separator, version)
-	}
-
-	return c.doRequest("GET", url, nil)
+	return c.doRequest(http.MethodGet, versioned(c.baseURL, endpoint, apiVersion+"-preview"), nil)
 }
 
 // post performs a POST request
 func (c *Client) post(endpoint string, body io.Reader) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
-	}
-
-	// Add API version
-	separator := "?"
-	for _, ch := range url {
-		if ch == '?' {
-			separator = "&"
-			break
-		}
-	}
-	url = fmt.Sprintf("%s%sapi-version=%s", url, separator, apiVersion)
-
-	return c.doRequest("POST", url, body)
+	return c.doRequest(http.MethodPost, versioned(c.baseURL, endpoint, apiVersion), body)
 }
 
 // postPreview performs a POST request with preview API version
 func (c *Client) postPreview(endpoint string, body io.Reader) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
-	}
-
-	// Add API version with preview
-	separator := "?"
-	for _, ch := range url {
-		if ch == '?' {
-			separator = "&"
-			break
-		}
-	}
-	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
-
-	return c.doRequest("POST", url, body)
+	return c.doRequest(http.MethodPost, versioned(c.baseURL, endpoint, apiVersion+"-preview"), body)
 }
 
 // patch performs a PATCH request (for work item updates)
 func (c *Client) patch(endpoint string, body io.Reader) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
-	}
-
-	// Add API version
-	separator := "?"
-	for _, ch := range url {
-		if ch == '?' {
-			separator = "&"
-			break
-		}
-	}
-	url = fmt.Sprintf("%s%sapi-version=%s", url, separator, apiVersion)
-
-	return c.doRequestWithContentType("PATCH", url, body, "application/json-patch+json")
+	return c.doRequestWithContentType(http.MethodPatch, versioned(c.baseURL, endpoint, apiVersion), body, "application/json-patch+json")
 }
 
 // patchPreview performs a PATCH request with preview API version
 func (c *Client) patchPreview(endpoint string, body io.Reader) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
-	}
-
-	// Add API version with preview
-	separator := "?"
-	for _, ch := range url {
-		if ch == '?' {
-			separator = "&"
-			break
-		}
-	}
-	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
-
-	return c.doRequestWithContentType("PATCH", url, body, "application/json")
+	return c.doRequest(http.MethodPatch, versioned(c.baseURL, endpoint, apiVersion+"-preview"), body)
 }
 
 // deletePreview performs a DELETE request with preview API version
 func (c *Client) deletePreview(endpoint string) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-	if endpoint[0] != '/' {
-		url = fmt.Sprintf("%s/%s", c.baseURL, endpoint)
-	}
+	return c.doRequest(http.MethodDelete, versioned(c.baseURL, endpoint, apiVersion+"-preview"), nil)
+}
 
-	// Add API version with preview
-	separator := "?"
-	for _, ch := range url {
-		if ch == '?' {
-			separator = "&"
-			break
-		}
-	}
-	url = fmt.Sprintf("%s%sapi-version=%s-preview", url, separator, apiVersion)
-
-	return c.doRequest("DELETE", url, nil)
+func (c *Client) delete(endpoint string) (*http.Response, error) {
+	return c.doRequest(http.MethodDelete, versioned(c.baseURL, endpoint, apiVersion), nil)
 }
 
 // decode decodes a JSON response into the given target

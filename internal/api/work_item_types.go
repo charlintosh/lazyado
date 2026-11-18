@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/charlintosh/lazyado/internal/models"
 )
@@ -21,6 +22,22 @@ type workItemTypeAPIItem struct {
 		ID  string `json:"id"`
 		URL string `json:"url"`
 	} `json:"icon"`
+	States []stateAPIItem `json:"states"`
+}
+
+func (t workItemTypeAPIItem) states() ([]models.WorkItemStateInfo, bool) {
+	if len(t.States) == 0 {
+		return nil, false
+	}
+	out := make([]models.WorkItemStateInfo, 0, len(t.States))
+	for _, s := range t.States {
+		info := s.info()
+		if info.Category == "" {
+			return nil, false
+		}
+		out = append(out, info)
+	}
+	return out, true
 }
 
 // statesResponse represents the API response for work item states
@@ -30,9 +47,18 @@ type statesResponse struct {
 }
 
 type stateAPIItem struct {
-	Name     string `json:"name"`
-	Color    string `json:"color"`
-	Category string `json:"stateCategory"`
+	Name          string `json:"name"`
+	Color         string `json:"color"`
+	StateCategory string `json:"stateCategory"`
+	Category      string `json:"category"`
+}
+
+func (s stateAPIItem) info() models.WorkItemStateInfo {
+	category := s.StateCategory
+	if category == "" {
+		category = s.Category
+	}
+	return models.WorkItemStateInfo{Name: s.Name, Color: s.Color, Category: category}
 }
 
 // GetWorkItemTypes fetches all work item types for the project
@@ -70,11 +96,7 @@ func (c *Client) GetWorkItemTypeStates(workItemType string) ([]models.WorkItemSt
 
 	states := make([]models.WorkItemStateInfo, 0, apiResp.Count)
 	for _, item := range apiResp.Value {
-		states = append(states, models.WorkItemStateInfo{
-			Name:     item.Name,
-			Color:    item.Color,
-			Category: item.Category,
-		})
+		states = append(states, item.info())
 	}
 
 	return states, nil
@@ -82,20 +104,43 @@ func (c *Client) GetWorkItemTypeStates(workItemType string) ([]models.WorkItemSt
 
 // GetAllWorkItemTypeStates fetches states for all work item types
 func (c *Client) GetAllWorkItemTypeStates() (map[string][]models.WorkItemStateInfo, error) {
-	types, err := c.GetWorkItemTypes()
+	resp, err := c.get("/wit/workitemtypes")
 	if err != nil {
 		return nil, err
 	}
-
-	statesByType := make(map[string][]models.WorkItemStateInfo)
-	for _, t := range types {
-		states, err := c.GetWorkItemTypeStates(t)
-		if err != nil {
-			// Skip types that fail (some system types may not have states)
-			continue
-		}
-		statesByType[t] = states
+	var apiResp workItemTypesResponse
+	if err := decode(resp, &apiResp); err != nil {
+		return nil, err
 	}
 
+	statesByType := make(map[string][]models.WorkItemStateInfo, len(apiResp.Value))
+	var missing []string
+	for _, t := range apiResp.Value {
+		if states, ok := t.states(); ok {
+			statesByType[t.Name] = states
+		} else {
+			missing = append(missing, t.Name)
+		}
+	}
+	if len(missing) > 0 {
+		clientLogger.Debugf("loading states separately for %d work item types", len(missing))
+	}
+
+	var (
+		mu sync.Mutex
+		wg sync.WaitGroup
+	)
+	for _, name := range missing {
+		wg.Go(func() {
+			states, err := c.GetWorkItemTypeStates(name)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			statesByType[name] = states
+			mu.Unlock()
+		})
+	}
+	wg.Wait()
 	return statesByType, nil
 }

@@ -12,12 +12,15 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/charlintosh/lazyado/internal/cache"
 	"github.com/charlintosh/lazyado/internal/styles"
 	xansi "github.com/charmbracelet/x/ansi"
 )
 
 const (
-	syntaxCacheLimit = 64
+	syntaxCacheBytes = 64 << 20
+	codeTokenBytes   = 48
+	codeLineBytes    = 24
 	syntaxMaxBytes   = 2 << 20
 	truncationMark   = "…"
 )
@@ -34,10 +37,24 @@ type CodeLine []CodeToken
 type syntaxCache struct {
 	mu     sync.Mutex
 	style  *chroma.Style
-	output map[uint64][]CodeLine
+	output *cache.LRU[uint64, []CodeLine]
 }
 
-var syntax = &syntaxCache{style: codeStyle(markdownStyle().CodeBlock.Chroma), output: map[uint64][]CodeLine{}}
+var syntax = &syntaxCache{
+	style:  codeStyle(markdownStyle().CodeBlock.Chroma),
+	output: cache.New[uint64, []CodeLine](syntaxCacheBytes, codeSize),
+}
+
+func codeSize(lines []CodeLine) int {
+	n := 0
+	for _, l := range lines {
+		n += codeLineBytes + len(l)*codeTokenBytes
+		for _, t := range l {
+			n += len(t.Text)
+		}
+	}
+	return n
+}
 
 func HighlightCode(filePath, text string) []CodeLine {
 	return syntax.highlight(filePath, text)
@@ -96,14 +113,11 @@ func (c *syntaxCache) highlight(filePath, text string) []CodeLine {
 	key := h.Sum64()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if out, ok := c.output[key]; ok {
+	if out, ok := c.output.Get(key); ok {
 		return out
 	}
 	out := c.tokenize(filePath, text)
-	if len(c.output) >= syntaxCacheLimit {
-		clear(c.output)
-	}
-	c.output[key] = out
+	c.output.Put(key, out)
 	return out
 }
 

@@ -132,7 +132,7 @@ func (a App) handleFileFinderResult(msg tea.Msg) (App, tea.Cmd, bool) {
 	case modals.FileFinderRebuildMsg:
 		return a, a.requestFileIndex(a.fileIndexKey()), true
 	case modals.FileFinderPreviewRequestMsg:
-		if t, ok := f.texts[msg.Path]; ok {
+		if t, ok := f.texts.Get(msg.Path); ok {
 			next, cmd := a.toFileFinder(modals.FileFinderPreviewMsg{Path: msg.Path, Text: t.text, Err: t.err})
 			return next, cmd, true
 		}

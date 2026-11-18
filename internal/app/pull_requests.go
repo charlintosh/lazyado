@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/cache"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -34,6 +35,10 @@ type pullRequestState struct {
 	checks       []models.PullRequestCheck
 	checksLoaded bool
 	criteria     models.PullRequestCriteria
+	load         inflight
+	background   bool
+	checksCache  *cache.LRU[int, []models.PullRequestCheck]
+	lists        *cache.LRU[pullRequestListKey, []models.PullRequest]
 
 	repos        []models.Repository
 	reposLoaded  bool
@@ -110,9 +115,7 @@ func (a *App) openRepositoryPicker() tea.Cmd {
 func (a *App) setRepositoryScope(repo models.Repository, all bool) tea.Cmd {
 	a.pr.repo, a.pr.allRepos = repo, all
 	a.pr.panel.SetScope(a.pr.scoped(), !all)
-	a.pr.items, a.pr.loaded = nil, false
-	a.applyPullRequests()
-	return a.loadPullRequests()
+	return a.showPullRequests()
 }
 
 func (a *App) restoreRepositoryScope() tea.Cmd {
@@ -151,6 +154,7 @@ type checksDueMsg struct {
 type checksLoadedMsg struct {
 	id     int
 	checks []models.PullRequestCheck
+	err    error
 }
 
 func pullRequestStatusFor(pivot int) models.PullRequestStatus {
@@ -196,10 +200,7 @@ func scheduleChecksCmd(id int) tea.Cmd {
 func loadChecksCmd(client *api.Client, pr models.PullRequest) tea.Cmd {
 	return func() tea.Msg {
 		checks, err := client.GetPullRequestChecks(pr)
-		if err != nil {
-			checks = nil
-		}
-		return checksLoadedMsg{id: pr.ID, checks: checks}
+		return checksLoadedMsg{id: pr.ID, checks: checks, err: err}
 	}
 }
 
@@ -218,17 +219,21 @@ func (a *App) openPullRequests() tea.Cmd {
 	case a.pr.loaded && a.pr.status == pullRequestStatusFor(a.pr.pivot):
 		return nil
 	}
-	return a.loadPullRequests()
+	return a.showPullRequests()
 }
 
 func (a *App) loadPullRequests() tea.Cmd {
+	return a.fetchPullRequests(false)
+}
+
+func (a *App) fetchPullRequests(background bool) tea.Cmd {
 	if !a.pr.scoped() {
 		return nil
 	}
 	a.pr.seq++
-	a.pr.loading = true
-	a.pr.panel.SetLoading(true)
-	return loadPullRequestsCmd(a.client, a.pr.seq, pullRequestStatusFor(a.pr.pivot), a.pr.repo.ID, a.pr.criteria)
+	a.pr.loading, a.pr.background = true, background
+	a.pr.panel.SetLoading(!background)
+	return loadPullRequestsCmd(a.pr.load.restart(a.client), a.pr.seq, pullRequestStatusFor(a.pr.pivot), a.pr.repo.ID, a.pr.criteria)
 }
 
 func (a *App) refreshPullRequests() tea.Cmd {
@@ -263,9 +268,7 @@ func (a *App) selectPullRequestPivot(pivot int) tea.Cmd {
 		a.applyPullRequests()
 		return nil
 	}
-	a.pr.items = nil
-	a.applyPullRequests()
-	return a.loadPullRequests()
+	return a.showPullRequests()
 }
 
 func (a *App) applyPullRequests() {
@@ -295,6 +298,12 @@ func (a *App) syncPullRequestSelection() tea.Cmd {
 	a.pr.checksFor, a.pr.checks, a.pr.checksLoaded = id, nil, false
 	if id == 0 {
 		return nil
+	}
+	if cached, age, ok := a.pr.checksCache.Lookup(id); ok {
+		a.pr.checks, a.pr.checksLoaded = cached, true
+		if age < revalidateAfter && models.ChecksSettled(cached) {
+			return nil
+		}
 	}
 	return scheduleChecksCmd(id)
 }
@@ -382,6 +391,7 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		if msg.seq != a.pr.seq {
 			return a, nil, true
 		}
+		a.pr.lists.Put(a.pr.listKey(msg.status), msg.items)
 		a.pr.loading, a.pr.loaded = false, true
 		a.pr.status, a.pr.items = msg.status, msg.items
 		a.pr.panel.SetLoading(false)
@@ -393,6 +403,9 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		a.pr.loading = false
 		a.pr.panel.SetLoading(false)
+		if a.pr.background {
+			return a, nil, true
+		}
 		return a, a.openModal(modals.NewErrorModal(a.env(), msg.err)), true
 	case checksDueMsg:
 		pr := a.pr.panel.Selected()
@@ -401,10 +414,11 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, loadChecksCmd(a.client, *pr), true
 	case checksLoadedMsg:
+		checks := a.storeChecks(msg)
 		if msg.id == a.pr.checksFor {
-			a.pr.checks, a.pr.checksLoaded = msg.checks, true
+			a.pr.checks, a.pr.checksLoaded = checks, true
 		}
-		a.pr.view.SetChecks(msg.id, msg.checks)
+		a.pr.view.SetChecks(msg.id, checks)
 		return a, nil, true
 	case panels.BrowsePullRequestMsg:
 		return a, openBrowserCmd(msg.PullRequest.WebURL), true
@@ -412,9 +426,8 @@ func (a App) handlePullRequestResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		if msg.Criteria == a.pr.criteria {
 			return a, nil, true
 		}
-		a.pr.criteria, a.pr.items, a.pr.loaded = msg.Criteria, nil, false
-		a.applyPullRequests()
-		return a, a.loadPullRequests(), true
+		a.pr.criteria = msg.Criteria
+		return a, a.showPullRequests(), true
 	case panels.OpenPullRequestByIDMsg:
 		return a, a.mutate(loadPullRequestByIDCmd(a.client, msg.ID)), true
 	case pullRequestFoundMsg:

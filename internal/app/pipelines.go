@@ -32,6 +32,7 @@ const (
 	listPollInterval       = 15 * time.Second
 	pipelineSearchDebounce = 400 * time.Millisecond
 	runPollInterval        = 5 * time.Second
+	stagesKept             = 300
 )
 
 var (
@@ -40,6 +41,7 @@ var (
 )
 
 type pipelineState struct {
+	load      inflight
 	panel     panels.PipelinesPanel
 	view      panels.PipelineRunView
 	pivot     int
@@ -226,6 +228,22 @@ func (s *pipelineState) storeStages(id int, stages []models.RunStage) {
 	s.stageCache[id] = e
 }
 
+func (s *pipelineState) pruneStages(visible []models.PipelineRun) {
+	if len(s.stageCache) <= stagesKept {
+		return
+	}
+	keep := make(map[int]bool, len(visible)+1)
+	for _, r := range visible {
+		keep[r.ID] = true
+	}
+	keep[s.previewRun] = true
+	for id, e := range s.stageCache {
+		if !keep[id] && !e.loading {
+			delete(s.stageCache, id)
+		}
+	}
+}
+
 func (s *pipelineState) markActiveStale() {
 	mark := func(r *models.PipelineRun) {
 		if r == nil || !r.State().Active() {
@@ -249,7 +267,9 @@ func (a *App) syncListStages() tea.Cmd {
 		return nil
 	}
 	var cmds []tea.Cmd
-	for _, run := range a.pl.panel.VisibleRuns() {
+	visible := a.pl.panel.VisibleRuns()
+	a.pl.pruneStages(visible)
+	for _, run := range visible {
 		if a.pl.requestStages(run) {
 			cmds = append(cmds, loadPipelineStagesCmd(a.client, run.ID))
 		}
@@ -315,7 +335,7 @@ func (a *App) loadPipelineList() tea.Cmd {
 	if text := a.searchText(); text != "" {
 		a.pl.panel.SetSearchText(text)
 	}
-	return loadPipelineListCmd(a.client, a.listRequest())
+	return loadPipelineListCmd(a.pl.load.restart(a.client), a.listRequest())
 }
 
 func (a *App) searchText() string {
@@ -342,7 +362,7 @@ func (a *App) loadMorePipelines() tea.Cmd {
 	a.pl.panel.SetLoadingMore(true)
 	req := a.listRequest()
 	req.token, req.more = a.pl.token, true
-	return loadPipelineListCmd(a.client, req)
+	return loadPipelineListCmd(a.pl.load.client(a.client), req)
 }
 
 func (a *App) pollPipelines() tea.Cmd {
@@ -354,7 +374,7 @@ func (a *App) pollPipelines() tea.Cmd {
 	}
 	req := a.listRequest()
 	req.silent = true
-	return loadPipelineListCmd(a.client, req)
+	return loadPipelineListCmd(a.pl.load.client(a.client), req)
 }
 
 func (a *App) selectPipelinePivot(pivot int) tea.Cmd {
@@ -415,7 +435,7 @@ func (a *App) searchPipelinesLive(text string) tea.Cmd {
 	a.pl.loading = true
 	a.pl.token = ""
 	a.pl.panel.SetRemoteSearch(true)
-	return loadPipelineListCmd(a.client, a.listRequest())
+	return loadPipelineListCmd(a.pl.load.restart(a.client), a.listRequest())
 }
 
 func (a *App) applySearch(text string) {

@@ -34,6 +34,8 @@ Pressing a filter key opens the filter bar if needed and drops the picker down u
 
 The **Person** list is built from the people actually assigned in the loaded sprint, team and area (with counts), plus team members with nothing assigned, `@Me` and *Unassigned*. Changing the person filter is instant: it filters what is already loaded.
 
+A query loads at most the 1,000 most recently changed items. When it reaches that cap lazyado tells you, so you can narrow the filters or [raise the cap](configuration.md#large-boards).
+
 Your filter choices are [remembered between runs](configuration.md#what-lazyado-remembers).
 
 ## Working with work items
@@ -55,6 +57,8 @@ Select an item, then:
 | `h` / `l` | Collapse / expand an item's child tasks |
 
 On wide terminals a side pane shows the selected item: `6` for **Details**, `7` for **Discussion**, and `5` returns to the grid or board.
+
+Your changes update the item in place as soon as Azure DevOps saves them, without reloading the list. When a change moves an item out of the current filters, the list reloads. Changes other people make appear when you press `Ctrl+r` or change a filter.
 
 ### Create and edit forms
 
@@ -85,6 +89,8 @@ Descriptions and comments are rendered as Markdown (headings, lists, code blocks
 ## Discussion and comments
 
 `c` adds a comment. Type `@` to mention a team member: pick with `↑` / `↓` and press `enter` or `Tab`, then `Ctrl+s` to post.
+
+Coming back to an item shows its comments at once. If they were loaded more than 30 seconds ago they refresh in the background, so a new comment from someone else appears a moment later. After you add, edit, delete or like a comment, the discussion always reloads.
 
 Comments look the same as [pull request comments](pull-requests.md#comments): each one is a rounded card with the author, date and likes in the top edge. Your own comments are marked **(you)**, and edited ones say **edited**. Under about 36 columns the cards give way to a thin line on the left so the text keeps its width.
 

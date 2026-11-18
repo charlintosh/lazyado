@@ -15,8 +15,10 @@ type dataLoadedMsg struct {
 }
 
 type workItemsLoadedMsg struct {
-	seq   int
-	items []models.WorkItem
+	seq       int
+	items     []models.WorkItem
+	truncated bool
+	limit     int
 }
 
 type errMsg struct {
@@ -30,16 +32,19 @@ type commentsDueMsg struct {
 type commentsLoadedMsg struct {
 	workItemID int
 	comments   []models.Comment
+	err        error
 }
 
 type workItemChangedMsg struct {
 	notice    string
 	deletedID int
+	item      *models.WorkItem
 }
 
 type workItemMovedMsg struct {
 	id    int
 	state string
+	item  *models.WorkItem
 }
 
 type workItemMoveFailedMsg struct {

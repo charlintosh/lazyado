@@ -3,6 +3,7 @@
 - [Config file](#config-file)
 - [Environment variables](#environment-variables)
 - [Large files in diffs](#large-files-in-diffs)
+- [Large boards](#large-boards)
 - [Personal access token](#personal-access-token)
 - [Who you are](#who-you-are)
 - [What lazyado remembers](#what-lazyado-remembers)
@@ -63,6 +64,19 @@ diff:
 | `diff.collapse` | none | Extra patterns to collapse, written like `.gitattributes` paths (`*.lock`, `dist/**`). |
 
 lazyado also reads the repository's root `.gitattributes`, as GitHub does. Files marked `linguist-generated` are collapsed as *generated*, and files marked `-diff` or `binary` are collapsed with their diff turned off. Size limits are checked first, so a large lockfile always says it is too large.
+
+## Large boards
+
+A Boards query loads at most the 1,000 most recently changed work items. When a query reaches the cap, lazyado says so; narrow the iteration, state or area filter to see older items, or raise the cap.
+
+```yaml
+boards:
+  max_work_items: 1000
+```
+
+| Key | Default | Description |
+| --- | ------- | ----------- |
+| `boards.max_work_items` | `1000` | The most work items one query loads. Each 200 items is one more request to Azure DevOps. |
 
 ## Personal access token
 

@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/cache"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/notification"
 	"github.com/charlintosh/lazyado/internal/components/panels"
@@ -82,6 +83,7 @@ type App struct {
 	keyword        textinput.Model
 	filters        *models.FilterState
 	loadedQuery    workItemQuery
+	workItemsLoad  inflight
 	shell          shellLayout
 	header         panels.PageHeader
 
@@ -98,6 +100,8 @@ type App struct {
 	commentsFor     int
 	detailFromPR    bool
 	initialLoadDone bool
+	throttleSeen    int
+	truncatedFor    workItemQuery
 
 	iterations   []models.Iteration
 	areas        []models.Area
@@ -105,6 +109,7 @@ type App struct {
 	statesByType map[string][]models.WorkItemStateInfo
 	teamMembers  []models.TeamMember
 	me           models.Identity
+	comments     *cache.LRU[int, []models.Comment]
 
 	client *api.Client
 	styles *styles.Styles
@@ -127,8 +132,12 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		detailsPanel:   panels.NewDetailsPanel(st, k),
 		commentsPanel:  panels.NewCommentsPanel(st, k),
 		detailView:     panels.NewDetailView(st, k),
-		pr:             pullRequestState{panel: panels.NewPullRequestsPanel(k), view: panels.NewPullRequestView(k, limits)},
-		pl:             pipelineState{panel: panels.NewPipelinesPanel(k), view: panels.NewPipelineRunView(k)},
+		pr: pullRequestState{
+			panel: panels.NewPullRequestsPanel(k), view: panels.NewPullRequestView(k, limits),
+			checksCache: cache.Count[int, []models.PullRequestCheck](checksKept),
+			lists:       cache.Count[pullRequestListKey, []models.PullRequest](pullRequestsLists),
+		},
+		pl: pipelineState{panel: panels.NewPipelinesPanel(k), view: panels.NewPipelineRunView(k)},
 		rl: releaseState{
 			defs: panels.NewReleaseDefinitionsPanel(k), list: panels.NewReleasesPanel(k),
 			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k),
@@ -136,13 +145,14 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		commits:      commitsState{panel: panels.NewCommitsPanel(k)},
 		branches:     branchesState{panel: panels.NewBranchesPanel(k)},
 		tags:         tagsState{panel: panels.NewTagsPanel(k)},
-		code:         codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k))},
+		code:         codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k), limits.MaxFileBytes())},
 		splashScreen: screens.NewSplashScreen(st),
 		statusHelp:   widgets.NewHelp(),
 		spinner: spinner.New(
 			spinner.WithSpinner(spinner.MiniDot),
 			spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary)),
 		),
+		comments:    cache.Count[int, []models.Comment](commentsKept),
 		activePanel: PanelWorkItems,
 		rightTab:    PanelDetails,
 		hub:         panels.HubBacklog,
@@ -296,7 +306,7 @@ func (a *App) reconcile() tea.Cmd {
 	commits := a.syncCommits()
 	branches := a.syncBranches()
 	tags := a.syncTags()
-	return tea.Batch(selection, checks, preview, listStages, releases, files, commits, branches, tags, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner())
+	return tea.Batch(selection, checks, preview, listStages, releases, files, commits, branches, tags, a.syncReviewFile(), a.syncRunLog(), a.syncReleaseLog(), a.ensureSpinner(), a.syncThrottle())
 }
 
 func (a *App) syncSpinner() {
@@ -332,6 +342,14 @@ func (a *App) syncSelection() tea.Cmd {
 		return nil
 	}
 	a.commentsPanel.StartLoading(id)
+	cached, age, ok := a.comments.Lookup(id)
+	if !ok {
+		return scheduleCommentsCmd(id)
+	}
+	a.commentsPanel.SetComments(id, cached)
+	if age < revalidateAfter {
+		return nil
+	}
 	return scheduleCommentsCmd(id)
 }
 
@@ -385,7 +403,7 @@ func (a *App) reload() tea.Cmd {
 	a.loadSeq++
 	a.loading = true
 	a.loadedQuery = queryFor(a.filters, a.me)
-	return loadWorkItemsCmd(a.client, a.loadSeq, a.loadedQuery)
+	return loadWorkItemsCmd(a.workItemsLoad.restart(a.client), a.loadSeq, a.loadedQuery)
 }
 
 func (a *App) applyView() {

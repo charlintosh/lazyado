@@ -10,12 +10,17 @@ import (
 	"charm.land/glamour/v2/ansi"
 	glamourstyles "charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/cache"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
 	xansi "github.com/charmbracelet/x/ansi"
 )
 
-const markdownCacheLimit = 512
+const (
+	markdownCacheBytes = 16 << 20
+	markdownEntryBytes = 64
+	renderersKept      = 3
+)
 
 type markdownKey struct {
 	width  int
@@ -25,14 +30,21 @@ type markdownKey struct {
 type markdownCache struct {
 	mu        sync.Mutex
 	style     ansi.StyleConfig
-	renderers map[int]*glamour.TermRenderer
-	output    map[markdownKey]string
+	renderers *cache.LRU[int, *glamour.TermRenderer]
+	output    *cache.LRU[markdownKey, rendered]
+}
+
+type rendered struct {
+	source string
+	out    string
 }
 
 var markdown = &markdownCache{
 	style:     markdownStyle(),
-	renderers: map[int]*glamour.TermRenderer{},
-	output:    map[markdownKey]string{},
+	renderers: cache.Count[int, *glamour.TermRenderer](renderersKept),
+	output: cache.New[markdownKey, rendered](markdownCacheBytes, func(r rendered) int {
+		return len(r.source) + len(r.out) + markdownEntryBytes
+	}),
 }
 
 func RenderMarkdown(source string, width int) string {
@@ -66,26 +78,23 @@ func (c *markdownCache) render(source string, width int) string {
 	k := markdownKey{width: width, source: source}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if out, ok := c.output[k]; ok {
-		return out
+	if r, ok := c.output.Get(k); ok {
+		return r.out
 	}
 	out := tidyMarkdown(c.glamour(source, width))
-	if len(c.output) >= markdownCacheLimit {
-		clear(c.output)
-	}
-	c.output[k] = out
+	c.output.Put(k, rendered{source: source, out: out})
 	return out
 }
 
 func (c *markdownCache) glamour(source string, width int) string {
-	r, ok := c.renderers[width]
+	r, ok := c.renderers.Get(width)
 	if !ok {
 		var err error
 		r, err = glamour.NewTermRenderer(glamour.WithStyles(c.style), glamour.WithWordWrap(width))
 		if err != nil {
 			return lipgloss.NewStyle().Width(width).Render(source)
 		}
-		c.renderers[width] = r
+		c.renderers.Put(width, r)
 	}
 	out, err := r.Render(source)
 	if err != nil {

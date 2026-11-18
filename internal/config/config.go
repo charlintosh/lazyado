@@ -18,6 +18,18 @@ type Config struct {
 	Theme        string   `mapstructure:"theme"`
 	Defaults     Defaults `mapstructure:"defaults"`
 	Diff         Diff     `mapstructure:"diff"`
+	Boards       Boards   `mapstructure:"boards"`
+}
+
+type Boards struct {
+	MaxWorkItems int `mapstructure:"max_work_items"`
+}
+
+func (c *Config) MaxWorkItems() int {
+	if c.Boards.MaxWorkItems <= 0 {
+		return models.DefaultMaxWorkItems
+	}
+	return c.Boards.MaxWorkItems
 }
 
 // Diff holds the limits for showing pull request diffs
@@ -62,6 +74,7 @@ func Load() (*Config, error) {
 	v.SetDefault("diff.max_changed_lines", models.DefaultMaxChangedLines)
 	v.SetDefault("diff.max_file_lines", models.DefaultMaxFileLines)
 	v.SetDefault("diff.max_file_kb", models.DefaultMaxFileKB)
+	v.SetDefault("boards.max_work_items", models.DefaultMaxWorkItems)
 
 	// Read config file (ignore if not found)
 	if err := v.ReadInConfig(); err != nil {

@@ -341,3 +341,12 @@ type ThreadAnchor struct {
 func (a ThreadAnchor) Lines() string {
 	return LineRange(a.Line, a.EndLine)
 }
+
+func ChecksSettled(checks []PullRequestCheck) bool {
+	for _, c := range checks {
+		if c.State != CheckPassed && c.State != CheckFailed {
+			return false
+		}
+	}
+	return true
+}

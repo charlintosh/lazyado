@@ -8,11 +8,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/api"
+	"github.com/charlintosh/lazyado/internal/cache"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
+)
+
+const (
+	filesTextBudget  = 32 << 20
+	fileTextOverhead = 256
 )
 
 const (
@@ -40,12 +46,19 @@ type filesState struct {
 	rev       int
 	requested map[string]bool
 	errs      map[string]error
-	texts     map[string]fileText
+	texts     *cache.LRU[string, fileText]
 	dueFor    string
 }
 
-func newFilesState(tree panels.RepoTreePanel, content panels.RepoContentPanel) filesState {
-	return filesState{tree: tree, content: content, requested: map[string]bool{}, errs: map[string]error{}, texts: map[string]fileText{}}
+func newFilesState(tree panels.RepoTreePanel, content panels.RepoContentPanel, maxFileBytes int64) filesState {
+	budget := max(filesTextBudget, 2*int(maxFileBytes))
+	texts := cache.New[string, fileText](budget, func(t fileText) int { return len(t.text) + fileTextOverhead })
+	return filesState{tree: tree, content: content, requested: map[string]bool{}, errs: map[string]error{}, texts: texts}
+}
+
+func (f *filesState) haveFile(path string) bool {
+	_, cached := f.texts.Get(path)
+	return cached || f.requested[fileKey+path]
 }
 
 type folderLoadedMsg struct {
@@ -98,7 +111,8 @@ func (a *App) openFiles() tea.Cmd {
 func (a *App) resetFiles() {
 	f := &a.code.files
 	f.tree.Reset(a.code.repo.Name)
-	f.requested, f.errs, f.texts = map[string]bool{}, map[string]error{}, map[string]fileText{}
+	f.requested, f.errs = map[string]bool{}, map[string]error{}
+	f.texts.Clear()
 	f.dueFor, f.pane = "", paneTree
 	f.rev++
 }
@@ -123,7 +137,7 @@ func (a *App) requestFolder(path string) tea.Cmd {
 
 func (a *App) requestFile(path string) tea.Cmd {
 	f := &a.code.files
-	if f.requested[fileKey+path] {
+	if f.haveFile(path) {
 		return nil
 	}
 	f.requested[fileKey+path] = true
@@ -165,7 +179,7 @@ func (a *App) syncFileSelection() tea.Cmd {
 
 func (a *App) scheduleFile(kind, path string) tea.Cmd {
 	f := &a.code.files
-	if f.requested[kind+path] || f.dueFor == kind+path {
+	if f.dueFor == kind+path || (kind == fileKey && f.haveFile(path)) || (kind == folderKey && f.requested[kind+path]) {
 		return nil
 	}
 	f.dueFor = kind + path
@@ -180,14 +194,14 @@ func (a *App) fileContent() panels.RepoContent {
 	}
 	c := panels.RepoContent{Item: *sel}
 	if !sel.Folder {
-		t, ok := f.texts[sel.Path]
+		t, ok := f.texts.Get(sel.Path)
 		c.Loaded, c.Text, c.Err = ok, t.text, t.err
 		return c
 	}
 	c.Items, c.Loaded = f.tree.Children(sel.Path)
 	c.Err = f.errs[sel.Path]
 	if readme, ok := models.FolderReadme(c.Items); ok {
-		t, loaded := f.texts[readme.Path]
+		t, loaded := f.texts.Get(readme.Path)
 		c.HasReadme, c.ReadmeLoaded, c.Readme = true, loaded, t.text
 		if t.err != nil {
 			c.Readme = t.err.Error()
@@ -307,7 +321,8 @@ func (a App) handleFilesResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		if msg.seq != a.code.seq {
 			return a, nil, true
 		}
-		f.texts[msg.path] = fileText{text: msg.text, err: msg.err}
+		f.texts.Put(msg.path, fileText{text: msg.text, err: msg.err})
+		delete(f.requested, fileKey+msg.path)
 		f.rev++
 		next, cmd := a.toFileFinder(modals.FileFinderPreviewMsg{Path: msg.path, Text: msg.text, Err: msg.err})
 		return next, cmd, true

@@ -86,6 +86,7 @@ func (a App) handlePullRequestFormResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		a.closeModal()
 		return a, a.mutate(loadPullRequestByIDCmd(a.client, msg.ID)), true
 	case pullRequestCreatedMsg:
+		a.pr.lists.Clear()
 		a.loading = false
 		if topIs[modals.PullRequestForm](a.modals) {
 			a.closeModal()

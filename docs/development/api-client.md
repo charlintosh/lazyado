@@ -6,11 +6,20 @@
 - Use the centralized request helpers in [internal/api](../../internal/api) (see [internal/api/client.go](../../internal/api/client.go)) so authentication, headers and common error wrapping are consistent.
 - Ensure `api-version=7.1` is included on calls (helpers like `getWithBase()` add this automatically).
 
+## Rate limits and concurrency
+
+- Every request goes through `doRequestWithContentType`, which passes a shared gate ([internal/api/throttle.go](../../internal/api/throttle.go)): at most `maxInFlight` (6) requests at once, a pause while a `Retry-After` window is open (capped at 30 s), and up to two retries of a `GET` answered `429` or `503`. Writes are never retried. Don't call `httpClient.Do` directly.
+- `X-RateLimit-Remaining`, `-Limit`, `-Delay`, `-Resource` and `Retry-After` set `Client.Throttle()`. Its `Episode` grows each time throttling starts, and `App.syncThrottle` shows one notice per episode. `X-RateLimit-Cost` is summed in `Client.Usage()` and logged with each request under `-debug`.
+- `Client.WithContext(ctx)` returns a copy bound to a context sharing the same gate. The app's `inflight` helper ([internal/app/inflight.go](../../internal/app/inflight.go)) cancels the previous load when a newer one replaces it; a canceled request still waiting for a slot is never sent. Loads that can be replaced carry a sequence number, so a canceled result is dropped; `loadWorkItemsCmd` returns nothing on `context.Canceled`.
+
 ## Data & WIQL
 
 - Return strongly-typed Go structs from API helpers in [internal/api](../../internal/api).
 - Escape WIQL user values with `escapeWIQL()` (double single quotes) before embedding into WIQL strings.
 - See `QueryWorkItems()` in [internal/api/work_items.go](../../internal/api/work_items.go) for an example of secure query construction.
+- WIQL is sent with `$top` (`boards.max_work_items`, default 1000); a full page is reported as `WorkItemPage.Truncated`. Items are fetched in parallel batches of 200 (`workItemBatches`), keeping the WIQL order. Parent titles are only fetched for parents not already loaded, in batches of 200.
+- Work item updates (`UpdateWorkItemState`, `AssignWorkItem`, `UpdateWorkItem`, `UpdatePBI`) return the item from the PATCH reply. The app updates that item in place (`applyUpdated`) and reloads only when it no longer matches the server query (`workItemQuery.admits`), when the query filters by `@me`, or when the reply is missing.
+- Work item type states come from `wit/workitemtypes`, whose items include `states`. A type whose states are missing or have no category falls back to `workitemtypes/{type}/states`; categories are read from `category` or `stateCategory`.
 
 ## Pull requests
 

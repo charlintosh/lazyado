@@ -34,6 +34,7 @@ type commitsState struct {
 	detailFor string
 	details   map[string]models.CommitDetail
 	failed    map[string]error
+	load      inflight
 }
 
 type commitsLoadedMsg struct {
@@ -103,7 +104,7 @@ func (a *App) syncCommits() tea.Cmd {
 		s.loading = true
 		s.commits = nil
 		s.panel.ShowLoading(want.criteria)
-		return loadCommitsCmd(a.client, s.seq, want, 0)
+		return loadCommitsCmd(s.load.restart(a.client), s.seq, want, 0)
 	}
 	return a.syncCommitDetail()
 }
@@ -208,7 +209,7 @@ func (a App) handleCommitsResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		s.loading = true
 		s.panel.SetLoadingMore(true)
-		return a, loadCommitsCmd(a.client, s.seq, s.loadedFor, len(s.commits)), true
+		return a, loadCommitsCmd(s.load.client(a.client), s.seq, s.loadedFor, len(s.commits)), true
 	case panels.SearchCommitsMsg:
 		criteria, text := models.ParseCommitQuery(msg.Query)
 		s.criteria = criteria

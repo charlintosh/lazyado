@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"net/http"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charlintosh/lazyado/internal/models"
@@ -69,34 +71,61 @@ func escapeWIQL(s string) string {
 	return strings.ReplaceAll(s, "'", "''")
 }
 
+const (
+	workItemsBatch     = 200
+	workItemListFields = "System.Id,System.Title,System.State,System.Reason,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
+	workItemTitleOnly  = "System.Id,System.Title"
+)
+
+type WorkItemPage struct {
+	Items     []models.WorkItem
+	Truncated bool
+}
+
 // QueryWorkItems queries work items using WIQL
-func (c *Client) QueryWorkItems(sprintPath, state, assigned, areaPath string) ([]models.WorkItem, error) {
-	// Build WIQL query
+func (c *Client) QueryWorkItems(sprintPath, state, assigned, areaPath string) (WorkItemPage, error) {
+	resp, err := c.post(fmt.Sprintf("/wit/wiql?$top=%d", c.maxWorkItems), bytes.NewReader(wiqlBody(sprintPath, state, assigned, areaPath)))
+	if err != nil {
+		return WorkItemPage{}, err
+	}
+
+	var wiqlResp wiqlResponse
+	if err := decode(resp, &wiqlResp); err != nil {
+		return WorkItemPage{}, err
+	}
+
+	ids := make([]string, 0, len(wiqlResp.WorkItems))
+	for _, wi := range wiqlResp.WorkItems {
+		ids = append(ids, strconv.Itoa(wi.ID))
+	}
+	items, err := c.GetWorkItems(ids)
+	if err != nil {
+		return WorkItemPage{}, err
+	}
+	return WorkItemPage{Items: items, Truncated: len(ids) >= c.maxWorkItems}, nil
+}
+
+func wiqlBody(sprintPath, state, assigned, areaPath string) []byte {
 	query := `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
 FROM WorkItems
 WHERE [System.TeamProject] = @project`
 
-	// Add sprint filter
 	if sprintPath != "" && sprintPath != "all" {
 		query += fmt.Sprintf(`
   AND [System.IterationPath] = '%s'`, escapeWIQL(sprintPath))
 	}
 
-	// Add state filter
 	if state != "" && state != "all" {
 		query += fmt.Sprintf(`
   AND [System.State] = '%s'`, escapeWIQL(state))
 	}
 
-	// Add assigned filter
 	if assigned == "me" {
 		query += `
   AND [System.AssignedTo] = @me`
 	}
 
-	// Add area filter
 	if areaPath != "" && areaPath != "all" {
-		// Clean up the path
 		areaPath = strings.TrimPrefix(areaPath, "\\")
 		areaPath = strings.TrimSuffix(areaPath, "\\")
 		query += fmt.Sprintf(`
@@ -106,35 +135,8 @@ WHERE [System.TeamProject] = @project`
 	query += `
 ORDER BY [System.ChangedDate] DESC`
 
-	// Execute WIQL query
-	reqBody := wiqlRequest{Query: query}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling WIQL request: %w", err)
-	}
-
-	resp, err := c.post("/wit/wiql", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, err
-	}
-
-	var wiqlResp wiqlResponse
-	if err := decode(resp, &wiqlResp); err != nil {
-		return nil, err
-	}
-
-	if len(wiqlResp.WorkItems) == 0 {
-		return []models.WorkItem{}, nil
-	}
-
-	// Get the IDs
-	ids := make([]string, 0, len(wiqlResp.WorkItems))
-	for _, wi := range wiqlResp.WorkItems {
-		ids = append(ids, fmt.Sprintf("%d", wi.ID))
-	}
-
-	// Fetch the full work items
-	return c.GetWorkItems(ids)
+	body, _ := json.Marshal(wiqlRequest{Query: query})
+	return body
 }
 
 // GetWorkItems fetches multiple work items by ID
@@ -142,90 +144,73 @@ func (c *Client) GetWorkItems(ids []string) ([]models.WorkItem, error) {
 	if len(ids) == 0 {
 		return []models.WorkItem{}, nil
 	}
+	items, err := c.workItemBatches(ids, workItemListFields)
+	if err != nil {
+		return nil, err
+	}
+	c.populateParentTitles(items)
+	c.organizeHierarchy(items)
+	return items, nil
+}
 
-	// API has a limit of 200 items per request
-	const batchSize = 200
-	var allItems []models.WorkItem
-
-	for i := 0; i < len(ids); i += batchSize {
-		end := i + batchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
-
-		batch := ids[i:end]
-		fields := "System.Id,System.Title,System.State,System.Reason,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
-
-		endpoint := fmt.Sprintf("/wit/workitems?ids=%s&fields=%s", strings.Join(batch, ","), fields)
-		resp, err := c.get(endpoint)
+func (c *Client) workItemBatches(ids []string, fields string) ([]models.WorkItem, error) {
+	batches := slices.Collect(slices.Chunk(ids, workItemsBatch))
+	results := make([][]models.WorkItem, len(batches))
+	errs := make([]error, len(batches))
+	var wg sync.WaitGroup
+	for i, batch := range batches {
+		wg.Go(func() { results[i], errs[i] = c.workItemBatch(batch, fields) })
+	}
+	wg.Wait()
+	for _, err := range errs {
 		if err != nil {
 			return nil, err
 		}
-
-		var apiResp workItemsResponse
-		if err := decode(resp, &apiResp); err != nil {
-			return nil, err
-		}
-
-		for _, item := range apiResp.Value {
-			wi := c.convertWorkItem(item)
-			allItems = append(allItems, wi)
-		}
 	}
-
-	// Fetch parent titles
-	c.populateParentTitles(allItems)
-
-	// Organize into hierarchy
-	c.organizeHierarchy(allItems)
-
-	return allItems, nil
+	return slices.Concat(results...), nil
 }
 
-// populateParentTitles fetches titles for all parent work items
-func (c *Client) populateParentTitles(items []models.WorkItem) {
-	// Collect unique parent IDs
-	parentIDs := make(map[int]bool)
-	for _, item := range items {
-		if item.ParentID > 0 {
-			parentIDs[item.ParentID] = true
-		}
-	}
-
-	if len(parentIDs) == 0 {
-		return
-	}
-
-	// Convert to string slice
-	ids := make([]string, 0, len(parentIDs))
-	for id := range parentIDs {
-		ids = append(ids, fmt.Sprintf("%d", id))
-	}
-
-	// Fetch parent work items (only need ID and Title)
-	endpoint := fmt.Sprintf("/wit/workitems?ids=%s&fields=System.Id,System.Title", strings.Join(ids, ","))
-	resp, err := c.get(endpoint)
+func (c *Client) workItemBatch(ids []string, fields string) ([]models.WorkItem, error) {
+	resp, err := c.get(fmt.Sprintf("/wit/workitems?ids=%s&fields=%s", strings.Join(ids, ","), fields))
 	if err != nil {
-		return // Silently fail - parent titles are optional
+		return nil, err
 	}
-
 	var apiResp workItemsResponse
 	if err := decode(resp, &apiResp); err != nil {
-		return
+		return nil, err
 	}
-
-	// Build ID -> Title map
-	titleMap := make(map[int]string)
+	items := make([]models.WorkItem, 0, len(apiResp.Value))
 	for _, item := range apiResp.Value {
-		titleMap[item.ID] = item.Fields.Title
+		items = append(items, c.convertWorkItem(item))
 	}
+	return items, nil
+}
 
-	// Update items with parent titles
+func (c *Client) populateParentTitles(items []models.WorkItem) {
+	titles := make(map[int]string, len(items))
+	for _, item := range items {
+		titles[item.ID] = item.Title
+	}
+	var missing []string
+	seen := map[int]bool{}
+	for _, item := range items {
+		if _, known := titles[item.ParentID]; item.ParentID > 0 && !known && !seen[item.ParentID] {
+			seen[item.ParentID] = true
+			missing = append(missing, strconv.Itoa(item.ParentID))
+		}
+	}
+	if len(missing) > 0 {
+		parents, err := c.workItemBatches(missing, workItemTitleOnly)
+		if err != nil {
+			clientLogger.Debugf("parent titles unavailable: %v", err)
+		}
+		for _, p := range parents {
+			titles[p.ID] = p.Title
+		}
+	}
 	for i := range items {
-		if items[i].ParentID > 0 {
-			if title, ok := titleMap[items[i].ParentID]; ok {
-				items[i].ParentTitle = title
-			}
+		if title, ok := titles[items[i].ParentID]; ok && items[i].ParentID > 0 {
+			items[i].ParentTitle = title
 		}
 	}
 }
@@ -250,9 +235,7 @@ func (c *Client) organizeHierarchy(items []models.WorkItem) {
 
 // GetWorkItem fetches a single work item by ID
 func (c *Client) GetWorkItem(id int) (*models.WorkItem, error) {
-	fields := "System.Id,System.Title,System.State,System.Reason,System.WorkItemType,System.AssignedTo,System.IterationPath,System.AreaPath,System.Description,Microsoft.VSTS.Common.AcceptanceCriteria,System.Tags,System.Parent,Microsoft.VSTS.Common.Priority,Microsoft.VSTS.Scheduling.Effort,System.CreatedDate,System.ChangedDate"
-
-	endpoint := fmt.Sprintf("/wit/workitems/%d?fields=%s", id, fields)
+	endpoint := fmt.Sprintf("/wit/workitems/%d?fields=%s", id, workItemListFields)
 	resp, err := c.get(endpoint)
 	if err != nil {
 		return nil, err
@@ -324,7 +307,7 @@ func (c *Client) convertWorkItem(item workItemAPIItem) models.WorkItem {
 }
 
 // UpdateWorkItemState updates a work item's state
-func (c *Client) UpdateWorkItemState(id int, newState string) error {
+func (c *Client) UpdateWorkItemState(id int, newState string) (*models.WorkItem, error) {
 	// Azure DevOps uses JSON Patch format
 	patchDoc := []map[string]interface{}{
 		{
@@ -336,22 +319,15 @@ func (c *Client) UpdateWorkItemState(id int, newState string) error {
 
 	bodyBytes, err := json.Marshal(patchDoc)
 	if err != nil {
-		return fmt.Errorf("marshaling patch document: %w", err)
+		return nil, fmt.Errorf("marshaling patch document: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("/wit/workitems/%d", id)
-	resp, err := c.patch(endpoint, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-
-	return nil
+	return c.patchWorkItem(id, bodyBytes)
 }
 
 // AssignWorkItem assigns a work item to a user
 // Pass empty string to unassign
-func (c *Client) AssignWorkItem(id int, userEmail string) error {
+func (c *Client) AssignWorkItem(id int, userEmail string) (*models.WorkItem, error) {
 	// Azure DevOps uses JSON Patch format
 	patchDoc := []map[string]interface{}{
 		{
@@ -363,17 +339,10 @@ func (c *Client) AssignWorkItem(id int, userEmail string) error {
 
 	bodyBytes, err := json.Marshal(patchDoc)
 	if err != nil {
-		return fmt.Errorf("marshaling patch document: %w", err)
+		return nil, fmt.Errorf("marshaling patch document: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("/wit/workitems/%d", id)
-	resp, err := c.patch(endpoint, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-
-	return nil
+	return c.patchWorkItem(id, bodyBytes)
 }
 
 // CreateWorkItem creates a new work item
@@ -626,11 +595,26 @@ func (c *Client) addParentRelation(childID, parentID int) error {
 
 // UpdateWorkItemTitle updates a work item's title
 func (c *Client) UpdateWorkItemTitle(id int, newTitle string) error {
-	return c.UpdateWorkItem(id, newTitle, "")
+	_, err := c.UpdateWorkItem(id, newTitle, "")
+	return err
+}
+
+func (c *Client) patchWorkItem(id int, patchDoc []byte) (*models.WorkItem, error) {
+	resp, err := c.patch(fmt.Sprintf("/wit/workitems/%d", id), bytes.NewReader(patchDoc))
+	if err != nil {
+		return nil, err
+	}
+	var item workItemAPIItem
+	if err := decode(resp, &item); err != nil {
+		clientLogger.Debugf("work item %d saved but its reply was unreadable: %v", id, err)
+		return nil, nil
+	}
+	wi := c.convertWorkItem(item)
+	return &wi, nil
 }
 
 // UpdateWorkItem updates a work item's title and/or description
-func (c *Client) UpdateWorkItem(id int, newTitle, description string) error {
+func (c *Client) UpdateWorkItem(id int, newTitle, description string) (*models.WorkItem, error) {
 	patchDoc := []map[string]interface{}{}
 
 	if newTitle != "" {
@@ -654,26 +638,19 @@ func (c *Client) UpdateWorkItem(id int, newTitle, description string) error {
 	}
 
 	if len(patchDoc) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	bodyBytes, err := json.Marshal(patchDoc)
 	if err != nil {
-		return fmt.Errorf("marshaling patch document: %w", err)
+		return nil, fmt.Errorf("marshaling patch document: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("/wit/workitems/%d", id)
-	resp, err := c.patch(endpoint, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-
-	return nil
+	return c.patchWorkItem(id, bodyBytes)
 }
 
 // UpdatePBI updates a PBI's title, description, priority, effort, tags, and assigned user
-func (c *Client) UpdatePBI(id int, title, description string, priority int, effort float64, tags []string, assignedTo string) error {
+func (c *Client) UpdatePBI(id int, title, description string, priority int, effort float64, tags []string, assignedTo string) (*models.WorkItem, error) {
 	patchDoc := []map[string]interface{}{}
 
 	if title != "" {
@@ -731,47 +708,24 @@ func (c *Client) UpdatePBI(id int, title, description string, priority int, effo
 	}
 
 	if len(patchDoc) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	bodyBytes, err := json.Marshal(patchDoc)
 	if err != nil {
-		return fmt.Errorf("marshaling patch document: %w", err)
+		return nil, fmt.Errorf("marshaling patch document: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("/wit/workitems/%d", id)
-	resp, err := c.patch(endpoint, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-
-	return nil
+	return c.patchWorkItem(id, bodyBytes)
 }
 
 // DeleteWorkItem deletes a work item
 func (c *Client) DeleteWorkItem(id int) error {
-	endpoint := fmt.Sprintf("/wit/workitems/%d", id)
-	url := fmt.Sprintf("%s%s?api-version=%s", c.baseURL, endpoint, apiVersion)
-
-	req, err := http.NewRequest("DELETE", url, nil)
+	resp, err := c.delete(fmt.Sprintf("/wit/workitems/%d", id))
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return err
 	}
-
-	req.Header.Set("Authorization", c.authHeader)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-	}
-
+	resp.Body.Close()
 	return nil
 }
 

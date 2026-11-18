@@ -78,7 +78,7 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		if item, ok := a.loadedItem(a.detailID()); ok {
 			a.detailView.Refresh(item)
 		}
-		return a, nil, true
+		return a, a.noticeTruncated(msg), true
 	case errMsg:
 		a.loading = false
 		return a, a.openModal(modals.NewErrorModal(a.env(), msg.err)), true
@@ -88,23 +88,34 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, loadCommentsCmd(a.client, msg.workItemID), true
 	case commentsLoadedMsg:
-		a.commentsPanel.SetComments(msg.workItemID, msg.comments)
-		a.detailView.SetComments(msg.workItemID, msg.comments)
+		comments := a.storeComments(msg)
+		a.commentsPanel.SetComments(msg.workItemID, comments)
+		a.detailView.SetComments(msg.workItemID, comments)
 		return a, nil, true
 	case workItemChangedMsg:
-		cmds := []tea.Cmd{a.notify(msg.notice), a.reload()}
+		notice := a.notify(msg.notice)
+		if msg.item != nil && a.applyUpdated(*msg.item) {
+			a.loading = false
+			return a, notice, true
+		}
+		cmds := []tea.Cmd{notice, a.reload()}
 		id := a.detailID()
 		_, loaded := a.loadedItem(id)
 		switch {
 		case id != 0 && id == msg.deletedID:
 			a.viewMode = ViewMain
-		case id != 0 && !loaded:
+		case id != 0 && !loaded && (msg.item == nil || msg.item.ID != id):
 			cmds = append(cmds, fetchDetailCmd(a.client, id))
 		}
 		return a, tea.Batch(cmds...), true
 	case workItemMovedMsg:
 		flash := tea.Batch(a.taskboardPanel.MoveSaved(msg.id), a.boardPanel.MoveSaved(msg.id))
-		return a, tea.Batch(a.notify("State changed to "+msg.state), flash, a.reload()), true
+		notice := a.notify("State changed to " + msg.state)
+		if msg.item != nil && a.applyUpdated(*msg.item) {
+			a.loading = false
+			return a, tea.Batch(notice, flash), true
+		}
+		return a, tea.Batch(notice, flash, a.reload()), true
 	case workItemMoveFailedMsg:
 		a.loading = false
 		if !a.taskboardPanel.HasPendingMove(msg.id) && !a.boardPanel.HasPendingMove(msg.id) {
@@ -123,6 +134,7 @@ func (a App) handleData(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, nil, true
 	case commentChangedMsg:
 		a.loading = false
+		a.comments.Remove(msg.workItemID)
 		notice := a.notify(msg.notice)
 		return a, tea.Batch(notice, loadCommentsCmd(a.client, msg.workItemID)), true
 	case copiedMsg:
@@ -288,6 +300,13 @@ func (a *App) openDetail(item models.WorkItem) tea.Cmd {
 	a.detailFromPR = a.reviewing()
 	a.viewMode = ViewDetail
 	a.detailView.SetItem(&item)
+	cached, age, ok := a.comments.Lookup(item.ID)
+	if ok {
+		a.detailView.SetComments(item.ID, cached)
+	}
+	if ok && age < revalidateAfter {
+		return nil
+	}
 	return loadCommentsCmd(a.client, item.ID)
 }
 
@@ -358,4 +377,12 @@ func (a *App) withCreateDefaults(req modals.ParentCreateRequestMsg) modals.Paren
 		req.IterationPath = iteration
 	}
 	return req
+}
+
+func (a *App) noticeTruncated(msg workItemsLoadedMsg) tea.Cmd {
+	if !msg.truncated || a.truncatedFor == a.loadedQuery {
+		return nil
+	}
+	a.truncatedFor = a.loadedQuery
+	return a.info(fmt.Sprintf("Showing the %d most recently changed work items. Narrow the filters to see older ones, or raise boards.max_work_items.", msg.limit))
 }
