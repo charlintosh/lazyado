@@ -11,6 +11,7 @@ Contents:
 
 - [Choosing a repository](#choosing-a-repository)
 - [Files](#files)
+- [Go to file](#go-to-file)
 - [Cloning](#cloning)
 - [Commits](#commits)
 - [Branches](#branches)
@@ -35,6 +36,7 @@ The header shows the branch you're browsing. It starts on the repository's defau
 
 | Key | Action |
 | --- | ------ |
+| `Ctrl+p` | [Go to file](#go-to-file): find any file by name |
 | `j` / `k` | Move in the tree, or move the line cursor in a file |
 | `g` / `G`, `Ctrl+d` / `Ctrl+u` | Top / bottom, half page down / up |
 | `l` / `enter` | Expand a folder, or open a file's contents |
@@ -49,6 +51,24 @@ The header shows the branch you're browsing. It starts on the repository's defau
 | `y` | [Share](sharing.md) the selected item, or the current line or selected lines: link, permalink, path, code snippet, Markdown |
 | `o` | Open the selected item in the browser, at the branch or tag you're browsing (and at the cursor line or selection, from a file's contents) |
 | `Ctrl+r` | Reload |
+
+## Go to file
+
+Press `Ctrl+p` in the Files hub to find any file in the repository by typing part of its name or path, like a fuzzy finder in an editor.
+
+- Letters match in order, with gaps: `rgate` finds `release/gate.go`. Matches in the file name rank above matches in folders, then matches at the start of a word, then letters in a row, then shorter paths. The matched letters are highlighted.
+- A space splits words that can match in any order: `gate test`. A word ending in `/` picks a folder: `web/ gate`.
+- `↑` / `↓` (or `Ctrl+p` / `Ctrl+n`) move, and `enter` opens the file: the tree expands to it and the contents pane shows it. With an empty search, the finder lists the files you opened recently.
+- On wide terminals the right side previews the highlighted file once you stop on it.
+
+The finder is built to stay light on Azure DevOps:
+
+- Opening it the first time for a repository and branch (or tag) sends **one** request that lists every path. Opening it again reuses that list; the last three branches or tags you searched are kept.
+- Typing never sends a request: matching happens in memory. Until the list arrives, you can already search the files in folders you've opened.
+- A preview loads only after you rest on a file, at most once per file, and shares its cache with the contents pane, so opening a file you previewed costs nothing.
+- Opening a file fills in the tree from that list without loading folders. A folder's commit details load only when you select the folder, as usual.
+- Nothing refreshes by itself. `Ctrl+r` in the finder rebuilds the list (and `Ctrl+r` in the hub reloads everything).
+- Very large repositories are indexed up to their first 50,000 files, and the finder says so.
 
 ## Cloning
 

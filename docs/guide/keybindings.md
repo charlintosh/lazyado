@@ -144,6 +144,7 @@ See [Repos](repos.md) for details.
 
 | Key | Action |
 | --- | ------ |
+| `Ctrl+p` | [Go to file](repos.md#go-to-file): fuzzy-find any file; in the finder `↑` / `↓` or `Ctrl+p` / `Ctrl+n` move, `enter` opens, `Ctrl+r` rebuilds the index, `esc` closes |
 | `l` / `enter` | Expand a folder, or open a file's contents |
 | `h` | Collapse a folder, or go to its parent |
 | `Tab` | Switch between the tree and the contents |

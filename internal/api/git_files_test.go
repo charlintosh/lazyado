@@ -117,3 +117,29 @@ func TestGetCommitDetailReadsParentsAndChangedFiles(t *testing.T) {
 		t.Fatalf("folders must be dropped and kinds mapped, got %+v", d.Files)
 	}
 }
+
+func TestListAllItemsIndexesTheWholeTreeInOneRequestAndStopsAtTheCap(t *testing.T) {
+	var seen []recorded
+	c := clientRouting(t, map[string]string{
+		"/items": `{"count":5,"value":[` +
+			`{"path":"/","isFolder":true,"gitObjectType":"tree","commitId":"2b4b23cdd"},` +
+			`{"path":"/src","isFolder":true,"gitObjectType":"tree","commitId":"2b4b23cdd"},` +
+			`{"path":"/src/cart.go","gitObjectType":"blob","commitId":"2b4b23cdd"},` +
+			`{"path":"/src/vendor-lib","gitObjectType":"commit"},` +
+			`{"path":"/README.md","gitObjectType":"blob"}]}`,
+	}, &seen)
+	x, err := c.ListAllItems("r1", models.BranchVersion("main"), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Len() != 2 || x.Commit != "2b4b23cdd" || x.Truncated || !x.Has("/src/cart.go") || len(x.Children("/src")) != 1 {
+		t.Fatalf("got %d files, commit %q, truncated %v", x.Len(), x.Commit, x.Truncated)
+	}
+	if len(seen) != 1 || !strings.Contains(seen[0].url, "recursionLevel=Full") || strings.Contains(seen[0].url, "latestProcessedChange") {
+		t.Fatalf("the index must be one plain request, got %+v", seen)
+	}
+	x, err = c.ListAllItems("r1", models.BranchVersion("main"), 2)
+	if err != nil || !x.Truncated || x.Len() != 1 {
+		t.Fatalf("the cap must stop reading: %v, truncated %v, %d files", err, x != nil && x.Truncated, x.Len())
+	}
+}

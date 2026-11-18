@@ -71,12 +71,13 @@ const (
 )
 
 const (
-	ModalWidthSM  = 44
-	ModalWidthMD  = 50
-	ModalWidthLG  = 60
-	ModalWidthXL  = 70
-	ModalWidthXXL = 80
-	ModalWidthPR  = 100
+	ModalWidthSM     = 44
+	ModalWidthMD     = 50
+	ModalWidthLG     = 60
+	ModalWidthXL     = 70
+	ModalWidthXXL    = 80
+	ModalWidthPR     = 100
+	ModalWidthFinder = 150
 )
 
 const (

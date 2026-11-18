@@ -39,3 +39,13 @@ func TestSpliceKeepsTheColoursAroundTheBox(t *testing.T) {
 		t.Fatal("the box must start from a clean style so the row's colours cannot bleed into it")
 	}
 }
+
+func TestFastDialogFrameMatchesLipgloss(t *testing.T) {
+	d := Dialog{Title: "Go to file", Subtitle: "main", Body: "› rates\n\n▌ rates.go  src/tax/", Footer: "Enter open", Width: 40}
+	fast := ansi.Strip(d.View())
+	slow := ansi.Strip(lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(dialogPaddingV, dialogPaddingH).Width(d.Width).
+		Render(lipgloss.JoinVertical(lipgloss.Left, "Go to file", "main", "", d.Body, "", "Enter open")))
+	if fast != slow {
+		t.Fatalf("fast frame differs:\n%s\nvs\n%s", fast, slow)
+	}
+}

@@ -96,6 +96,7 @@ type KeyMap struct {
 	OpenBuild     key.Binding
 
 	HubFiles        key.Binding
+	FindFile        key.Binding
 	HubCommits      key.Binding
 	Version         key.Binding
 	Clone           key.Binding
@@ -457,6 +458,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("b"),
 			key.WithHelp("b", "open build"),
 		),
+		FindFile: key.NewBinding(
+			key.WithKeys("ctrl+p"),
+			key.WithHelp("Ctrl+p", "go to file"),
+		),
 		HubFiles: key.NewBinding(
 			key.WithKeys("E"),
 			key.WithHelp("E", "files"),
@@ -541,6 +546,6 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.Yank, k.ShareLines, k.LinkedWorkItems, k.OpenBuild, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
 		{k.RunPipeline, k.FollowLog, k.NextIssue, k.PrevIssue, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy},
-		{k.HubFiles, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.NewRef, k.DeleteRef, k.PullRequestFrom},
+		{k.HubFiles, k.FindFile, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.NewRef, k.DeleteRef, k.PullRequestFrom},
 	}
 }

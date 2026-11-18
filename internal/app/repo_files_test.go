@@ -202,3 +202,99 @@ func TestFilesHubFitsTerminal(t *testing.T) {
 		assertFits(t, a.render(), sz[0], sz[1])
 	}
 }
+
+func finderIndex() *models.FileIndex {
+	paths := []string{"/README.md", "/src/cart.go", "/src/tax/rates.go", "/src/tax/rates_test.go", "/web/pages/Checkout.tsx"}
+	items := []models.GitItem{{Path: "/src", Folder: true}, {Path: "/src/tax", Folder: true}, {Path: "/web", Folder: true}, {Path: "/web/pages", Folder: true}}
+	for _, p := range paths {
+		items = append(items, models.GitItem{Path: p})
+	}
+	return models.NewFileIndex(items, "2b4b23cdd", false)
+}
+
+func openFinder(t *testing.T, a App) App {
+	t.Helper()
+	a, msgs := step(t, a, ctrl('p'))
+	a = feed(t, a, msgs...)
+	topModal[modals.FileFinder](t, a)
+	return a
+}
+
+func typeInFinder(t *testing.T, a App, text string) App {
+	t.Helper()
+	for _, r := range text {
+		a, _ = step(t, a, press(string(r)))
+	}
+	return a
+}
+
+func TestFileFinderIndexesOnceAndTypingMakesNoRequests(t *testing.T) {
+	a := openFilesHub(t, 160, 45)
+	a = openFinder(t, a)
+	key := a.fileIndexKey()
+	e := a.code.indexes.entries[key]
+	if e == nil || !e.loading {
+		t.Fatal("ctrl+p must start one index request")
+	}
+	gen := a.code.indexes.gen
+	a = feed(t, a, special(tea.KeyEscape))
+	a = openFinder(t, a)
+	if a.code.indexes.gen != gen {
+		t.Fatal("reopening while the index loads must not send another request")
+	}
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "Indexing ⎇ main") {
+		t.Errorf("the finder must say it is indexing:\n%s", out)
+	}
+	a = feed(t, a, fileIndexLoadedMsg{key: key, gen: gen, index: finderIndex()})
+	requested := len(a.code.files.requested)
+	a = typeInFinder(t, a, "rates")
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"rates.go", "rates_test.go", "2 of 5 files", "Indexed ⎇ main @ 2b4b23c"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the finder is missing %q:\n%s", want, out)
+		}
+	}
+	if a.code.indexes.gen != gen || len(a.code.files.requested) != requested {
+		t.Fatal("typing must not call Azure DevOps")
+	}
+	a = feed(t, a, special(tea.KeyEscape))
+	a = openFinder(t, a)
+	if a.code.indexes.gen != gen {
+		t.Fatal("the index must be reused for the same repository and version")
+	}
+}
+
+func TestFileFinderPreviewsAfterARestAndOpensTheFileInTheTree(t *testing.T) {
+	a := openFilesHub(t, 160, 45)
+	a = openFinder(t, a)
+	a = feed(t, a, fileIndexLoadedMsg{key: a.fileIndexKey(), gen: a.code.indexes.gen, index: finderIndex()})
+	a = typeInFinder(t, a, "rates")
+	a, msgs := step(t, a, modals.FileFinderPreviewRequestMsg{Path: "/src/tax/rates.go"})
+	if !a.code.files.requested[fileKey+"/src/tax/rates.go"] || len(msgs) != 0 {
+		t.Fatal("resting on a file must load its text once")
+	}
+	if _, msgs = step(t, a, modals.FileFinderPreviewRequestMsg{Path: "/src/tax/rates.go"}); len(msgs) != 0 {
+		t.Fatal("the same file must not be requested twice")
+	}
+	a = feed(t, a, repoFileLoadedMsg{seq: a.code.seq, path: "/src/tax/rates.go", text: "package tax\n\nconst VAT = 21\n"})
+	a, msgs = step(t, a, special(tea.KeyEnter))
+	chosen, ok := find[modals.FileChosenMsg](msgs)
+	if !ok || chosen.Path != "/src/tax/rates.go" {
+		t.Fatalf("enter must open the best match, got %v", msgs)
+	}
+	a = feed(t, a, chosen)
+	f := a.code.files
+	if sel := f.tree.Selected(); sel == nil || sel.Path != "/src/tax/rates.go" || f.pane != paneContent {
+		t.Fatalf("the file must be revealed in the tree and opened, got %+v", sel)
+	}
+	if wanted := f.tree.WantedFolders(); len(wanted) != 0 {
+		t.Fatalf("revealing must not load folders, wants %v", wanted)
+	}
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "const VAT = 21") {
+		t.Errorf("the opened file must show from the cache:\n%s", out)
+	}
+	a = openFinder(t, a)
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "RECENTLY OPENED") || !strings.Contains(out, "rates.go") {
+		t.Errorf("an empty finder must list recent files:\n%s", out)
+	}
+}

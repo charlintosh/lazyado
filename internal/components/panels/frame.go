@@ -7,9 +7,9 @@ import (
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
+	"github.com/charlintosh/lazyado/internal/components/widgets"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type Hub int
@@ -87,55 +87,8 @@ func (h Hub) Mode() string {
 	}
 }
 
-const blanks = "                                                                                                                                "
-
 func Block(s string, width, height int) string {
-	if width <= 0 || height <= 0 {
-		return ""
-	}
-	if fitted, ok := fitBlock(s, width, height); ok {
-		return fitted
-	}
-	return lipgloss.NewStyle().Width(width).Height(height).MaxWidth(width).MaxHeight(height).Render(s)
-}
-
-func fitBlock(s string, width, height int) (string, bool) {
-	if strings.ContainsAny(s, "\t\r") {
-		return "", false
-	}
-	var b strings.Builder
-	b.Grow(len(s) + width*height)
-	n := 0
-	for line := range strings.SplitSeq(s, "\n") {
-		if n == height {
-			break
-		}
-		w := ansi.StringWidth(line)
-		if w > width {
-			return "", false
-		}
-		if n > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(line)
-		writeBlanks(&b, width-w)
-		n++
-	}
-	for ; n < height; n++ {
-		if n > 0 {
-			b.WriteByte('\n')
-		}
-		writeBlanks(&b, width)
-	}
-	return b.String(), true
-}
-
-func writeBlanks(b *strings.Builder, n int) {
-	for n > len(blanks) {
-		b.WriteString(blanks)
-		n -= len(blanks)
-	}
-	b.WriteString(blanks[:n])
+	return widgets.Block(s, width, height)
 }
 
 func Line(s string, width int) string {

@@ -20,7 +20,8 @@ type codeState struct {
 	refsLoaded  bool
 	refsLoading bool
 
-	files filesState
+	files   filesState
+	indexes fileIndexes
 }
 
 type refsLoadedMsg struct {

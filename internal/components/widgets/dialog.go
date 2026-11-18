@@ -64,6 +64,9 @@ func (d Dialog) View() string {
 	if d.Footer != "" {
 		parts = append(parts, "", d.Footer)
 	}
+	if framed, ok := frameDialog(strings.Join(parts, "\n"), d.Width, accent); ok {
+		return framed
+	}
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(accent).
@@ -72,8 +75,41 @@ func (d Dialog) View() string {
 		Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
+func frameDialog(content string, width int, accent color.Color) (string, bool) {
+	inner := DialogInnerWidth(width)
+	body, ok := fitBlock(content, inner, strings.Count(content, "\n")+1)
+	if !ok || width < dialogBorder+2*dialogPaddingH+1 {
+		return "", false
+	}
+	border := lipgloss.RoundedBorder()
+	edge := lipgloss.NewStyle().Foreground(accent)
+	side := edge.Render(border.Left)
+	pad := strings.Repeat(" ", dialogPaddingH)
+	blank := side + strings.Repeat(" ", width-dialogBorder) + side
+	var b strings.Builder
+	b.WriteString(edge.Render(border.TopLeft + strings.Repeat(border.Top, width-dialogBorder) + border.TopRight))
+	for range dialogPaddingV {
+		b.WriteString("\n" + blank)
+	}
+	for line := range strings.SplitSeq(body, "\n") {
+		b.WriteString("\n" + side + pad + line + pad + side)
+	}
+	for range dialogPaddingV {
+		b.WriteString("\n" + blank)
+	}
+	b.WriteString("\n" + edge.Render(border.BottomLeft+strings.Repeat(border.Bottom, width-dialogBorder)+border.BottomRight))
+	return b.String(), true
+}
+
+func fitBox(box string, width, height int) string {
+	if lipgloss.Height(box) <= height && lipgloss.Width(box) <= width {
+		return box
+	}
+	return lipgloss.NewStyle().MaxWidth(width).MaxHeight(height).Render(box)
+}
+
 func Overlay(base, box string, width, height int) string {
-	box = lipgloss.NewStyle().MaxWidth(width).MaxHeight(height).Render(box)
+	box = fitBox(box, width, height)
 	x := max((width-lipgloss.Width(box))/2, 0)
 	y := max((height-lipgloss.Height(box))/2, 0)
 	return OverlayAt(base, box, x, y, width, height)
@@ -100,11 +136,5 @@ func Splice(base, box string, x, y, width, height int) string {
 }
 
 func OverlayAt(base, box string, x, y, width, height int) string {
-	box = lipgloss.NewStyle().MaxWidth(width).MaxHeight(height).Render(box)
-	x = max(min(x, width-lipgloss.Width(box)), 0)
-	y = max(min(y, height-lipgloss.Height(box)), 0)
-	return lipgloss.NewCompositor(
-		lipgloss.NewLayer(base),
-		lipgloss.NewLayer(box).X(x).Y(y).Z(1),
-	).Render()
+	return Splice(base, fitBox(box, width, height), x, y, width, height)
 }

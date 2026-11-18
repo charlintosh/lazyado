@@ -107,6 +107,7 @@ func (a *App) refreshFiles() tea.Cmd {
 	if a.code.repo.ID == "" {
 		return a.restoreCodeRepository()
 	}
+	a.forgetFileIndex()
 	a.setCodeVersion(a.code.version)
 	return nil
 }
@@ -151,7 +152,7 @@ func (a *App) syncFileSelection() tea.Cmd {
 	}
 	if sel.Folder {
 		items, ok := f.tree.Children(sel.Path)
-		if !ok {
+		if !ok || f.tree.Partial(sel.Path) {
 			return a.scheduleFile(folderKey, sel.Path)
 		}
 		if readme, ok := models.FolderReadme(items); ok {
@@ -242,6 +243,8 @@ func (a App) handleFilesKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 	case key.Matches(msg, k.Repository):
 		return a, a.openCodeRepositoryPicker()
 	case a.code.repo.ID == "":
+	case key.Matches(msg, k.FindFile):
+		return a, a.openFileFinder()
 	case key.Matches(msg, k.Version):
 		return a, a.openVersionPicker()
 	case key.Matches(msg, k.Clone):
@@ -306,7 +309,8 @@ func (a App) handleFilesResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		f.texts[msg.path] = fileText{text: msg.text, err: msg.err}
 		f.rev++
-		return a, nil, true
+		next, cmd := a.toFileFinder(modals.FileFinderPreviewMsg{Path: msg.path, Text: msg.text, Err: msg.err})
+		return next, cmd, true
 	case repoFileDueMsg:
 		if msg.seq != a.code.seq {
 			return a, nil, true
@@ -322,9 +326,10 @@ func (a App) handleFilesResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		return a, a.requestFile(sel.Path), true
 	case panels.OpenRepoFileMsg:
 		f.pane = paneContent
+		a.rememberFile(msg.Item.Path)
 		return a, nil, true
 	}
-	return a, nil, false
+	return a.handleFileFinderResult(msg)
 }
 
 func (a *App) filesLayout(width int) (int, int) {

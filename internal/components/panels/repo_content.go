@@ -303,7 +303,7 @@ func (p *RepoContentPanel) KeyBindings() []key.Binding {
 	if p.IsMarkdownFile() {
 		bindings = append(bindings, widgets.Combine("file/preview", k.Panel1, k.Panel2))
 	}
-	return append(bindings, k.Share, widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
+	return append(bindings, k.FindFile, k.Share, widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
 		k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Relabel(k.Back, "tree"))
 }
 

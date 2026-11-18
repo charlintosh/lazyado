@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -67,6 +68,75 @@ func (c *Client) ListItems(repositoryID, folder string, v models.GitVersion) ([]
 		items = append(items, it)
 	}
 	return models.SortGitItems(items), nil
+}
+
+func (c *Client) ListAllItems(repositoryID string, v models.GitVersion, limit int) (*models.FileIndex, error) {
+	q := url.Values{}
+	q.Set("scopePath", itemsRoot)
+	q.Set("recursionLevel", "Full")
+	versionQuery(q, v)
+	resp, err := c.get(repositoryPath(repositoryID) + "/items?" + q.Encode())
+	if err != nil {
+		return nil, fmt.Errorf("indexing files: %w", err)
+	}
+	defer resp.Body.Close()
+	items, commit, truncated, err := decodeItemStream(resp.Body, limit)
+	if err != nil {
+		return nil, fmt.Errorf("indexing files: %w", err)
+	}
+	return models.NewFileIndex(items, commit, truncated), nil
+}
+
+func decodeItemStream(r io.Reader, limit int) ([]models.GitItem, string, bool, error) {
+	dec := json.NewDecoder(r)
+	if err := seekArray(dec, "value"); err != nil {
+		return nil, "", false, err
+	}
+	var items []models.GitItem
+	commit := ""
+	for dec.More() {
+		if len(items) == limit {
+			return items, commit, true, nil
+		}
+		var v struct {
+			Path          string `json:"path"`
+			IsFolder      bool   `json:"isFolder"`
+			GitObjectType string `json:"gitObjectType"`
+			CommitID      string `json:"commitId"`
+		}
+		if err := dec.Decode(&v); err != nil {
+			return nil, "", false, err
+		}
+		if commit == "" {
+			commit = v.CommitID
+		}
+		if v.Path == itemsRoot || v.GitObjectType == "commit" {
+			continue
+		}
+		items = append(items, models.GitItem{Path: v.Path, Folder: v.IsFolder})
+	}
+	return items, commit, false, nil
+}
+
+func seekArray(dec *json.Decoder, field string) error {
+	if _, err := dec.Token(); err != nil {
+		return err
+	}
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		if name, ok := tok.(string); ok && name == field {
+			_, err := dec.Token()
+			return err
+		}
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("no %s in the response", field)
 }
 
 func (c *Client) GetItemText(repositoryID, path string, v models.GitVersion) (string, error) {

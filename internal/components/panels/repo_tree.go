@@ -37,6 +37,7 @@ type RepoTreePanel struct {
 	keys     keys.KeyMap
 	root     string
 	children map[string][]models.GitItem
+	partial  map[string]bool
 	expanded map[string]bool
 	rows     []treeRow
 	cursor   int
@@ -55,6 +56,7 @@ func NewRepoTreePanel(k keys.KeyMap) RepoTreePanel {
 func (p *RepoTreePanel) Reset(root string) {
 	p.root = root
 	p.children = map[string][]models.GitItem{}
+	p.partial = map[string]bool{}
 	p.expanded = map[string]bool{treeRoot: true}
 	p.cursor = 0
 	p.rebuild()
@@ -65,7 +67,42 @@ func (p *RepoTreePanel) SetChildren(folder string, items []models.GitItem) {
 		items = []models.GitItem{}
 	}
 	p.children[folder] = items
+	delete(p.partial, folder)
 	p.rebuild()
+}
+
+func (p *RepoTreePanel) Partial(folder string) bool { return p.partial[folder] }
+
+func (p *RepoTreePanel) Reveal(path string, children func(folder string) []models.GitItem) {
+	var folders []string
+	for f := models.ParentPath(path); f != ""; f = models.ParentPath(f) {
+		folders = append(folders, f)
+		if f == treeRoot {
+			break
+		}
+	}
+	for i := len(folders) - 1; i >= 0; i-- {
+		f := folders[i]
+		p.expanded[f] = true
+		if !p.Loaded(f) && children != nil {
+			p.children[f] = children(f)
+			p.partial[f] = true
+		}
+	}
+	p.rebuild()
+	p.selectPath(path)
+}
+
+func (p *RepoTreePanel) KnownFiles() []models.GitItem {
+	var out []models.GitItem
+	for _, items := range p.children {
+		for _, it := range items {
+			if !it.Folder {
+				out = append(out, it)
+			}
+		}
+	}
+	return out
 }
 
 func (p *RepoTreePanel) Loaded(folder string) bool {
@@ -294,7 +331,7 @@ func (p *RepoTreePanel) KeyBindings() []key.Binding {
 	if it := p.Selected(); it != nil && it.Folder {
 		open = widgets.Relabel(k.Select, "expand")
 	}
-	return []key.Binding{open, widgets.Relabel(k.Left, "collapse"), widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
+	return []key.Binding{open, k.FindFile, widgets.Relabel(k.Left, "collapse"), widgets.Relabel(k.HubCommits, "history"), k.Version, k.Repository, k.Clone,
 		k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh}
 }
 
