@@ -59,7 +59,9 @@ Where to press `y`:
 
 ## Sharing lines of code
 
-In the Files hub and in a pull request's Files tab, `y` on the line cursor shares that line. To share several lines, press `v`, extend the selection with `j` / `k`, then press `y`. `esc` cancels the selection.
+In the Files hub and in a pull request's Files tab, `y` on the line cursor shares that line. To share several lines, press `v`, extend the selection with `j` / `k`, then press `s` for the menu or `Y` to copy their link at once. `esc` cancels the selection.
+
+To copy just the code, press `y` while lines are selected: like vim's yank, it copies the selected lines as plain text, without a menu, and ends the selection.
 
 - **Link** opens the file at those lines on the branch or tag you're browsing. In a pull request, it opens the file in the pull request's Files tab.
 - **Permalink** pins the lines to a commit, so the link keeps pointing at the same code after the branch moves on. In the Files hub that is the last commit that changed the file; in a pull request it is the pull request's latest commit (or its base, for deleted lines).

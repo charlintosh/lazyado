@@ -140,6 +140,15 @@ func (p *RepoContentPanel) SelectedLines() (share.Lines, bool) {
 	return share.Lines{From: lo + 1, To: hi + 1, Code: code}, true
 }
 
+func (p *RepoContentPanel) YankSelection() tea.Cmd {
+	lines, ok := p.SelectedLines()
+	if !ok || !p.Selecting() {
+		return nil
+	}
+	p.code.clearSelection()
+	return copyLinesCmd(lines.Code)
+}
+
 func (p *RepoContentPanel) Loading() bool {
 	return p.content.Item.Path != "" && (!p.content.Loaded || (p.content.HasReadme && !p.content.ReadmeLoaded))
 }
@@ -284,8 +293,8 @@ func (p *RepoContentPanel) KeyBindings() []key.Binding {
 	k := p.keys
 	move := widgets.Combine("scroll", k.Up, k.Down)
 	if n := p.code.selectedLines(); p.ShowsCode() && n > 0 {
-		return []key.Binding{widgets.Combine("extend", k.Up, k.Down), widgets.Relabel(k.Share, fmt.Sprintf("share %d lines", n)),
-			k.OpenBrowser, widgets.Relabel(k.Back, "cancel selection")}
+		return []key.Binding{widgets.Combine("extend", k.Up, k.Down), widgets.Relabel(k.Yank, fmt.Sprintf("copy %d lines", n)),
+			widgets.Relabel(k.ShareLines, "share"), widgets.Relabel(k.ShareLink, "copy link"), k.OpenBrowser, widgets.Relabel(k.Back, "cancel selection")}
 	}
 	bindings := []key.Binding{move}
 	if p.ShowsCode() {

@@ -694,6 +694,16 @@ func (f *pullRequestFiles) shareTarget(pr models.PullRequest) share.Target {
 	return share.PullRequestFile(pr, f.changes.HeadCommit, file.Path)
 }
 
+func (f *pullRequestFiles) yankSelection() []string {
+	anchor, ok := f.anchor()
+	if !ok {
+		return nil
+	}
+	code := f.selectedCode(anchor.LeftSide)
+	f.clearSelection()
+	return code
+}
+
 func (f *pullRequestFiles) selectedCode(leftSide bool) []string {
 	d, _ := f.current()
 	lo, hi := f.selection()
@@ -998,7 +1008,9 @@ func (f *pullRequestFiles) keyBindings() []key.Binding {
 	if n := f.selectedLines(); n > 0 {
 		return []key.Binding{
 			widgets.Combine("extend", k.Up, k.Down),
-			widgets.Relabel(k.Share, fmt.Sprintf("share %d lines", n)),
+			widgets.Relabel(k.Yank, fmt.Sprintf("copy %d lines", n)),
+			widgets.Relabel(k.ShareLines, "share"),
+			widgets.Relabel(k.ShareLink, "copy link"),
 			widgets.Relabel(k.AddComment, fmt.Sprintf("comment on %d lines", n)),
 			widgets.Relabel(k.Back, "cancel selection"),
 		}

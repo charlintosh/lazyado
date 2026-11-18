@@ -246,6 +246,10 @@ func (a App) handleFilesKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		return a, a.openVersionPicker()
 	case key.Matches(msg, k.Clone):
 		return a, a.openClone()
+	case f.pane == paneContent && f.content.Selecting() && key.Matches(msg, k.Yank):
+		return a, f.content.YankSelection()
+	case f.pane == paneContent && f.content.Selecting() && key.Matches(msg, k.ShareLines) && sel != nil:
+		return a, a.share(a.fileShareTarget(*sel), false)
 	case a.isShareKey(msg) && sel != nil:
 		return a, a.share(a.fileShareTarget(*sel), a.shareNow(msg))
 	case key.Matches(msg, k.OpenBrowser) && sel != nil:

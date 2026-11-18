@@ -147,7 +147,7 @@ See [Repos](repos.md) for details.
 | `l` / `enter` | Expand a folder, or open a file's contents |
 | `h` | Collapse a folder, or go to its parent |
 | `Tab` | Switch between the tree and the contents |
-| `v` | In the contents: select lines; `j` / `k` extend, `esc` cancels |
+| `v` | In the contents: select lines; `j` / `k` extend, `y` copies the code (like vim's yank), `s` shares, `Y` copies their link, `esc` cancels |
 | `1` / `2` | Markdown files: File (source, to select lines) / Preview tab (`[` / `]` also switch) |
 | `esc` | Clear the selection, then back to the tree |
 | `b` | Choose a branch or tag |
@@ -253,7 +253,7 @@ These keys act on the focused comment, on Overview and in the Files diff.
 | `J` / `K` | Next / previous file |
 | `n` / `N` | Next / previous change |
 | `Tab` | Switch between the file list and the diff |
-| `v` | Select lines; `j` / `k` extend, `c` comments, `y` shares, `esc` cancels |
+| `v` | Select lines; `j` / `k` extend, `y` copies the code (like vim's yank), `s` shares, `Y` copies their link, `c` comments, `esc` cancels |
 | `enter` | On a file that is too large or generated: load its diff anyway |
 | `o` | Open the selected file in the browser |
 

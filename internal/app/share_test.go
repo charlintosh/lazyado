@@ -15,7 +15,17 @@ import (
 
 func openShare(t *testing.T, a App) (App, string) {
 	t.Helper()
-	a, msgs := step(t, a, press("y"))
+	return openShareWith(t, a, "y")
+}
+
+func openLineShare(t *testing.T, a App) (App, string) {
+	t.Helper()
+	return openShareWith(t, a, "s")
+}
+
+func openShareWith(t *testing.T, a App, letter string) (App, string) {
+	t.Helper()
+	a, msgs := step(t, a, press(letter))
 	a = feed(t, a, msgs...)
 	menu := topModal[modals.ShareModal](t, a)
 	return a, ansi.Strip(menu.View())
@@ -88,10 +98,10 @@ func TestShareLinkNowSkipsTheMenu(t *testing.T) {
 func TestShareSelectedLinesInAPullRequest(t *testing.T) {
 	a := openFiles(t, 160, 45)
 	a = feed(t, a, press("j"), press("j"), press("j"), press("v"), press("j"), press("j"))
-	if status := ansi.Strip(a.render()); !strings.Contains(status, "share 3 lines") {
-		t.Fatalf("the status bar must offer to share the selection:\n%s", status[len(status)-200:])
+	if status := ansi.Strip(a.render()); !strings.Contains(status, "copy 3 lines") || !strings.Contains(status, "s share") {
+		t.Fatalf("the status bar must offer to copy and share the selection:\n%s", status[len(status)-200:])
 	}
-	a, out := openShare(t, a)
+	a, out := openLineShare(t, a)
 	if !strings.Contains(out, "lines 4–6") {
 		t.Fatalf("the menu must name the lines:\n%s", out)
 	}
@@ -122,10 +132,10 @@ func openCartFile(t *testing.T) App {
 func TestShareSelectedLinesInAFile(t *testing.T) {
 	a := openCartFile(t)
 	a = feed(t, a, press("v"), press("j"), press("j"))
-	if status := ansi.Strip(a.render()); !strings.Contains(status, "share 3 lines") {
+	if status := ansi.Strip(a.render()); !strings.Contains(status, "copy 3 lines") {
 		t.Fatalf("v must select lines in the Files hub:\n%s", status[len(status)-200:])
 	}
-	a, out := openShare(t, a)
+	a, out := openLineShare(t, a)
 	if !strings.Contains(out, "lines 1–3 on main") {
 		t.Fatalf("got:\n%s", out)
 	}
@@ -157,7 +167,7 @@ func TestMarkdownFilesHaveAFileTabToSelectAndShareLines(t *testing.T) {
 		t.Fatalf("1 must show the highlighted source with line numbers:\n%s", out)
 	}
 	a = feed(t, a, press("v"), press("j"), press("j"))
-	a, _ = openShare(t, a)
+	a, _ = openLineShare(t, a)
 	if c := shareAs(t, a, "f"); c.Text != "README.md:1-3" {
 		t.Errorf("got %q", c.Text)
 	}
@@ -180,5 +190,45 @@ func TestEscClearsTheFileSelectionBeforeLeaving(t *testing.T) {
 	}
 	if a = feed(t, a, special(tea.KeyEscape)); a.code.files.pane != paneTree {
 		t.Fatal("a second esc must go back to the tree")
+	}
+}
+
+func yank(t *testing.T, a App) (App, panels.CopyTextMsg) {
+	t.Helper()
+	a, msgs := step(t, a, press("y"))
+	c, ok := find[panels.CopyTextMsg](msgs)
+	if !ok {
+		t.Fatalf("y on a selection must copy it, got %v", msgs)
+	}
+	if _, ok := a.modals.top(); ok {
+		t.Fatal("y on a selection must copy at once, without the share menu")
+	}
+	return a, c
+}
+
+func TestYankCopiesTheSelectedLinesOfAFile(t *testing.T) {
+	a := openCartFile(t)
+	a = feed(t, a, press("v"), press("j"), press("j"))
+	a, c := yank(t, a)
+	if c.Text != "package cart\n\nfunc Total() int {" || c.Notice != "Copied 3 lines" {
+		t.Errorf("got %q (%s)", c.Text, c.Notice)
+	}
+	if a.code.files.content.Selecting() {
+		t.Error("copying must end the selection, like vim")
+	}
+	if a, _ = openShare(t, a); !strings.Contains(ansi.Strip(a.render()), "cart.go") {
+		t.Error("without a selection, y must still open the share menu")
+	}
+}
+
+func TestYankCopiesTheSelectedLinesOfADiff(t *testing.T) {
+	a := openFiles(t, 160, 45)
+	a = feed(t, a, press("j"), press("j"), press("j"), press("v"), press("j"), press("j"))
+	a, c := yank(t, a)
+	if !strings.HasPrefix(c.Text, "\tvar resp *http.Response\n") || strings.Count(c.Text, "\n") != 2 || c.Notice != "Copied 3 lines" {
+		t.Errorf("got %q (%s)", c.Text, c.Notice)
+	}
+	if strings.Contains(ansi.Strip(a.render()), "SELECT") {
+		t.Error("copying must end the selection, like vim")
 	}
 }

@@ -473,6 +473,11 @@ func (v PullRequestView) handleKey(msg tea.KeyPressMsg) (PullRequestView, tea.Cm
 		return v, nil
 	case key.Matches(msg, k.Back):
 		return v, func() tea.Msg { return ClosePullRequestViewMsg{} }
+	case v.tab == PullRequestFiles && v.files.selecting() && key.Matches(msg, k.Yank):
+		code := v.files.yankSelection()
+		return v, copyLinesCmd(code)
+	case v.tab == PullRequestFiles && v.files.selecting() && key.Matches(msg, k.ShareLines):
+		return v, shareCmd(v.shareTarget(pr), false)
 	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
 		now, _ := ShareRequested(k, msg)
 		return v, shareCmd(v.shareTarget(pr), now)

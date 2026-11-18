@@ -1,6 +1,9 @@
 package panels
 
 import (
+	"fmt"
+	"strings"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/keys"
@@ -10,6 +13,20 @@ import (
 type ShareMsg struct {
 	Target share.Target
 	Now    bool
+}
+
+type CopyTextMsg struct {
+	Text   string
+	Notice string
+}
+
+func copyLinesCmd(code []string) tea.Cmd {
+	text := strings.Join(code, "\n")
+	notice := "Copied 1 line"
+	if len(code) != 1 {
+		notice = fmt.Sprintf("Copied %d lines", len(code))
+	}
+	return func() tea.Msg { return CopyTextMsg{Text: text, Notice: notice} }
 }
 
 type ShareReleaseMsg struct {

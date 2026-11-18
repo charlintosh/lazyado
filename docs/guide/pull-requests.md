@@ -130,13 +130,13 @@ The file list flags files with active comments. Comment threads appear under the
 ### Commenting on code
 
 - `c` on a code line comments on that line.
-- `v` starts a selection. Extend it with `j` / `k` (within the same hunk), then press `c` to comment on the whole range, or `esc` to cancel. Range threads appear under their last line, with the covered lines marked.
+- `v` starts a selection. Extend it with `j` / `k` (within the same hunk), then press `y` to copy the code, `c` to comment on the whole range, or `esc` to cancel. Like vim's yank, `y` copies the selected lines as plain text and ends the selection. Copying takes the new side of the diff; a selection of only deleted lines copies the old code. Range threads appear under their last line, with the covered lines marked.
 
 When the cursor is on a comment rather than a code line, the [comment keys](#comments) apply instead.
 
 ### Sharing code
 
-`y` [shares](sharing.md#sharing-lines-of-code) the file, or the line under the cursor, or the selected lines: a link to the file in the pull request, a permalink to the lines at the pull request's latest commit, the path with its line range, or the code as a Markdown snippet.
+`y` [shares](sharing.md#sharing-lines-of-code) the file or the line under the cursor; with lines selected, `s` shares them and `Y` copies their link. Sharing offers a link to the file in the pull request, a permalink to the lines at the pull request's latest commit, the path with its line range, or the code as a Markdown snippet.
 
 ### Large and generated files
 

@@ -27,7 +27,7 @@ Press `r` to switch. The picker lists your starred repositories first, the same 
 The hub has two panes: the folder tree on the left and the selected item on the right. On narrow terminals only the focused pane is shown.
 
 - **A folder** shows its files and subfolders with the last commit that changed each one: when, the short commit ID and the commit message. If the folder has a `README.md`, it is rendered below the list.
-- **A file** shows its contents with line numbers and syntax highlighting, the same way as the [pull request diff](pull-requests.md#the-files-tab): `j` / `k` move a line cursor, `v` selects lines, `y` [shares](sharing.md#sharing-lines-of-code) the line or selection, and `o` opens the file in the browser at that line. Markdown files have two tabs: **Preview** (rendered, the default) and **File** (the highlighted source, where you can select and share lines). `1` / `2` or `[` / `]` switch between them, and the tab you pick stays for the next Markdown file. Binary files and files over the [`diff.max_file_kb` limit](configuration.md#large-files-in-diffs) aren't shown; `o` opens them in the browser.
+- **A file** shows its contents with line numbers and syntax highlighting, the same way as the [pull request diff](pull-requests.md#the-files-tab): `j` / `k` move a line cursor, `v` selects lines and `y` then copies them as plain text (like vim's yank), `y` without a selection [shares](sharing.md#sharing-lines-of-code) the line (`s` shares a selection), and `o` opens the file in the browser at that line. Markdown files have two tabs: **Preview** (rendered, the default) and **File** (the highlighted source, where you can select and share lines). `1` / `2` or `[` / `]` switch between them, and the tab you pick stays for the next Markdown file. Binary files and files over the [`diff.max_file_kb` limit](configuration.md#large-files-in-diffs) aren't shown; `o` opens them in the browser.
 
 Folders load when you open them, and a file loads once the cursor rests on it.
 
@@ -40,7 +40,7 @@ The header shows the branch you're browsing. It starts on the repository's defau
 | `l` / `enter` | Expand a folder, or open a file's contents |
 | `h` | Collapse a folder, or go to its parent |
 | `Tab` | Switch between the tree and the contents |
-| `v` | In a file's contents: select lines; `j` / `k` extend |
+| `v` | In a file's contents: select lines; `j` / `k` extend, `y` copies them, `s` shares them, `Y` copies their link |
 | `1` / `2` | Markdown files: File (source) / Preview tab (`[` / `]` also switch) |
 | `esc` | Clear the selection, then back to the tree |
 | `b` | Choose a branch or tag |

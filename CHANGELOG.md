@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ### Added
 
+- feat: vim-like yank in the Files hub and a pull request's Files tab — select lines with `v`, then `y` copies them as plain text at once ("Copied 3 lines") and ends the selection; with lines selected, `s` opens the share menu for them (it was `y`) and `Y` still copies their link
 
 - feat: Builds search asks Azure DevOps as you type, 0.4 s after the last keystroke, instead of waiting for `Enter`; typing on cancels the pending request, the same text is never searched twice, the bar shows *searching* while it loads, and the list stays on screen until the results arrive; `Enter` now just closes the bar
 - feat: Builds runs are grouped under Today, Yesterday, Last 7 days and Older, and a Stages column shows one coloured cell per stage (`█░░·`, `+N` past 12), loaded for the rows on screen

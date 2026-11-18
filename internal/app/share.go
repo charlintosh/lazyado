@@ -40,6 +40,8 @@ func (a App) handleShareIntent(msg tea.Msg) (App, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case panels.ShareMsg:
 		return a, a.share(msg.Target, msg.Now), true
+	case panels.CopyTextMsg:
+		return a, copyCmd(msg.Text, msg.Notice), true
 	case panels.ShareReleaseMsg:
 		r := models.Release{ID: msg.ReleaseID, Name: msg.Name, Definition: msg.Definition, WebURL: a.client.ReleaseWebURL(msg.ReleaseID)}
 		return a, a.share(share.Release(r), msg.Now), true
