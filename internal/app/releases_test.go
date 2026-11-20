@@ -58,11 +58,11 @@ func openReleasesHub(t testing.TB, width, height int) App {
 func TestReleasesHubListsStarredPipelinesFirstWithTheirReleases(t *testing.T) {
 	a := openReleasesHub(t, 160, 45)
 	out := ansi.Strip(a.render())
-	starred, all := strings.Index(out, "Starred"), strings.Index(out, "All release pipelines")
+	starred, all := strings.Index(out, "★ STARRED 1"), strings.Index(out, "ALL RELEASE PIPELINES 2")
 	if starred < 0 || all < 0 || starred > all {
 		t.Fatalf("starred pipelines must come first:\n%s", out)
 	}
-	for _, want := range []string{"Pipelines / Releases / smartHotel", "smartHotel · Releases 1", "Release-64", "OK Dev1", "APPR QA", "Prod", "_smartHotel-CI · 20170509.2 · master", "1 Releases", "2 Approvals", "Create release", "RELEASES"} {
+	for _, want := range []string{"Pipelines / Releases / smartHotel", "smartHotel · Releases 1", "Release-64", "Releases", "Created", "Stages", "✓ Dev1", "◐ QA", "○ Prod", "_smartHotel-CI · 20170509.2 · master", "Gopi R", "smartHotel ", "1 Releases", "2 Approvals", "Create release", "RELEASES"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("releases hub is missing %q", want)
 		}
@@ -113,7 +113,7 @@ func TestReleaseSearchAsksAzureDevOpsOnlyWhenMorePipelinesExist(t *testing.T) {
 	}
 	a = feed(t, a, releaseSearchMsg{seq: a.rl.searchSeq, text: "rates", defs: []models.ReleaseDefinition{{ID: 31, Name: "smartHotel - rates", LastRelease: "Release-31"}}})
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"None of the 3 loaded match.", "Found on Azure DevOps", "smartHotel - rates"} {
+	for _, want := range []string{"None of the 3 loaded match.", "FOUND ON AZURE DEVOPS 1", "smartHotel - rates"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("server results are missing %q:\n%s", want, out)
 		}
@@ -128,7 +128,7 @@ func TestStarredGroupShowsEvenWhenEmpty(t *testing.T) {
 	a = feed(t, a, press("R"))
 	a = feed(t, a, releaseDefinitionsMsg{seq: a.rl.seq, defs: sampleDefinitions()})
 	out := ansi.Strip(a.render())
-	if !strings.Contains(out, "Starred") || !strings.Contains(out, "None yet. Ctrl+t stars a pipeline.") {
+	if !strings.Contains(out, "★ STARRED 0") || !strings.Contains(out, "None yet. Ctrl+t stars a pipeline.") {
 		t.Errorf("the Starred group must explain how to star:\n%s", out)
 	}
 	a = feed(t, a, panels.StarReleaseDefinitionMsg{Definition: models.ReleaseDefinition{ID: 20, Name: "payments-api - Prod"}, Star: true})
@@ -517,5 +517,29 @@ func TestStarringAPipelineThatIsNotLoadedKeepsItInStarred(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("pipelines must not be listed twice, got %d", count)
+	}
+}
+
+func TestReleaseListMarksWhatIsDeployedNowAndTheLatestDeploymentOfEachPipeline(t *testing.T) {
+	a := openReleasesHub(t, 160, 45)
+	now := time.Now()
+	older := sampleRelease()
+	older.ID, older.Name = 63, "Release-63"
+	older.Stages = []models.ReleaseStage{
+		{Name: "Dev1", State: models.StageSucceeded, Finished: now.Add(-3 * time.Hour)},
+		{Name: "QA", State: models.StageSucceeded, Finished: now.Add(-2 * time.Hour)},
+		{Name: "Prod", State: models.StageFailed},
+	}
+	a = feed(t, a, releasesLoadedMsg{seq: a.rl.listSeq, definition: 12, releases: []models.Release{sampleRelease(), older}})
+	current := models.CurrentDeployments(a.rl.releases)
+	if !current[64]["Dev1"] || !current[63]["QA"] || current[63]["Dev1"] || current[63]["Prod"] {
+		t.Fatalf("the newest successful deployment of each stage is current, got %v", current)
+	}
+	a.rl.defs.SetLatest(map[int]models.DefinitionDeployment{20: {DefinitionID: 20, Release: "Release-207", Stage: "Prod-EU", State: models.StageFailed, When: now.Add(-time.Hour)}})
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"✗ Prod-EU · Release-207 · 1h ago", "✗ Prod", "Release-63"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
 	}
 }

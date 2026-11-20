@@ -577,3 +577,42 @@ func (c *Client) ReleaseDefinitionWebURL(id int) string {
 func (c *Client) ReleaseWebURL(id int) string {
 	return fmt.Sprintf("%s/_releaseProgress?releaseId=%d", c.webURL, id)
 }
+
+const latestDeploymentsScan = 100
+
+func (c *Client) LatestDeployments() (map[int]models.DefinitionDeployment, error) {
+	q := url.Values{}
+	q.Set("$top", strconv.Itoa(latestDeploymentsScan))
+	q.Set("queryOrder", "descending")
+	q.Set("latestAttemptsOnly", "true")
+	var data struct {
+		Value []struct {
+			Release            namedRef  `json:"release"`
+			ReleaseDefinition  namedRef  `json:"releaseDefinition"`
+			ReleaseEnvironment namedRef  `json:"releaseEnvironment"`
+			DeploymentStatus   string    `json:"deploymentStatus"`
+			OperationStatus    string    `json:"operationStatus"`
+			QueuedOn           time.Time `json:"queuedOn"`
+			CompletedOn        time.Time `json:"completedOn"`
+		} `json:"value"`
+	}
+	if _, err := c.releaseGet("/release/deployments?"+q.Encode(), &data); err != nil {
+		return nil, fmt.Errorf("loading recent deployments: %w", err)
+	}
+	latest := map[int]models.DefinitionDeployment{}
+	for _, d := range data.Value {
+		id, err := d.ReleaseDefinition.ID.Int64()
+		if err != nil || latest[int(id)].Release != "" {
+			continue
+		}
+		when := d.CompletedOn
+		if when.IsZero() {
+			when = d.QueuedOn
+		}
+		latest[int(id)] = models.DefinitionDeployment{
+			DefinitionID: int(id), Release: d.Release.Name, Stage: d.ReleaseEnvironment.Name,
+			State: models.DeploymentState(d.DeploymentStatus, d.OperationStatus), When: when,
+		}
+	}
+	return latest, nil
+}

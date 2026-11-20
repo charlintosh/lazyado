@@ -1,6 +1,7 @@
 package panels
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -13,15 +14,19 @@ import (
 )
 
 type listItem struct {
-	header string
-	note   string
-	key    string
-	render func(base lipgloss.Style, selected bool, width int) []string
+	header   string
+	headerBg color.Color
+	headerFg color.Color
+	note     string
+	line     string
+	key      string
+	render   func(base lipgloss.Style, selected bool, width int) []string
 }
 
 type selectList struct {
 	viewport viewport.Model
 	items    []listItem
+	rows     map[int][]string
 	cursor   int
 	footer   string
 	focused  bool
@@ -35,7 +40,7 @@ func newSelectList(k keys.KeyMap) selectList {
 
 func (l *selectList) setItems(items []listItem) {
 	selected := l.selectedKey()
-	l.items = items
+	l.items, l.rows = items, nil
 	l.cursor = l.next(-1, 1)
 	for i, it := range items {
 		if it.selectable() && it.key == selected && selected != "" {
@@ -127,6 +132,9 @@ func (l *selectList) setFocused(focused bool) {
 }
 
 func (l *selectList) setSize(width, height int) {
+	if l.width != width {
+		l.rows = nil
+	}
 	l.width, l.height = width, height
 	l.viewport.SetWidth(max(width, 1))
 	l.viewport.SetHeight(max(height, 1))
@@ -144,7 +152,11 @@ func (l *selectList) render() {
 			if len(lines) > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, " "+lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(it.header))
+			lines = append(lines, l.headerLine(it))
+			continue
+		}
+		if it.line != "" {
+			lines = append(lines, "  "+Line(it.line, max(l.width-2, 1)))
 			continue
 		}
 		if it.note != "" {
@@ -165,7 +177,7 @@ func (l *selectList) render() {
 			top = len(lines)
 		}
 		lead := base.Foreground(styles.ColorPrimary).Render(bar) + base.Render(" ")
-		row := it.render(base, selected, max(l.width-2, 1))
+		row := l.rowLines(i, it, base, selected)
 		for _, line := range row {
 			lines = append(lines, lead+line)
 		}
@@ -180,9 +192,33 @@ func (l *selectList) render() {
 	widgets.Reveal(&l.viewport, top, bottom)
 }
 
-func (it listItem) isHeader() bool { return it.header != "" || it.note != "" }
+func (l *selectList) rowLines(i int, it listItem, base lipgloss.Style, selected bool) []string {
+	if selected {
+		return it.render(base, true, max(l.width-2, 1))
+	}
+	if row, ok := l.rows[i]; ok {
+		return row
+	}
+	row := it.render(base, false, max(l.width-2, 1))
+	if l.rows == nil {
+		l.rows = make(map[int][]string, len(l.items))
+	}
+	l.rows[i] = row
+	return row
+}
 
-func (it listItem) selectable() bool { return it.header == "" && it.note == "" }
+func (l *selectList) headerLine(it listItem) string {
+	if it.headerBg == nil {
+		return " " + lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true).Render(it.header)
+	}
+	tag := lipgloss.NewStyle().Background(it.headerBg).Foreground(it.headerFg).Bold(true).Padding(0, 1).Render(it.header)
+	rule := lipgloss.NewStyle().Foreground(styles.ColorChip).Render(strings.Repeat(ruleGlyph, max(l.width-lipgloss.Width(tag)-3, 0)))
+	return " " + tag + " " + rule
+}
+
+func (it listItem) isHeader() bool { return it.header != "" || it.note != "" || it.line != "" }
+
+func (it listItem) selectable() bool { return it.header == "" && it.note == "" && it.line == "" }
 
 func (l *selectList) view() string {
 	return Block(l.viewport.View(), l.width, l.height)

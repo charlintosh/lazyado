@@ -21,23 +21,24 @@ The *Pipelines › Releases* hub (`R`) shows the classic release pipelines of th
 
 `[` / `]` also switch views.
 
-The left pane lists the release pipelines, with **Starred** ones first: the ones you star here with `Ctrl+t` (saved in `state.json`), plus any release pipelines Azure DevOps reports as favorites for your account. Starred pipelines show even when they aren't among the ones loaded so far: lazyado fetches them by ID in one request. The group is always shown; while it's empty it says how to star one. Each row shows the pipeline's latest release. `Tab` (or `h` / `l`) moves between the two panes, `enter` on a pipeline moves to its releases, and `v` opens its latest release directly.
+The left pane lists the release pipelines in three groups, each under its own tag: **★ Starred** (gold), **All release pipelines**, and, while searching, **Found on Azure DevOps** (teal). Starred holds the ones you star here with `Ctrl+t` (saved in `state.json`), plus any release pipelines Azure DevOps reports as favorites for your account; each shows a gold `★` on the right. Starred pipelines show even when they aren't among the ones loaded so far: lazyado fetches them by ID in one request. The group is always shown; while it's empty it says how to star one.
 
-Each release shows its stages as chips:
+Each pipeline's second line shows its latest deployment, as in Azure DevOps: the stage's state and name, the release and how long ago (`✓ Dev1 · Release-64 · 2h ago`). These come from one request for the project's 100 most recent deployments; a pipeline without one there shows its latest release instead. Pending approvals show as `◐ n` badges: orange for the ones waiting on you, grey for others. `Tab` (or `h` / `l`) moves between the two panes, `enter` on a pipeline moves to its releases, and `v` opens its latest release directly.
+
+The releases pane lists the selected pipeline's releases in three columns, **Releases**, **Created** and **Stages**, newest first. The first line of a release has its name, when it was created and a chip per stage; the second line has the primary artifact's version and branch, and who created it.
 
 | Chip | Meaning |
 | ---- | ------- |
-| `OK` | Deployed |
-| `RUN` | Deploying |
-| `APPR` | Waiting for approval |
-| `WAIT` | Queued or scheduled |
-| `FAIL` | The deployment failed |
-| `REJ` | An approver rejected it |
-| `PART` | Partially deployed |
-| `STOP` | Canceled |
-| name only | Not deployed |
+| `✓ Dev1` on bright green | The release that is deployed on that stage now: the latest successful deployment there among the loaded releases |
+| `✓ Dev1` on grey | Deployed there before, since replaced by a later release |
+| `◐ QA` on blue | Deploying |
+| `◐ QA` on orange | Waiting for approval |
+| `✗ Prod` on red | The deployment failed, or an approver rejected it |
+| `! Prod` | Partially deployed |
+| `⊘ Prod` | Canceled |
+| `○ Prod` | Not deployed (or queued) |
 
-The row's second line shows the primary artifact's version and branch, who created the release and when. 25 releases load at a time, and more load as you scroll. While a release is deploying, the list refreshes every 15 seconds.
+On narrow panes the Created column goes first, then chips narrow down to a readable size; stages that still don't fit show as `+N`. 25 releases load at a time, and more load as you scroll. While a release is deploying, the list refreshes every 15 seconds.
 
 | Key | Action |
 | --- | ------ |

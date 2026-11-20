@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -90,6 +91,7 @@ type releaseDefinitionsMsg struct {
 	defs    []models.ReleaseDefinition
 	token   string
 	starred []int
+	latest  map[int]models.DefinitionDeployment
 	more    bool
 	err     error
 }
@@ -136,9 +138,18 @@ func loadReleaseDefinitionsCmd(client *api.Client, seq int, search, token string
 	return func() tea.Msg {
 		msg := releaseDefinitionsMsg{seq: seq, more: more}
 		msg.defs, msg.token, msg.err = client.ListReleaseDefinitions(search, token)
-		if msg.err == nil && !more {
-			msg.starred, _ = client.GetFavoriteReleaseDefinitionIDs()
+		if msg.err != nil || more {
+			return msg
 		}
+		var wg sync.WaitGroup
+		wg.Go(func() { msg.starred, _ = client.GetFavoriteReleaseDefinitionIDs() })
+		wg.Go(func() {
+			var err error
+			if msg.latest, err = client.LatestDeployments(); err != nil {
+				logReleases.Debugf("latest deployments: %v", err)
+			}
+		})
+		wg.Wait()
 		return msg
 	}
 }
@@ -539,6 +550,7 @@ func (a App) handleReleaseHubResult(msg tea.Msg) (App, tea.Cmd, bool) {
 			a.rl.definitions = mergeDefinitions(a.rl.definitions, msg.defs)
 		} else {
 			a.rl.definitions, a.rl.adoStars = msg.defs, msg.starred
+			a.rl.defs.SetLatest(msg.latest)
 		}
 		a.rl.defsToken = msg.token
 		a.rl.defs.SetStarred(a.starredReleases())

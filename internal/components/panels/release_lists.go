@@ -2,6 +2,7 @@ package panels
 
 import (
 	"fmt"
+	"image/color"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/share"
 	"github.com/charlintosh/lazyado/internal/styles"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -26,6 +28,13 @@ const (
 	loadingReleases      = "Loading releases"
 	loadingApprovals     = "Loading approvals"
 	releaseNameMinColumn = 14
+	releaseCreatedColumn = 16
+	releaseColumnGap     = 2
+	releaseChipMin       = 9
+	releaseChipMax       = 22
+	releaseChipPadding   = 4
+	releaseCreatedLayout = "2006-01-02 15:04"
+	starGlyph            = "★"
 	DefsEnterReleases    = "its releases"
 	DefsEnterApprovals   = "its approvals"
 )
@@ -58,6 +67,7 @@ type ApprovalCount struct {
 type ReleaseDefinitionsPanel struct {
 	list          selectList
 	counts        map[int]ApprovalCount
+	latest        map[int]models.DefinitionDeployment
 	enterLabel    string
 	defs          []models.ReleaseDefinition
 	found         []models.ReleaseDefinition
@@ -85,6 +95,11 @@ func (p *ReleaseDefinitionsPanel) SetApprovalCounts(counts map[int]ApprovalCount
 }
 
 func (p *ReleaseDefinitionsPanel) SetEnterLabel(label string) { p.enterLabel = label }
+
+func (p *ReleaseDefinitionsPanel) SetLatest(latest map[int]models.DefinitionDeployment) {
+	p.latest = latest
+	p.rebuild()
+}
 
 func (p *ReleaseDefinitionsPanel) SetDefinitions(defs []models.ReleaseDefinition, more bool) {
 	p.defs, p.more, p.loading, p.loadingMore = defs, more, false, false
@@ -210,25 +225,50 @@ func (p *ReleaseDefinitionsPanel) Title() string {
 }
 
 func (p *ReleaseDefinitionsPanel) defItem(d models.ReleaseDefinition, terms []string) listItem {
+	starred := p.starred[d.ID]
+	latest, deployed := p.latest[d.ID]
 	return listItem{key: strconv.Itoa(d.ID), render: func(base lipgloss.Style, selected bool, width int) []string {
-		name := highlight(d.Name, terms, base.Foreground(styles.ColorText).Bold(true))
-		last := "No releases yet"
-		if d.LastRelease != "" {
-			last = d.LastRelease + " · " + ShortAgo(d.LastCreated)
+		nameStyle := base.Foreground(styles.ColorText).Bold(true)
+		if selected {
+			nameStyle = nameStyle.Foreground(styles.ColorPrimary)
 		}
-		return []string{cellsLine(name, approvalCountBadges(p.counts[d.ID], base), base, width), cellsLine(base.Foreground(styles.ColorTextMuted).Render(last), "", base, width)}
+		name := highlight(d.Name, terms, nameStyle)
+		right := approvalCountBadges(p.counts[d.ID], base)
+		if starred {
+			if right != "" {
+				right += base.Render(" ")
+			}
+			right += base.Foreground(styles.ColorWarning).Bold(true).Render(starGlyph)
+		}
+		muted := base.Foreground(styles.ColorTextMuted)
+		var second string
+		switch {
+		case deployed:
+			glyph, mark := stageGlyph(latest.State)
+			second = base.Foreground(mark).Bold(true).Render(glyph) + base.Render(" ") + base.Foreground(styles.ColorLight).Render(latest.Stage) +
+				muted.Render(" · "+latest.Release+" · "+ShortAgo(latest.When))
+		case d.LastRelease != "":
+			second = muted.Render(d.LastRelease + " · " + ShortAgo(d.LastCreated))
+		default:
+			second = muted.Render("No releases yet")
+		}
+		return []string{cellsLine(name, right, base, width), cellsLine(second, "", base, width)}
 	}}
 }
 
 func approvalCountBadges(c ApprovalCount, base lipgloss.Style) string {
 	var out []string
 	if c.Mine > 0 {
-		out = append(out, Badge(strconv.Itoa(c.Mine), styles.ColorOrange, styles.ColorOnAccent))
+		out = append(out, Badge("◐ "+strconv.Itoa(c.Mine), styles.ColorOrange, styles.ColorOnAccent))
 	}
 	if c.Others > 0 {
-		out = append(out, Badge(strconv.Itoa(c.Others), styles.ColorChip, styles.ColorLight))
+		out = append(out, Badge("◐ "+strconv.Itoa(c.Others), styles.ColorChip, styles.ColorLight))
 	}
 	return strings.Join(out, base.Render(" "))
+}
+
+func listGroup(title string, n int, bg, fg color.Color) listItem {
+	return listItem{header: strings.ToUpper(title) + " " + strconv.Itoa(n), headerBg: bg, headerFg: fg}
 }
 
 func (p *ReleaseDefinitionsPanel) rebuild() {
@@ -253,14 +293,14 @@ func (p *ReleaseDefinitionsPanel) rebuild() {
 	}
 	var items []listItem
 	if len(starred) > 0 || (filter == "" && !p.loading) {
-		items = append(items, listItem{header: starredGroup})
+		items = append(items, listGroup(starGlyph+" "+starredGroup, len(starred), styles.ColorWarningTint, styles.ColorWarning))
 		if len(starred) == 0 {
 			items = append(items, listItem{note: "None yet. " + p.keys.ToggleFavorite.Help().Key + " stars a pipeline."})
 		}
 		items = append(items, starred...)
 	}
 	if len(rest) > 0 {
-		items = append(items, listItem{header: allReleasesGroup})
+		items = append(items, listGroup(allReleasesGroup, len(rest), styles.ColorChip, styles.ColorLight))
 		items = append(items, rest...)
 	}
 	if filter != "" && len(starred)+len(rest) == 0 && len(p.defs) > 0 {
@@ -274,7 +314,7 @@ func (p *ReleaseDefinitionsPanel) rebuild() {
 			}
 		}
 		if len(found) > 0 {
-			items = append(items, listItem{header: foundGroup})
+			items = append(items, listGroup(foundGroup, len(found), styles.ColorTealTint, styles.ColorTealLight))
 			items = append(items, found...)
 		}
 	}
@@ -528,21 +568,102 @@ func (p *ReleasesPanel) Title() string {
 	return fmt.Sprintf("%s · Releases %d", p.definition, len(p.releases))
 }
 
+type releaseColumns struct {
+	name    int
+	created int
+	chip    int
+	stages  int
+}
+
+func layoutReleaseColumns(releases []models.Release, width int) releaseColumns {
+	longest, stages := 0, 0
+	for _, r := range releases {
+		stages = max(stages, len(r.Stages))
+		for _, s := range r.Stages {
+			longest = max(longest, lipgloss.Width(s.Name))
+		}
+	}
+	c := releaseColumns{created: releaseCreatedColumn, stages: stages}
+	c.chip = min(max(longest+releaseChipPadding, releaseChipMin), releaseChipMax)
+	strip := func() int { return stages*c.chip + max(stages-1, 0)*lipgloss.Width(stageChipGap) }
+	room := func() int { return width - c.created - strip() - 2*releaseColumnGap }
+	for room() < releaseNameMinColumn && c.chip > releaseChipMin {
+		c.chip--
+	}
+	if room() < releaseNameMinColumn {
+		c.created = 0
+	}
+	c.name = max(room(), releaseNameMinColumn)
+	if c.created == 0 {
+		c.name = max(width-strip()-releaseColumnGap, releaseNameMinColumn)
+	}
+	return c
+}
+
+func padCell(base lipgloss.Style, text string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	text = ansi.Truncate(text, width, "…")
+	return text + base.Render(strings.Repeat(" ", max(width-lipgloss.Width(text), 0)))
+}
+
+func (p *ReleasesPanel) columnHeader(c releaseColumns, width int) string {
+	head := lipgloss.NewStyle().Foreground(styles.ColorTextMuted).Bold(true)
+	gap := strings.Repeat(" ", releaseColumnGap)
+	line := padCell(lipgloss.NewStyle(), head.Render("Releases"), c.name) + gap
+	if c.created > 0 {
+		line += padCell(lipgloss.NewStyle(), head.Render("Created"), c.created) + gap
+	}
+	return Line(line+head.Render("Stages"), width)
+}
+
 func (p *ReleasesPanel) rebuild() {
-	items := make([]listItem, 0, len(p.releases))
+	current := models.CurrentDeployments(p.releases)
+	items := make([]listItem, 0, len(p.releases)+1)
+	width := max(p.list.width-2, 1)
+	releases := p.releases
+	memo := map[int]releaseColumns{}
+	colsFor := func(w int) releaseColumns {
+		c, ok := memo[w]
+		if !ok {
+			c = layoutReleaseColumns(releases, w)
+			memo[w] = c
+		}
+		return c
+	}
+	if len(p.releases) > 0 {
+		items = append(items, listItem{line: p.columnHeader(colsFor(width), width)})
+	}
 	for i := range p.releases {
 		r := p.releases[i]
+		now := current[r.ID]
 		items = append(items, listItem{key: strconv.Itoa(r.ID), render: func(base lipgloss.Style, selected bool, width int) []string {
-			name := base.Foreground(styles.ColorAccent).Bold(true).Render(r.Name)
-			nameWidth := max(lipgloss.Width(name), releaseNameMinColumn)
-			name += base.Render(strings.Repeat(" ", nameWidth-lipgloss.Width(name)+1))
-			chips := StageChips(r.Stages, max(width-nameWidth-1, 1), base)
-			when := base.Foreground(styles.ColorTextMuted).Render(releaseStamp(r.Created))
-			meta := r.ArtifactSummary()
-			if r.CreatedBy.DisplayName != "" {
-				meta += " · " + r.CreatedBy.DisplayName
+			c := colsFor(width)
+			gap := base.Render(strings.Repeat(" ", releaseColumnGap))
+			muted := base.Foreground(styles.ColorTextMuted)
+			first := padCell(base, base.Foreground(styles.ColorAccent).Bold(true).Render(r.Name), c.name) + gap
+			meta := muted.Render(r.ArtifactSummary())
+			second := padCell(base, meta, c.name) + gap
+			if c.created > 0 {
+				stamp := ""
+				if !r.Created.IsZero() {
+					stamp = r.Created.Local().Format(releaseCreatedLayout)
+				}
+				first += padCell(base, base.Foreground(styles.ColorLight).Render(stamp), c.created) + gap
+				if lipgloss.Width(meta) > c.name {
+					long := r.ArtifactSummary()
+					if r.CreatedBy.DisplayName != "" {
+						long += " · " + r.CreatedBy.DisplayName
+					}
+					second = padCell(base, muted.Render(long), c.name+releaseColumnGap+c.created) + gap
+				} else {
+					second += padCell(base, muted.Render(r.CreatedBy.DisplayName), c.created) + gap
+				}
 			}
-			return []string{cellsLine(name+chips, "", base, width), cellsLine(base.Foreground(styles.ColorTextMuted).Render(meta), when, base, width)}
+			stripWidth := max(width-lipgloss.Width(first), 1)
+			first += deploymentChips(r.Stages, now, c.chip, stripWidth, base)
+			return []string{cellsLine(first, "", base, width), cellsLine(second, "", base, width)}
 		}})
 	}
 	p.list.footer = ""

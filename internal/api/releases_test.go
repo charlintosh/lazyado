@@ -202,3 +202,24 @@ func TestReleaseDefinitionsByIDAsksForThoseIDsOnly(t *testing.T) {
 		t.Fatal("no IDs must not send a request")
 	}
 }
+
+func TestLatestDeploymentsKeepsTheNewestPerPipeline(t *testing.T) {
+	var seen []recorded
+	body := `{"value":[` +
+		`{"release":{"id":64,"name":"Release-64"},"releaseDefinition":{"id":12},"releaseEnvironment":{"name":"QA"},"deploymentStatus":"inProgress","operationStatus":"Pending","queuedOn":"2026-11-20T10:00:00Z"},` +
+		`{"release":{"id":63,"name":"Release-63"},"releaseDefinition":{"id":12},"releaseEnvironment":{"name":"Dev1"},"deploymentStatus":"succeeded","completedOn":"2026-11-20T09:00:00Z"},` +
+		`{"release":{"id":9,"name":"Release-9"},"releaseDefinition":{"id":3},"releaseEnvironment":{"name":"Prod"},"deploymentStatus":"failed","operationStatus":"PhaseFailed","completedOn":"2026-11-19T09:00:00Z"}]}`
+	latest, err := clientRouting(t, map[string]string{"/release/deployments": body}, &seen).LatestDeployments()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(seen[0].url, "queryOrder=descending") || !strings.Contains(seen[0].url, "latestAttemptsOnly=true") || !strings.Contains(seen[0].url, "%24top=100") {
+		t.Fatalf("asked %s", seen[0].url)
+	}
+	if d := latest[12]; d.Release != "Release-64" || d.Stage != "QA" || d.State != models.StageWaitingApproval || d.When.IsZero() {
+		t.Fatalf("pipeline 12 %+v", d)
+	}
+	if d := latest[3]; d.State != models.StageFailed || d.Stage != "Prod" {
+		t.Fatalf("pipeline 3 %+v", d)
+	}
+}

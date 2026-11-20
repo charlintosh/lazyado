@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	stageChipWidth   = 14
 	stageChipGap     = " "
 	stageStripGap    = 3
 	stageStripArrows = 4
@@ -80,29 +79,65 @@ func StageBadge(s models.StageState) string {
 	return Badge(label, bg, fg)
 }
 
-func StageChip(s models.ReleaseStage, width int) string {
-	text := s.Name
-	if label := s.State.Label(); label != "" {
-		text = label + " " + s.Name
-	}
-	text = ansi.Truncate(text, max(width-2, 1), "…")
-	bg, fg := stageColors(s.State)
-	return lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(s.State != models.StageNotDeployed).
-		Padding(0, 1).Width(width).Render(text)
+type stageLook struct {
+	glyph string
+	bg    color.Color
+	fg    color.Color
+	mark  color.Color
+	bold  bool
 }
 
-func StageChips(stages []models.ReleaseStage, width int, base lipgloss.Style) string {
+func stageGlyph(s models.StageState) (string, color.Color) {
+	look := lookOf(s, false)
+	return look.glyph, look.mark
+}
+
+func lookOf(s models.StageState, current bool) stageLook {
+	switch s {
+	case models.StageSucceeded:
+		if current {
+			return stageLook{"✓", styles.ColorDiffAdd, styles.ColorDeployedNow, styles.ColorSuccess, true}
+		}
+		return stageLook{"✓", styles.ColorChipSoft, styles.ColorLight, styles.ColorSuccess, false}
+	case models.StagePartial:
+		if current {
+			return stageLook{"!", styles.ColorWarningTint, styles.ColorWarning, styles.ColorWarning, true}
+		}
+		return stageLook{"!", styles.ColorChipSoft, styles.ColorLight, styles.ColorWarning, false}
+	case models.StageFailed, models.StageRejected:
+		return stageLook{"✗", styles.ColorErrorTint, styles.ColorStaleText, styles.ColorError, true}
+	case models.StageDeploying:
+		return stageLook{"◐", styles.ColorDropTint, styles.ColorPrimaryLight, styles.ColorPrimary, true}
+	case models.StageWaitingApproval:
+		return stageLook{"◐", styles.ColorWaitTint, styles.ColorWaitLight, styles.ColorOrange, true}
+	case models.StageCanceled:
+		return stageLook{"⊘", styles.ColorChipSoft, styles.ColorTextMuted, styles.ColorTextMuted, false}
+	case models.StageQueued, models.StageScheduled:
+		return stageLook{"○", styles.ColorChipSoft, styles.ColorLight, styles.ColorAccent, false}
+	}
+	return stageLook{"○", styles.ColorChipSoft, styles.ColorMuted, styles.ColorMuted, false}
+}
+
+func deploymentChip(s models.ReleaseStage, current bool, width int) string {
+	look := lookOf(s.State, current)
+	bg := lipgloss.NewStyle().Background(look.bg)
+	name := ansi.Truncate(s.Name, max(width-4, 1), "…")
+	text := bg.Foreground(look.fg).Bold(look.bold).Render(name)
+	chip := bg.Render(" ") + bg.Foreground(look.mark).Bold(true).Render(look.glyph) + bg.Render(" ") + text
+	return chip + bg.Render(strings.Repeat(" ", max(width-lipgloss.Width(chip), 0)))
+}
+
+func deploymentChips(stages []models.ReleaseStage, current map[string]bool, chipWidth, width int, base lipgloss.Style) string {
 	var out string
 	for i, s := range stages {
-		chip := StageChip(s, stageChipWidth)
 		next := out
 		if i > 0 {
 			next += base.Render(stageChipGap)
 		}
-		next += chip
+		next += deploymentChip(s, current[s.Name], chipWidth)
 		if lipgloss.Width(next) > width {
-			if lipgloss.Width(out)+2 <= width {
-				out += base.Foreground(styles.ColorTextMuted).Render(" …")
+			if more := fmt.Sprintf(" +%d", len(stages)-i); lipgloss.Width(out)+len(more) <= width {
+				out += base.Foreground(styles.ColorTextMuted).Render(more)
 			}
 			break
 		}

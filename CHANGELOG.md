@@ -6,6 +6,12 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- feat: the releases pane reads like Azure DevOps' release list: **Releases**, **Created** and **Stages** columns, and a chip per stage with its state glyph and full name. The release deployed on a stage now is the bright green chip; earlier deployments, failures, deployments in progress, approvals and canceled or not-deployed stages each have their own color and glyph
+- feat: release pipelines carry their latest deployment on the second line (`✓ Dev1 · Release-64 · 2h ago`), from one request for the project's recent deployments; starred pipelines show a gold `★`, pending approvals `◐ n` badges, and the Starred, All and Found on Azure DevOps groups their own colored tags
+- perf: release, approval and pipeline lists render only the selected row on a cursor move; the other rows are kept until the list or its width changes
+
 ### Fixed
 
 - fix: `Ctrl+t` did nothing in the Releases hub while the search bar was open or once `Enter` had moved to a pipeline's releases. It now stars the highlighted match while searching, and the pipeline whose releases you're looking at from the releases pane, with a notice either way
