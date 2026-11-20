@@ -26,7 +26,7 @@ func sampleDefinitions() []models.ReleaseDefinition {
 func sampleRelease() models.Release {
 	now := time.Now()
 	qaApproval := models.ReleaseApproval{ID: 91, Kind: models.ApprovalPre, Status: "pending", Approver: models.Identity{DisplayName: "QA Leads"}, Group: true,
-		Created: now.Add(-2 * time.Hour), ReleaseID: 64, ReleaseName: "Release-64", Definition: "smartHotel", StageID: 2, StageName: "QA"}
+		Created: now.Add(-2 * time.Hour), ReleaseID: 64, ReleaseName: "Release-64", DefinitionID: 12, Definition: "smartHotel", StageID: 2, StageName: "QA"}
 	deployJob := models.RunJob{TimelineRecord: models.TimelineRecord{ID: "3", Name: "Agent job", State: models.RunSucceeded, LogID: 103, LogURL: "https://vsrm/logs/3", Worker: "Hosted Agent"}, Stage: "Dev1",
 		Steps: []models.TimelineRecord{{ID: "4", Name: "Azure App Service deploy", State: models.RunSucceeded, LogID: 104, LogURL: "https://vsrm/logs/4"}}}
 	return models.Release{
@@ -169,13 +169,33 @@ func TestApprovalsPivotListsMineFirstAndOpensTheDialog(t *testing.T) {
 		t.Fatal("the Approvals view must load pending approvals")
 	}
 	mine := sampleRelease().Stages[1].Approvals[0]
-	other := models.ReleaseApproval{ID: 95, Kind: models.ApprovalPre, Status: "pending", Approver: models.Identity{DisplayName: "Ops on-call"}, ReleaseID: 63, ReleaseName: "Release-63", Definition: "smartHotel", StageName: "Staging"}
-	a = feed(t, a, approvalsLoadedMsg{seq: a.rl.approvalsSeq, mine: []models.ReleaseApproval{mine}, others: []models.ReleaseApproval{other}})
+	other := models.ReleaseApproval{ID: 95, Kind: models.ApprovalPre, Status: "pending", Approver: models.Identity{DisplayName: "Ops on-call"}, ReleaseID: 63, ReleaseName: "Release-63", DefinitionID: 12, Definition: "smartHotel", StageName: "Staging"}
+	elsewhere := models.ReleaseApproval{ID: 96, Kind: models.ApprovalPre, Status: "pending", Approver: models.Identity{DisplayName: "Payments leads"}, ReleaseID: 207, ReleaseName: "Release-207", DefinitionID: 20, Definition: "payments-api - Prod", StageName: "Prod"}
+	a = feed(t, a, approvalsLoadedMsg{seq: a.rl.approvalsSeq, mine: []models.ReleaseApproval{mine}, others: []models.ReleaseApproval{other, elsewhere}})
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Waiting on you 1", "Waiting on others 1", "QA · Release-64 · smartHotel", "you can approve", "2 Approvals  1"} {
+	for _, want := range []string{"Approvals · smartHotel 2", "Waiting on you 1", "Waiting on others 1", "QA · Release-64", "you can approve", "2 Approvals  1", "A all pipelines"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("approvals view is missing %q", want)
 		}
+	}
+	for _, unwanted := range []string{"Prod · Release-207", "Release-64 · smartHotel"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("approvals scoped to smartHotel must not show %q:\n%s", unwanted, out)
+		}
+	}
+	if c := a.rl.approvals.Counts(); c[12] != (panels.ApprovalCount{Mine: 1, Others: 1}) || c[20] != (panels.ApprovalCount{Others: 1}) {
+		t.Errorf("each pipeline must count its own approvals, got %v", c)
+	}
+	all := feed(t, a, press("A"))
+	out = ansi.Strip(all.render())
+	for _, want := range []string{"Approvals 3 · all pipelines", "Prod · Release-207 · payments-api - Prod", "QA · Release-64 · smartHotel", "A this pipeline"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("A must widen approvals to every pipeline, missing %q", want)
+		}
+	}
+	other20 := feed(t, a, press("h"), press("j"))
+	if d := other20.rl.defs.Selected(); d == nil || d.ID == 12 {
+		t.Fatalf("j on the pipeline pane must pick another pipeline, got %+v", d)
 	}
 	a, msgs := step(t, a, press("a"))
 	req, ok := find[panels.ApproveReleaseMsg](msgs)
@@ -265,6 +285,37 @@ func TestReleaseLogsLoadFromTheTaskLogURL(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("release logs are missing %q", want)
 		}
+	}
+}
+
+func TestReleaseLogsShowOnlyTheSelectedStage(t *testing.T) {
+	a := openReleaseView(t, 160, 45)
+	if s, _ := a.rl.view.SelectedStage(); s.Name != "QA" {
+		t.Fatalf("the stage waiting for approval must be picked first, got %q", s.Name)
+	}
+	a = feed(t, a, press("2"))
+	out := ansi.Strip(a.render())
+	for _, want := range []string{"Stage", "Jobs · QA", "No jobs in this stage yet.", "< > switch stage"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("logs for QA are missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Agent job") || strings.Contains(out, "Jobs in run") {
+		t.Errorf("logs for QA must not list Dev1's jobs:\n%s", out)
+	}
+	a = feed(t, a, press("<"))
+	if s, _ := a.rl.view.SelectedStage(); s.Name != "Dev1" {
+		t.Fatalf("< must move to the previous stage, got %q", s.Name)
+	}
+	out = ansi.Strip(a.render())
+	for _, want := range []string{"Jobs · Dev1", "Agent job", "1 job"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("logs for Dev1 are missing %q:\n%s", want, out)
+		}
+	}
+	a = feed(t, a, press("1"))
+	if s, _ := a.rl.view.SelectedStage(); s.Name != "Dev1" {
+		t.Fatalf("the Pipeline tab must keep the stage chosen in Logs, got %q", s.Name)
 	}
 }
 

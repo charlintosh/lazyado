@@ -71,10 +71,11 @@ type approvalResponse struct {
 func (a approvalResponse) approval() models.ReleaseApproval {
 	releaseID, _ := a.Release.ID.Int64()
 	stageID, _ := a.Environment.ID.Int64()
+	definitionID, _ := a.Definition.ID.Int64()
 	return models.ReleaseApproval{
 		ID: a.ID, Kind: a.Type, Status: a.Status, Approver: a.Approver.identity(), Group: a.Approver.IsContainer,
 		Order: a.Rank, Automated: a.IsAutomated, Created: a.CreatedOn,
-		ReleaseID: int(releaseID), ReleaseName: a.Release.Name, Definition: a.Definition.Name, StageID: int(stageID), StageName: a.Environment.Name,
+		ReleaseID: int(releaseID), ReleaseName: a.Release.Name, DefinitionID: int(definitionID), Definition: a.Definition.Name, StageID: int(stageID), StageName: a.Environment.Name,
 	}
 }
 

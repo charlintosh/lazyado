@@ -65,9 +65,9 @@ When the project has more release pipelines than are loaded, lazyado also asks A
 
 ## Approvals
 
-The **Approvals** view lists pending pre- and post-deployment approvals: first the ones **waiting on you** (including approvals assigned to a group you belong to), then the ones **waiting on others**. The pivot shows how many are waiting on you. On wide terminals a preview shows the approvers, when it was requested, the artifact and the release's stages.
+The **Approvals** view lists the pending pre- and post-deployment approvals of the release pipeline selected on the left: first the ones **waiting on you** (including approvals assigned to a group you belong to), then the ones **waiting on others**. Move to another pipeline with `h` or `Tab` to see its approvals. Each pipeline in the list shows how many approvals wait on you (orange) and on others (grey), and the pivot shows how many wait on you in the whole project. On wide terminals a preview shows the approvers, when it was requested, the artifact and the release's stages.
 
-`a` approves or rejects the selected approval, `enter` opens its release, `y` [shares](sharing.md) it, and `o` opens it in the browser.
+`A` switches between the selected pipeline's approvals and every pipeline's; with every pipeline, each approval also names its release pipeline. `a` approves or rejects the selected approval, `enter` opens its release, `y` [shares](sharing.md) it, and `o` opens it in the browser.
 
 ## A release
 
@@ -93,7 +93,7 @@ A sidebar lists the release's artifacts, each stage's trigger, who created the r
 | `o` | Open the release in the browser |
 | `esc` | Back to the hub |
 
-**Logs** works like a build's [logs](pipelines.md#logs): a tree of stages, jobs and tasks on the left and the selected task's log on the right. `Tab` switches between them, `e` jumps to errors, and `F` follows a running task.
+**Logs** shows the logs of the stage selected in **Pipeline**, its latest attempt. A strip above the logs shows the stages; `<` / `>` switch to the previous or next stage without leaving the tab, and **Pipeline** keeps the stage you chose. Below it, the jobs and tasks of that stage are on the left and the selected task's log is on the right, as in a build's [logs](pipelines.md#logs). `Tab` switches between them, `e` jumps to errors in that stage, and `F` follows a running task. A stage that hasn't deployed yet says so instead of showing jobs.
 
 ## Deploying a stage
 

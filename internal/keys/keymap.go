@@ -93,6 +93,9 @@ type KeyMap struct {
 	Approve       key.Binding
 	DeployStage   key.Binding
 	CancelDeploy  key.Binding
+	PrevStage     key.Binding
+	NextStage     key.Binding
+	AllApprovals  key.Binding
 	OpenBuild     key.Binding
 
 	HubFiles        key.Binding
@@ -454,6 +457,18 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("x"),
 			key.WithHelp("x", "cancel deployment"),
 		),
+		PrevStage: key.NewBinding(
+			key.WithKeys("<"),
+			key.WithHelp("<", "previous stage (release logs)"),
+		),
+		NextStage: key.NewBinding(
+			key.WithKeys(">"),
+			key.WithHelp(">", "next stage (release logs)"),
+		),
+		AllApprovals: key.NewBinding(
+			key.WithKeys("A"),
+			key.WithHelp("A", "approvals: this pipeline / all"),
+		),
 		OpenBuild: key.NewBinding(
 			key.WithKeys("b"),
 			key.WithHelp("b", "open build"),
@@ -545,7 +560,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.Yank, k.ShareLines, k.LinkedWorkItems, k.OpenBuild, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
-		{k.RunPipeline, k.FollowLog, k.NextIssue, k.PrevIssue, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy},
+		{k.RunPipeline, k.FollowLog, k.NextIssue, k.PrevIssue, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy, k.PrevStage, k.NextStage, k.AllApprovals},
 		{k.HubFiles, k.FindFile, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.NewRef, k.DeleteRef, k.PullRequestFrom},
 	}
 }

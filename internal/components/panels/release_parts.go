@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	stageChipWidth = 14
-	stageChipGap   = " "
-	releaseLayout  = "Jan 2 15:04"
+	stageChipWidth   = 14
+	stageChipGap     = " "
+	stageStripGap    = 3
+	stageStripArrows = 4
+	releaseLayout    = "Jan 2 15:04"
 )
 
 type OpenReleaseMsg struct {
@@ -194,6 +196,54 @@ func stageBox(s models.ReleaseStage, selected bool, width int) string {
 	}
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(border).Padding(0, 1).Width(width).
 		Render(strings.Join(lines, "\n"))
+}
+
+func stagePick(s models.ReleaseStage, selected bool) string {
+	dot, _ := stageColors(s.State)
+	if dot == styles.ColorChip {
+		dot = styles.ColorTextMuted
+	}
+	if !selected {
+		return lipgloss.NewStyle().Foreground(dot).Render("●") + " " + lipgloss.NewStyle().Foreground(styles.ColorLight).Render(s.Name)
+	}
+	base := lipgloss.NewStyle().Background(styles.ColorHighlight)
+	return base.Foreground(dot).Render(" ●") + base.Foreground(styles.ColorText).Bold(true).Render(" "+s.Name) +
+		base.Foreground(styles.ColorPrimaryLight).Render(" · "+s.State.Name()+" ")
+}
+
+func stageStrip(stages []models.ReleaseStage, selected, width int, hint string) string {
+	if len(stages) == 0 || width <= 0 {
+		return ""
+	}
+	selected = min(max(selected, 0), len(stages)-1)
+	picks := make([]string, len(stages))
+	for i, s := range stages {
+		picks[i] = stagePick(s, i == selected)
+	}
+	lead, tail := " "+Muted("Stage")+"  ", Muted(hint)+" "
+	budget := width - lipgloss.Width(lead) - lipgloss.Width(tail) - stageStripArrows
+	lo, hi := selected, selected+1
+	used := lipgloss.Width(picks[selected])
+	fits := func(i int) bool { return used+stageStripGap+lipgloss.Width(picks[i]) <= budget }
+	for grew := true; grew; {
+		grew = false
+		if hi < len(picks) && fits(hi) {
+			used += stageStripGap + lipgloss.Width(picks[hi])
+			hi, grew = hi+1, true
+		}
+		if lo > 0 && fits(lo-1) {
+			used += stageStripGap + lipgloss.Width(picks[lo-1])
+			lo, grew = lo-1, true
+		}
+	}
+	row := strings.Join(picks[lo:hi], strings.Repeat(" ", stageStripGap))
+	if lo > 0 {
+		row = Muted("‹ ") + row
+	}
+	if hi < len(picks) {
+		row += Muted(" ›")
+	}
+	return spreadLine(lead+row, tail, width)
 }
 
 func stageBoxes(stages []models.ReleaseStage, selected, width int) (string, int) {

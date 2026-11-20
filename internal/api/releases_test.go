@@ -97,7 +97,7 @@ func TestMyApprovalsIncludeGroupApprovals(t *testing.T) {
 		`"release":{"id":64,"name":"Release-64"},"releaseDefinition":{"id":12,"name":"smartHotel"},"releaseEnvironment":{"id":2,"name":"QA"}},` +
 		`{"id":92,"approvalType":"preDeploy","status":"pending","isAutomated":true}]}`
 	approvals, err := clientRouting(t, map[string]string{"/release/approvals": body}, &seen).ListReleaseApprovals("dana@example.com")
-	if err != nil || len(approvals) != 1 || approvals[0].ReleaseID != 64 || approvals[0].StageName != "QA" {
+	if err != nil || len(approvals) != 1 || approvals[0].ReleaseID != 64 || approvals[0].StageName != "QA" || approvals[0].DefinitionID != 12 {
 		t.Fatalf("got %+v, %v", approvals, err)
 	}
 	for _, want := range []string{"assignedToFilter=dana%40example.com", "includeMyGroupApprovals=true", "statusFilter=pending"} {

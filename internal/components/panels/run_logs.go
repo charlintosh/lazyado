@@ -40,6 +40,7 @@ const (
 	waitingForStep    = "Waiting for this step to start."
 	noLogForStep      = "This step has no log."
 	noJobsYet         = "No jobs yet."
+	noStageJobs       = "No jobs in this stage yet."
 	loadingLog        = "Loading log"
 	loadingRun        = "Loading stages"
 	jobsInRun         = "Jobs in run"
@@ -85,6 +86,7 @@ type runLog struct {
 type runLogs struct {
 	stages       []models.RunStage
 	stagesLoaded bool
+	scoped       bool
 	logs         map[int]runLog
 	stale        bool
 	picked       bool
@@ -218,6 +220,42 @@ func (l *runLogs) stageJobs(stage int) (start, end int) {
 	return start, start
 }
 
+func (l *runLogs) inScope(job int) bool {
+	if !l.scoped {
+		return true
+	}
+	start, end := l.stageJobs(l.stage)
+	return job >= start && job < end
+}
+
+func (l *runLogs) visibleJobs() int {
+	if !l.scoped {
+		return len(l.jobs())
+	}
+	start, end := l.stageJobs(l.stage)
+	return end - start
+}
+
+func (l *runLogs) scopeTo(stage int) {
+	l.scoped = true
+	stage = min(max(stage, 0), max(len(l.stages)-1, 0))
+	start, end := l.stageJobs(stage)
+	if stage == l.stage && l.job >= start && l.job < end {
+		return
+	}
+	l.stage, l.job, l.step, l.picked = stage, -1, -1, true
+	l.follow, l.issueRaw, l.pendingIssue = true, -1, false
+	if start < end {
+		jobs := l.jobs()
+		pick := start + pickJob(jobs[start:end])
+		l.job, l.step = pick, defaultStep(jobs[pick])
+		if l.step >= 0 {
+			l.expanded[jobs[pick].ID] = true
+		}
+	}
+	l.renderLogs()
+}
+
 func (l *runLogs) stageOfJob(job int) int {
 	for i := range l.stages {
 		if start, end := l.stageJobs(i); job >= start && job < end {
@@ -288,18 +326,21 @@ func (l *runLogs) pickDefault() {
 	if len(jobs) == 0 {
 		return
 	}
-	pick := len(jobs) - 1
-	for _, want := range []models.RunState{models.RunRunning, models.RunFailed} {
-		if i, ok := firstJob(jobs, want); ok {
-			pick = i
-			break
-		}
-	}
+	pick := pickJob(jobs)
 	l.job, l.step, l.picked = pick, defaultStep(jobs[pick]), true
 	l.stage = l.stageOfJob(pick)
 	if l.step >= 0 {
 		l.expanded[jobs[pick].ID] = true
 	}
+}
+
+func pickJob(jobs []models.RunJob) int {
+	for _, want := range []models.RunState{models.RunRunning, models.RunFailed} {
+		if i, ok := firstJob(jobs, want); ok {
+			return i
+		}
+	}
+	return len(jobs) - 1
 }
 
 func firstJob(jobs []models.RunJob, state models.RunState) (int, bool) {
@@ -324,8 +365,13 @@ func defaultStep(j models.RunJob) int {
 
 func (l *runLogs) clamp() {
 	jobs := l.jobs()
-	l.job = min(max(l.job, 0), max(len(jobs)-1, 0))
 	l.stage = min(max(l.stage, 0), max(len(l.stages)-1, 0))
+	switch {
+	case !l.scoped:
+		l.job = min(max(l.job, 0), max(len(jobs)-1, 0))
+	case !l.inScope(l.job):
+		l.job, l.step = -1, -1
+	}
 	if j, ok := l.selectedJob(); ok {
 		l.step = min(max(l.step, -1), len(j.Steps)-1)
 	}
@@ -362,7 +408,13 @@ func (l *runLogs) treeRows() []jobTreeRow {
 	var rows []jobTreeRow
 	job := 0
 	for si, s := range l.stages {
-		rows = append(rows, jobTreeRow{kind: treeStage, stage: si, job: -1, step: -1})
+		if l.scoped && si != l.stage {
+			job += len(s.Jobs)
+			continue
+		}
+		if !l.scoped {
+			rows = append(rows, jobTreeRow{kind: treeStage, stage: si, job: -1, step: -1})
+		}
 		for _, j := range s.Jobs {
 			rows = append(rows, jobTreeRow{kind: treeJob, stage: si, job: job, step: -1})
 			if l.expanded[j.ID] {
@@ -473,6 +525,8 @@ func (l *runLogs) treeView(width, height int, now time.Time) string {
 	switch {
 	case !l.stagesLoaded:
 		lines = []string{" " + Loading(l.lspinner, loadingRun)}
+	case l.scoped && l.visibleJobs() == 0:
+		lines = append(lines, " "+Muted(noStageJobs))
 	case len(jobs) == 0:
 		lines = append(lines, " "+Muted(noJobsYet))
 	}
@@ -538,6 +592,8 @@ func (l *runLogs) renderLog() {
 	switch {
 	case !l.stagesLoaded:
 		content = Loading(l.lspinner, loadingRun)
+	case l.scoped && l.visibleJobs() == 0:
+		content = Muted(noStageJobs)
 	case logID == 0 && l.selectedQueued():
 		content = Muted(waitingForStep)
 	case logID == 0:
@@ -776,7 +832,16 @@ func (l *runLogs) issueTargets() [][2]int {
 			}
 		}
 	}
-	return out
+	if !l.scoped {
+		return out
+	}
+	kept := out[:0]
+	for _, t := range out {
+		if l.inScope(t[0]) {
+			kept = append(kept, t)
+		}
+	}
+	return kept
 }
 
 func (l *runLogs) recordPosition(id string) (job, step int, ok bool) {
@@ -951,9 +1016,16 @@ func (l *runLogs) logsBody() string {
 	tw, lw := l.treeWidth(), l.logPaneWidth()
 	treeFocused := l.pane == runPaneTree
 	iw, ih := PaneContentSize(tw, l.lh)
-	title := spreadLine(PaneTitle("", jobsInRun, treeFocused), Muted(countOf(len(l.jobs()), "job")), iw)
+	title := spreadLine(PaneTitle("", l.treeTitle(), treeFocused), Muted(countOf(l.visibleJobs(), "job")), iw)
 	tree := Pane(title, l.treeView(iw, ih, now), tw, l.lh, treeFocused)
 	return lipgloss.JoinHorizontal(lipgloss.Top, tree, strings.Repeat(" ", runPaneGap), l.logPane(lw, now))
+}
+
+func (l *runLogs) treeTitle() string {
+	if !l.scoped || l.stage >= len(l.stages) {
+		return jobsInRun
+	}
+	return "Jobs · " + l.stages[l.stage].Name
 }
 
 func (l *runLogs) logPane(width int, now time.Time) string {

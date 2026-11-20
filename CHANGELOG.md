@@ -21,6 +21,8 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ### Fixed
 
+- fix: a release's Logs tab listed the jobs of every stage at once. It now shows only the stage selected in Pipeline, with a stage strip on top; `<` / `>` switch stages from either tab
+- fix: the Releases hub's Approvals view listed every release pipeline's approvals together. The release pipeline list now stays on the left, each pipeline shows how many approvals wait on you and on others, the view lists only the selected pipeline's approvals, and `A` switches to every pipeline's
 - fix: parent titles went missing on boards with more than 200 distinct parents, because they were asked for in one request over the API's 200-ID limit; parents already in the list are no longer fetched again
 
 ## [v1.5.0] - 2026-11-17

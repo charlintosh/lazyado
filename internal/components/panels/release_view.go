@@ -26,6 +26,7 @@ const (
 
 const (
 	releaseHeaderHeight = 4
+	releaseStripHeight  = 1
 	loadingRelease      = "Loading release"
 	noAttemptYet        = "Not deployed in this release yet."
 )
@@ -101,6 +102,7 @@ func (v *ReleaseView) SetRelease(r models.Release) {
 	}
 	v.stage = min(max(v.stage, 0), max(len(r.Stages)-1, 0))
 	v.setStages(r.RunStages())
+	v.scopeTo(v.stage)
 	v.markStale()
 	v.render()
 }
@@ -180,7 +182,7 @@ func (v *ReleaseView) mainWidth() int {
 func (v *ReleaseView) layout() {
 	v.body.SetWidth(v.mainWidth())
 	v.body.SetHeight(v.bodyHeight())
-	v.resizeLogs(v.width, v.bodyHeight())
+	v.resizeLogs(v.width, max(v.bodyHeight()-releaseStripHeight, 0))
 	v.render()
 }
 
@@ -337,6 +339,12 @@ func (v ReleaseView) handleKey(msg tea.KeyPressMsg) (ReleaseView, tea.Cmd) {
 	}
 	r := *v.release
 	switch {
+	case key.Matches(msg, k.PrevStage):
+		v.moveStage(-1)
+		return v, nil
+	case key.Matches(msg, k.NextStage):
+		v.moveStage(1)
+		return v, nil
 	case key.Matches(msg, k.CreateRelease):
 		return v, func() tea.Msg { return CreateReleaseMsg{DefinitionID: r.DefinitionID, Name: r.Definition} }
 	case key.Matches(msg, k.OpenBrowser):
@@ -400,21 +408,15 @@ func (v *ReleaseView) moveStage(delta int) {
 		return
 	}
 	v.stage, v.chosen = next, true
+	v.scopeTo(next)
 	v.renderPipeline()
 }
 
 func (v *ReleaseView) openStageLogs() {
-	index := 0
-	for i, s := range v.release.Stages {
-		if i == v.stage {
-			if len(s.Jobs) == 0 {
-				return
-			}
-			break
-		}
-		index += len(s.Jobs)
+	v.scopeTo(v.stage)
+	if v.visibleJobs() == 0 {
+		return
 	}
-	v.selectJob(index)
 	v.tab, v.pane = ReleaseLogsTab, runPaneTree
 	v.renderLogs()
 }
@@ -431,8 +433,9 @@ func (v *ReleaseView) KeyBindings() []key.Binding {
 	k := v.keys
 	tabs := widgets.Combine("pipeline/logs", k.Panel1, k.Panel2)
 	back := widgets.Relabel(k.Back, "back")
+	stage := widgets.Combine("stage", k.PrevStage, k.NextStage)
 	if v.tab == ReleaseLogsTab {
-		return append(v.logsBindings(), tabs, k.Share, k.OpenBrowser, back)
+		return append(v.logsBindings(), stage, tabs, k.Share, k.OpenBrowser, back)
 	}
 	bindings := []key.Binding{widgets.Combine("stage", k.Left, k.Right)}
 	if s, ok := v.SelectedStage(); ok {
@@ -488,7 +491,8 @@ func (v ReleaseView) View() string {
 	}
 	var body string
 	if v.tab == ReleaseLogsTab && v.release != nil {
-		body = Block(v.logsBody(), v.width, v.bodyHeight())
+		strip := stageStrip(v.release.Stages, v.stage, v.width, v.keys.PrevStage.Help().Key+" "+v.keys.NextStage.Help().Key+" switch stage")
+		body = Block(strip+"\n"+v.logsBody(), v.width, v.bodyHeight())
 	} else {
 		body = v.body.View()
 		if side := v.sidebarWidth(); side > 0 && v.release != nil {

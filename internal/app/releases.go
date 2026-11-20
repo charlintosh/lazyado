@@ -65,6 +65,7 @@ type releaseState struct {
 
 	approvalsLoaded  bool
 	approvalsLoading bool
+	approvalsAll     bool
 	approvalsSeq     int
 	previewFor       int
 	preview          *models.Release
@@ -277,10 +278,31 @@ func (a *App) selectReleasePivot(pivot int) tea.Cmd {
 		return nil
 	}
 	a.rl.pivot = pivot
-	if pivot == approvalsTab && !a.rl.approvalsLoaded && !a.rl.approvalsLoading {
+	a.rl.defs.SetEnterLabel(panels.DefsEnterReleases)
+	if pivot != approvalsTab {
+		return nil
+	}
+	a.rl.pane = paneReleases
+	a.rl.defs.SetEnterLabel(panels.DefsEnterApprovals)
+	a.syncApprovalScope()
+	if !a.rl.approvalsLoaded && !a.rl.approvalsLoading {
 		return a.loadApprovals()
 	}
 	return nil
+}
+
+func (a *App) syncApprovalScope() {
+	id, name := 0, ""
+	if d := a.rl.defs.Selected(); d != nil && !a.rl.approvalsAll {
+		id, name = d.ID, d.Name
+	}
+	a.rl.approvals.SetScope(id, name)
+}
+
+func (a *App) toggleApprovalScope() tea.Cmd {
+	a.rl.approvalsAll = !a.rl.approvalsAll
+	a.syncApprovalScope()
+	return a.syncApprovalPreview()
 }
 
 func (a *App) syncReleaseSelection() tea.Cmd {
@@ -288,6 +310,7 @@ func (a *App) syncReleaseSelection() tea.Cmd {
 		return nil
 	}
 	if a.rl.pivot == approvalsTab {
+		a.syncApprovalScope()
 		return a.syncApprovalPreview()
 	}
 	d := a.rl.defs.Selected()
@@ -309,7 +332,7 @@ func (a *App) syncApprovalPreview() tea.Cmd {
 		return nil
 	}
 	a.rl.previewFor, a.rl.preview = id, nil
-	if id == 0 || a.shell.mainWidth < approvalPreviewShow {
+	if id == 0 || !a.approvalPreviewShown() {
 		return nil
 	}
 	return scheduleApprovalPreviewCmd(id)
@@ -317,7 +340,7 @@ func (a *App) syncApprovalPreview() tea.Cmd {
 
 func (a *App) releaseLoading() bool {
 	return a.rl.loading || a.rl.defs.Loading() || a.rl.list.Loading() || a.rl.approvalsLoading ||
-		(a.rl.pivot == approvalsTab && a.rl.previewFor != 0 && a.rl.preview == nil && a.shell.mainWidth >= approvalPreviewShow)
+		(a.rl.pivot == approvalsTab && a.rl.previewFor != 0 && a.rl.preview == nil && a.approvalPreviewShown())
 }
 
 func (a *App) activeReleases() bool {
@@ -381,27 +404,28 @@ func (a App) handleReleaseKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 			return a, a.selectReleasePivot(i)
 		}
 	}
-	twoPanes := a.rl.pivot == releasesTab
 	if hub, ok := a.hubFor(msg); ok {
 		return a, a.goToHub(hub)
 	}
 	switch {
 	case key.Matches(msg, k.PrevView), key.Matches(msg, k.NextView):
 		return a, a.selectReleasePivot((a.rl.pivot + 1) % len(releasePivots))
-	case twoPanes && (key.Matches(msg, k.NextPanel) || key.Matches(msg, k.PrevPanel)):
+	case a.rl.pivot == approvalsTab && key.Matches(msg, k.AllApprovals):
+		return a, a.toggleApprovalScope()
+	case key.Matches(msg, k.NextPanel), key.Matches(msg, k.PrevPanel):
 		a.setReleasePane(1 - a.rl.pane)
-	case twoPanes && key.Matches(msg, k.Left):
+	case key.Matches(msg, k.Left):
 		a.setReleasePane(paneDefinitions)
-	case twoPanes && key.Matches(msg, k.Right):
+	case key.Matches(msg, k.Right):
 		a.setReleasePane(paneReleases)
-	case twoPanes && key.Matches(msg, k.Back) && a.rl.pane == paneReleases:
+	case key.Matches(msg, k.Back) && a.rl.pane == paneReleases:
 		a.setReleasePane(paneDefinitions)
 	case key.Matches(msg, k.Fullscreen):
 		a.fullscreen = !a.fullscreen
 	case key.Matches(msg, k.QuickSearch):
 		return a, a.openModal(modals.NewQuickSearchModal(a.env()))
 	case key.Matches(msg, k.Search):
-		a.rl.pivot, a.rl.pane = releasesTab, paneDefinitions
+		a.rl.pane = paneDefinitions
 		return a, a.rl.defs.FocusSearch()
 	case key.Matches(msg, k.CreateRelease):
 		if d := a.rl.defs.Selected(); d != nil {
@@ -417,12 +441,12 @@ func (a App) handleReleaseKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 func (a *App) updateReleasePanel(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch {
+	case a.rl.pane == paneDefinitions:
+		a.rl.defs, cmd = a.rl.defs.Update(msg)
 	case a.rl.pivot == approvalsTab:
 		a.rl.approvals, cmd = a.rl.approvals.Update(msg)
-	case a.rl.pane == paneReleases:
-		a.rl.list, cmd = a.rl.list.Update(msg)
 	default:
-		a.rl.defs, cmd = a.rl.defs.Update(msg)
+		a.rl.list, cmd = a.rl.list.Update(msg)
 	}
 	return cmd
 }
@@ -512,6 +536,7 @@ func (a App) handleReleaseHubResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		a.rl.approvalsLoading, a.rl.approvalsLoaded = false, true
 		a.rl.approvals.SetApprovals(msg.mine, msg.others)
+		a.rl.defs.SetApprovalCounts(a.rl.approvals.Counts())
 		if msg.err != nil {
 			return a, a.openModal(modals.NewErrorModal(a.env(), msg.err)), true
 		}
@@ -594,13 +619,26 @@ func (a *App) listDefinitionName() string {
 	return ""
 }
 
-func (a *App) releaseLayout(width int) (int, int) {
-	if a.rl.pivot == approvalsTab {
-		if width < approvalPreviewShow {
-			return width, 0
-		}
-		return width - approvalPreviewWidth, approvalPreviewWidth
+func approvalSplit(width int) (int, int) {
+	if width < approvalPreviewShow {
+		return width, 0
 	}
+	return width - approvalPreviewWidth, approvalPreviewWidth
+}
+
+func (a *App) approvalsWidth(width int) int {
+	if _, right := a.releaseLayout(width); right > 0 {
+		return right
+	}
+	return width
+}
+
+func (a *App) approvalPreviewShown() bool {
+	_, preview := approvalSplit(a.approvalsWidth(a.shell.mainWidth))
+	return preview > 0
+}
+
+func (a *App) releaseLayout(width int) (int, int) {
 	if width < releaseTwoPanesWidth {
 		return width, 0
 	}
@@ -612,10 +650,8 @@ func (a *App) syncReleaseLayout(width, height int) {
 	cw := func(w int) int { pw, _ := panels.PaneContentSize(w, height); return pw }
 	_, ch := panels.PaneContentSize(width, height)
 	left, right := a.releaseLayout(width)
-	if a.rl.pivot == approvalsTab {
-		a.rl.approvals.SetSize(cw(left), ch)
-		return
-	}
+	list, _ := approvalSplit(a.approvalsWidth(width))
+	a.rl.approvals.SetSize(cw(list), ch)
 	if right == 0 {
 		a.rl.defs.SetSize(cw(width), ch)
 		a.rl.list.SetSize(cw(width), ch)
@@ -627,23 +663,13 @@ func (a *App) syncReleaseLayout(width, height int) {
 
 func (a *App) syncReleaseFocus(main bool) {
 	hub := main && a.inReleases() && a.viewMode == ViewMain
-	a.rl.defs.SetFocused(hub && a.rl.pivot == releasesTab && a.rl.pane == paneDefinitions)
+	a.rl.defs.SetFocused(hub && a.rl.pane == paneDefinitions)
 	a.rl.list.SetFocused(hub && a.rl.pivot == releasesTab && a.rl.pane == paneReleases)
-	a.rl.approvals.SetFocused(hub && a.rl.pivot == approvalsTab)
+	a.rl.approvals.SetFocused(hub && a.rl.pivot == approvalsTab && a.rl.pane == paneReleases)
 }
 
 func (a *App) renderReleasesBody(width, height int) string {
 	left, right := a.releaseLayout(width)
-	if a.rl.pivot == approvalsTab {
-		list := panels.Pane(panels.PaneTitle("", a.rl.approvals.Title(), true), a.rl.approvals.View(), left, height, true)
-		if right == 0 {
-			return list
-		}
-		ap, mine := a.rl.approvals.Selected()
-		cw, ch := panels.PaneContentSize(right, height)
-		preview := panels.RenderApprovalPreview(panels.ApprovalPreviewProps{Approval: ap, Mine: mine, Release: a.rl.preview, Spinner: a.spinner.View(), Width: cw, Height: ch})
-		return lipgloss.JoinHorizontal(lipgloss.Top, list, panels.Pane(panels.PaneTitle("", "Preview", false), preview, right, height, false))
-	}
 	defsFocused, listFocused := a.rl.pane == paneDefinitions, a.rl.pane == paneReleases
 	defs := panels.Pane(panels.PaneTitle("", a.rl.defs.Title(), defsFocused), a.rl.defs.View(), left, height, defsFocused)
 	listWidth := right
@@ -651,6 +677,9 @@ func (a *App) renderReleasesBody(width, height int) string {
 		listWidth = width
 	}
 	list := panels.Pane(panels.PaneTitle("", a.rl.list.Title(), listFocused), a.rl.list.View(), listWidth, height, listFocused)
+	if a.rl.pivot == approvalsTab {
+		list = a.renderApprovalsPane(listWidth, height, listFocused)
+	}
 	switch {
 	case right > 0:
 		return lipgloss.JoinHorizontal(lipgloss.Top, defs, list)
@@ -658,6 +687,18 @@ func (a *App) renderReleasesBody(width, height int) string {
 		return list
 	}
 	return defs
+}
+
+func (a *App) renderApprovalsPane(width, height int, focused bool) string {
+	listWidth, previewWidth := approvalSplit(width)
+	list := panels.Pane(panels.PaneTitle("", a.rl.approvals.Title(), focused), a.rl.approvals.View(), listWidth, height, focused)
+	if previewWidth == 0 {
+		return list
+	}
+	ap, mine := a.rl.approvals.Selected()
+	cw, ch := panels.PaneContentSize(previewWidth, height)
+	preview := panels.RenderApprovalPreview(panels.ApprovalPreviewProps{Approval: ap, Mine: mine, Release: a.rl.preview, Spinner: a.spinner.View(), Width: cw, Height: ch})
+	return lipgloss.JoinHorizontal(lipgloss.Top, list, panels.Pane(panels.PaneTitle("", "Preview", false), preview, previewWidth, height, false))
 }
 
 func (a *App) releasePivotLabels() []string {
@@ -683,10 +724,12 @@ func (a *App) releaseCrumb() string {
 
 func (a *App) releaseBindings() []key.Binding {
 	switch {
+	case a.rl.pane == paneDefinitions && a.rl.pivot == approvalsTab:
+		return append([]key.Binding{a.rl.approvals.ScopeBinding()}, a.rl.defs.KeyBindings()...)
+	case a.rl.pane == paneDefinitions:
+		return a.rl.defs.KeyBindings()
 	case a.rl.pivot == approvalsTab:
 		return a.rl.approvals.KeyBindings()
-	case a.rl.pane == paneReleases:
-		return a.rl.list.KeyBindings()
 	}
-	return a.rl.defs.KeyBindings()
+	return a.rl.list.KeyBindings()
 }

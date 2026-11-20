@@ -26,6 +26,8 @@ const (
 	loadingReleases      = "Loading releases"
 	loadingApprovals     = "Loading approvals"
 	releaseNameMinColumn = 14
+	DefsEnterReleases    = "its releases"
+	DefsEnterApprovals   = "its approvals"
 )
 
 type FocusReleasesMsg struct{}
@@ -48,8 +50,15 @@ type OpenLatestReleaseMsg struct {
 	Name         string
 }
 
+type ApprovalCount struct {
+	Mine   int
+	Others int
+}
+
 type ReleaseDefinitionsPanel struct {
 	list          selectList
+	counts        map[int]ApprovalCount
+	enterLabel    string
 	defs          []models.ReleaseDefinition
 	found         []models.ReleaseDefinition
 	foundFor      string
@@ -67,8 +76,15 @@ type ReleaseDefinitionsPanel struct {
 }
 
 func NewReleaseDefinitionsPanel(k keys.KeyMap) ReleaseDefinitionsPanel {
-	return ReleaseDefinitionsPanel{list: newSelectList(k), keys: k, starred: map[int]bool{}, loading: true, search: widgets.SearchInput(searchPrompt, releaseSearchHint)}
+	return ReleaseDefinitionsPanel{list: newSelectList(k), keys: k, starred: map[int]bool{}, loading: true, enterLabel: DefsEnterReleases, search: widgets.SearchInput(searchPrompt, releaseSearchHint)}
 }
+
+func (p *ReleaseDefinitionsPanel) SetApprovalCounts(counts map[int]ApprovalCount) {
+	p.counts = counts
+	p.rebuild()
+}
+
+func (p *ReleaseDefinitionsPanel) SetEnterLabel(label string) { p.enterLabel = label }
 
 func (p *ReleaseDefinitionsPanel) SetDefinitions(defs []models.ReleaseDefinition, more bool) {
 	p.defs, p.more, p.loading, p.loadingMore = defs, more, false, false
@@ -200,8 +216,19 @@ func (p *ReleaseDefinitionsPanel) defItem(d models.ReleaseDefinition, terms []st
 		if d.LastRelease != "" {
 			last = d.LastRelease + " · " + ShortAgo(d.LastCreated)
 		}
-		return []string{cellsLine(name, "", base, width), cellsLine(base.Foreground(styles.ColorTextMuted).Render(last), "", base, width)}
+		return []string{cellsLine(name, approvalCountBadges(p.counts[d.ID], base), base, width), cellsLine(base.Foreground(styles.ColorTextMuted).Render(last), "", base, width)}
 	}}
+}
+
+func approvalCountBadges(c ApprovalCount, base lipgloss.Style) string {
+	var out []string
+	if c.Mine > 0 {
+		out = append(out, Badge(strconv.Itoa(c.Mine), styles.ColorOrange, styles.ColorOnAccent))
+	}
+	if c.Others > 0 {
+		out = append(out, Badge(strconv.Itoa(c.Others), styles.ColorChip, styles.ColorLight))
+	}
+	return strings.Join(out, base.Render(" "))
 }
 
 func (p *ReleaseDefinitionsPanel) rebuild() {
@@ -270,13 +297,13 @@ func (p *ReleaseDefinitionsPanel) KeyBindings() []key.Binding {
 		if p.search.Value() != "" {
 			back = widgets.Relabel(k.Back, "clear")
 		}
-		return []key.Binding{widgets.Combine("match", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, "its releases"), back}
+		return []key.Binding{widgets.Combine("match", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, p.enterLabel), back}
 	}
 	star := widgets.Relabel(k.ToggleFavorite, "star")
 	if d := p.Selected(); d != nil && p.starred[d.ID] {
 		star = widgets.Relabel(k.ToggleFavorite, "unstar")
 	}
-	bindings := []key.Binding{widgets.Relabel(k.Select, "its releases"), widgets.Relabel(k.View, "open latest release")}
+	bindings := []key.Binding{widgets.Relabel(k.Select, p.enterLabel), widgets.Relabel(k.View, "open latest release")}
 	if p.Filter() != "" {
 		bindings = append(bindings, widgets.Relabel(k.Search, "edit filter"), widgets.Relabel(k.Back, "clear filter"))
 	} else {
@@ -597,14 +624,16 @@ func (p ReleasesPanel) View() string {
 }
 
 type ApprovalsPanel struct {
-	list    selectList
-	mine    []models.ReleaseApproval
-	others  []models.ReleaseApproval
-	loading bool
-	keys    keys.KeyMap
-	spinner string
-	width   int
-	height  int
+	list      selectList
+	mine      []models.ReleaseApproval
+	others    []models.ReleaseApproval
+	scopeID   int
+	scopeName string
+	loading   bool
+	keys      keys.KeyMap
+	spinner   string
+	width     int
+	height    int
 }
 
 func NewApprovalsPanel(k keys.KeyMap) ApprovalsPanel {
@@ -614,6 +643,44 @@ func NewApprovalsPanel(k keys.KeyMap) ApprovalsPanel {
 func (p *ApprovalsPanel) SetApprovals(mine, others []models.ReleaseApproval) {
 	p.mine, p.others, p.loading = mine, others, false
 	p.rebuild()
+}
+
+func (p *ApprovalsPanel) SetScope(definitionID int, name string) {
+	if p.scopeID == definitionID && p.scopeName == name {
+		return
+	}
+	p.scopeID, p.scopeName = definitionID, name
+	p.rebuild()
+}
+
+func (p *ApprovalsPanel) Scoped() bool { return p.scopeID != 0 }
+
+func (p *ApprovalsPanel) Counts() map[int]ApprovalCount {
+	out := map[int]ApprovalCount{}
+	for _, a := range p.mine {
+		c := out[a.DefinitionID]
+		c.Mine++
+		out[a.DefinitionID] = c
+	}
+	for _, a := range p.others {
+		c := out[a.DefinitionID]
+		c.Others++
+		out[a.DefinitionID] = c
+	}
+	return out
+}
+
+func (p *ApprovalsPanel) inScope(approvals []models.ReleaseApproval) []models.ReleaseApproval {
+	if p.scopeID == 0 {
+		return approvals
+	}
+	var out []models.ReleaseApproval
+	for _, a := range approvals {
+		if a.DefinitionID == p.scopeID {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func (p *ApprovalsPanel) ShowLoading() {
@@ -657,7 +724,11 @@ func approvalKey(a models.ReleaseApproval, mine bool) string {
 }
 
 func (p *ApprovalsPanel) Title() string {
-	return fmt.Sprintf("Approvals %d", len(p.mine)+len(p.others))
+	shown := len(p.inScope(p.mine)) + len(p.inScope(p.others))
+	if p.Scoped() {
+		return fmt.Sprintf("Approvals · %s %d", p.scopeName, shown)
+	}
+	return fmt.Sprintf("Approvals %d · all pipelines", shown)
 }
 
 func (p *ApprovalsPanel) rebuild() {
@@ -671,8 +742,10 @@ func (p *ApprovalsPanel) rebuild() {
 			a := approvals[i]
 			items = append(items, listItem{key: approvalKey(a, mine), render: func(base lipgloss.Style, selected bool, width int) []string {
 				what := base.Foreground(styles.ColorText).Bold(true).Render(a.StageName) +
-					base.Foreground(styles.ColorTextMuted).Render(" · ") + base.Foreground(styles.ColorText).Render(a.ReleaseName) +
-					base.Foreground(styles.ColorTextMuted).Render(" · "+a.Definition)
+					base.Foreground(styles.ColorTextMuted).Render(" · ") + base.Foreground(styles.ColorText).Render(a.ReleaseName)
+				if !p.Scoped() {
+					what += base.Foreground(styles.ColorTextMuted).Render(" · " + a.Definition)
+				}
 				who := approverName(a)
 				if mine {
 					who += " · you can approve"
@@ -686,22 +759,30 @@ func (p *ApprovalsPanel) rebuild() {
 			}})
 		}
 	}
-	add("Waiting on you", p.mine, true)
-	add("Waiting on others", p.others, false)
+	add("Waiting on you", p.inScope(p.mine), true)
+	add("Waiting on others", p.inScope(p.others), false)
 	p.list.setItems(items)
 }
 
 func (p *ApprovalsPanel) KeyBindings() []key.Binding {
 	k := p.keys
+	scope := p.ScopeBinding()
 	a, mine := p.Selected()
 	if a == nil {
-		return []key.Binding{widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh}
+		return []key.Binding{scope, widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh}
 	}
 	bindings := []key.Binding{widgets.Relabel(k.Select, "open release")}
 	if mine {
 		bindings = append(bindings, k.Approve)
 	}
-	return append(bindings, k.Share, k.OpenBrowser, widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh)
+	return append(bindings, scope, k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), widgets.Combine("view", k.Panel1, k.Panel2), k.Refresh)
+}
+
+func (p *ApprovalsPanel) ScopeBinding() key.Binding {
+	if p.Scoped() {
+		return widgets.Relabel(p.keys.AllApprovals, "all pipelines")
+	}
+	return widgets.Relabel(p.keys.AllApprovals, "this pipeline")
 }
 
 func (p ApprovalsPanel) Update(msg tea.Msg) (ApprovalsPanel, tea.Cmd) {
@@ -757,6 +838,9 @@ func (p ApprovalsPanel) View() string {
 		return p.list.view()
 	case p.loading:
 		return Block(lipgloss.NewStyle().Padding(1, 1).Render(Loading(p.spinner, loadingApprovals)), p.width, p.height)
+	}
+	if p.Scoped() {
+		return emptyState("No approvals waiting on "+p.scopeName, "Press "+p.keys.AllApprovals.Help().Key+" to see every pipeline's approvals.", p.width, p.height)
 	}
 	return emptyState("No approvals waiting", "Pending release approvals in this project show up here.", p.width, p.height)
 }

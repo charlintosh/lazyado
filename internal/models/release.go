@@ -89,20 +89,21 @@ type ReleaseDefinition struct {
 }
 
 type ReleaseApproval struct {
-	ID          int
-	Kind        string
-	Status      string
-	Approver    Identity
-	Group       bool
-	Order       int
-	Automated   bool
-	Created     time.Time
-	ReleaseID   int
-	ReleaseName string
-	Definition  string
-	StageID     int
-	StageName   string
-	WebURL      string
+	ID           int
+	Kind         string
+	Status       string
+	Approver     Identity
+	Group        bool
+	Order        int
+	Automated    bool
+	Created      time.Time
+	ReleaseID    int
+	ReleaseName  string
+	DefinitionID int
+	Definition   string
+	StageID      int
+	StageName    string
+	WebURL       string
 }
 
 func (a ReleaseApproval) Pending() bool { return strings.EqualFold(a.Status, "pending") }

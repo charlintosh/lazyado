@@ -299,12 +299,13 @@ See [Releases](releases.md) for details.
 | Key | Action |
 | --- | ------ |
 | `1` / `2` | Releases / Approvals (`[` / `]` also switch) |
-| `Tab` / `Shift+Tab`, `h` / `l` | Move between release pipelines and releases |
+| `Tab` / `Shift+Tab`, `h` / `l` | Move between release pipelines and releases (or approvals) |
 | `/` | [Search](releases.md#searching-release-pipelines) release pipelines by name. In the bar: `↑` / `↓` move, `Enter` goes into the match's releases, `Esc` clears |
 | `Ctrl+t` | Star / unstar a release pipeline |
 | `enter` | Release pipeline: show its releases. Release or approval: open the release |
 | `v` | Release pipeline: open its latest release. Release: open it |
 | `a` | Approve or reject |
+| `A` | Approvals: switch between the selected pipeline's approvals and every pipeline's |
 | `n` | Create a release |
 | `y` | Share the release pipeline, release or approval's release |
 | `o` | Open in the browser |
@@ -319,6 +320,7 @@ See [Releases](releases.md) for details.
 | `a` | Approve or reject the stage's pending approval |
 | `d` | Deploy or redeploy the stage |
 | `x` | Cancel the stage's deployment |
+| `<` / `>` | Previous / next stage, also in Logs |
 | `enter` | Open the stage's logs |
 | `Tab` / `Shift+Tab`, `j` / `k`, `F` | In Logs: as in a [pipeline run](#pipeline-run) |
 | `n` | Create another release |
