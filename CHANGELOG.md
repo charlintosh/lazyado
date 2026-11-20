@@ -15,6 +15,7 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ### Fixed
 
+- fix: starred release pipelines' `★` could look out of line where the terminal's font draws it wider than a cell; it now has a two-cell slot on every row, so stars and approval badges keep one column
 - fix: `Ctrl+t` did nothing in the Releases hub while the search bar was open or once `Enter` had moved to a pipeline's releases. It now stars the highlighted match while searching, and the pipeline whose releases you're looking at from the releases pane, with a notice either way
 - fix: a release pipeline starred from *Found on Azure DevOps*, or starred earlier but beyond the first 200 loaded (Azure DevOps favorites too), never showed in Starred. Starred pipelines that aren't loaded are now fetched by ID in one request, and pages that load later don't list them twice
 

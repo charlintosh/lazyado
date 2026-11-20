@@ -234,12 +234,10 @@ func (p *ReleaseDefinitionsPanel) defItem(d models.ReleaseDefinition, terms []st
 		}
 		name := highlight(d.Name, terms, nameStyle)
 		right := approvalCountBadges(p.counts[d.ID], base)
-		if starred {
-			if right != "" {
-				right += base.Render(" ")
-			}
-			right += base.Foreground(styles.ColorWarning).Bold(true).Render(starGlyph)
+		if right != "" {
+			right += base.Render(" ")
 		}
+		right += starSlot(base, starred)
 		muted := base.Foreground(styles.ColorTextMuted)
 		var second string
 		switch {
@@ -254,6 +252,13 @@ func (p *ReleaseDefinitionsPanel) defItem(d models.ReleaseDefinition, terms []st
 		}
 		return []string{cellsLine(name, right, base, width), cellsLine(second, "", base, width)}
 	}}
+}
+
+func starSlot(base lipgloss.Style, starred bool) string {
+	if !starred {
+		return base.Render("  ")
+	}
+	return base.Foreground(styles.ColorWarning).Bold(true).Render(starGlyph) + base.Render(" ")
 }
 
 func approvalCountBadges(c ApprovalCount, base lipgloss.Style) string {

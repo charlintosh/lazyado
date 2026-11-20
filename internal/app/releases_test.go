@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
 	"github.com/charlintosh/lazyado/internal/models"
@@ -541,5 +542,23 @@ func TestReleaseListMarksWhatIsDeployedNowAndTheLatestDeploymentOfEachPipeline(t
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestStarsAndApprovalBadgesKeepOneColumn(t *testing.T) {
+	a := openReleasesHub(t, 160, 45)
+	a = feed(t, a, releaseDefinitionsMsg{seq: a.rl.seq, defs: sampleDefinitions(), starred: []int{3, 12}})
+	a.rl.defs.SetApprovalCounts(map[int]panels.ApprovalCount{3: {Mine: 1}, 20: {Mine: 2}})
+	stars, badges := map[int]bool{}, map[int]bool{}
+	for _, line := range strings.Split(ansi.Strip(a.render()), "\n") {
+		if i := strings.Index(line, "★ "); i >= 0 && !strings.Contains(line, "STARRED") {
+			stars[lipgloss.Width(line[:i])] = true
+		}
+		if i := strings.Index(line, "◐ "); i >= 0 && strings.Contains(line, "Prod") {
+			badges[lipgloss.Width(line[:i])] = true
+		}
+	}
+	if len(stars) != 1 || len(badges) != 1 {
+		t.Fatalf("stars and badges must each sit in one column, got stars %v badges %v", stars, badges)
 	}
 }
