@@ -131,7 +131,7 @@ func TestStarredGroupShowsEvenWhenEmpty(t *testing.T) {
 	if !strings.Contains(out, "Starred") || !strings.Contains(out, "None yet. Ctrl+t stars a pipeline.") {
 		t.Errorf("the Starred group must explain how to star:\n%s", out)
 	}
-	a = feed(t, a, panels.StarReleaseDefinitionMsg{ID: 20, Star: true})
+	a = feed(t, a, panels.StarReleaseDefinitionMsg{Definition: models.ReleaseDefinition{ID: 20, Name: "payments-api - Prod"}, Star: true})
 	if s := a.savedState(); len(s.FavoriteReleases) != 1 || s.FavoriteReleases[0] != 20 {
 		t.Fatalf("a local star must be saved, got %v", s.FavoriteReleases)
 	}
@@ -465,5 +465,57 @@ func TestCancelDeploymentDialogFitsTerminal(t *testing.T) {
 	for _, sz := range [][2]int{{160, 45}, {80, 24}, {50, 14}} {
 		a := feed(t, openReleaseView(t, sz[0], sz[1]), panels.CancelDeploymentMsg{Release: sampleRelease(), Stage: sampleRelease().Stages[1]})
 		assertFits(t, a.render(), sz[0], sz[1])
+	}
+}
+
+func TestCtrlTStarsWhileSearchingAndFromTheReleasesPane(t *testing.T) {
+	a := openReleasesHub(t, 160, 45)
+	a = feed(t, a, press("/"), tea.PasteMsg{Content: "pay"})
+	a, msgs := step(t, a, ctrl('t'))
+	star, ok := find[panels.StarReleaseDefinitionMsg](msgs)
+	if !ok || star.Definition.ID != 20 || !star.Star {
+		t.Fatalf("Ctrl+t in the search bar must star the highlighted match, got %v", msgs)
+	}
+	a = feed(t, a, star)
+	if !a.rl.defs.Searching() || !a.rl.defs.Starred(20) {
+		t.Fatal("starring keeps the search open and stars the match")
+	}
+	if !strings.Contains(ansi.Strip(a.render()), "Ctrl+t unstar") {
+		t.Error("the search bar must offer Ctrl+t")
+	}
+	a, msgs = step(t, a, special(tea.KeyEnter))
+	a = feed(t, a, msgs...)
+	if a.rl.pane != paneReleases {
+		t.Fatal("enter goes into the match's releases")
+	}
+	_, msgs = step(t, a, ctrl('t'))
+	if unstar, ok := find[panels.StarReleaseDefinitionMsg](msgs); !ok || unstar.Definition.ID != 20 || unstar.Star {
+		t.Fatalf("Ctrl+t in the releases pane must toggle their pipeline, got %v", msgs)
+	}
+}
+
+func TestStarringAPipelineThatIsNotLoadedKeepsItInStarred(t *testing.T) {
+	a := openReleasesHub(t, 160, 45)
+	far := models.ReleaseDefinition{ID: 99, Name: "pay-legacy - Archive"}
+	a = feed(t, a, panels.StarReleaseDefinitionMsg{Definition: far, Star: true})
+	if !strings.Contains(ansi.Strip(a.render()), "pay-legacy - Archive") {
+		t.Fatal("a pipeline starred from Found on Azure DevOps must show in Starred")
+	}
+	a.rl.localStars = append(a.rl.localStars, 77)
+	if missing := a.missingStarred(); len(missing) != 1 || missing[0] != 77 {
+		t.Fatalf("starred pipelines that aren't loaded must be fetched, got %v", missing)
+	}
+	a = feed(t, a, starredDefinitionsMsg{seq: a.rl.seq, defs: []models.ReleaseDefinition{{ID: 77, Name: "infra - Nightly"}, {ID: 12, Name: "smartHotel"}}})
+	if len(a.missingStarred()) != 0 || !strings.Contains(ansi.Strip(a.render()), "infra - Nightly") {
+		t.Fatal("fetched starred pipelines join the list once")
+	}
+	count := 0
+	for _, d := range a.rl.definitions {
+		if d.ID == 12 {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("pipelines must not be listed twice, got %d", count)
 	}
 }

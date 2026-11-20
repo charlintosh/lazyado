@@ -301,15 +301,29 @@ func (c *Client) releaseSend(method, endpoint, version string, payload, target a
 
 func (c *Client) ListReleaseDefinitions(search, continuation string) ([]models.ReleaseDefinition, string, error) {
 	q := url.Values{}
-	q.Set("$expand", "lastRelease")
-	q.Set("queryOrder", "nameAscending")
-	q.Set("$top", strconv.Itoa(releaseDefinitionsPage))
 	if search != "" {
 		q.Set("searchText", search)
 	}
 	if continuation != "" {
 		q.Set("continuationToken", continuation)
 	}
+	return c.releaseDefinitions(q)
+}
+
+func (c *Client) ReleaseDefinitionsByID(ids []int) ([]models.ReleaseDefinition, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	q := url.Values{}
+	q.Set("definitionIdFilter", joinInts(ids))
+	defs, _, err := c.releaseDefinitions(q)
+	return defs, err
+}
+
+func (c *Client) releaseDefinitions(q url.Values) ([]models.ReleaseDefinition, string, error) {
+	q.Set("$expand", "lastRelease")
+	q.Set("queryOrder", "nameAscending")
+	q.Set("$top", strconv.Itoa(releaseDefinitionsPage))
 	var data struct {
 		Value []struct {
 			ID          int      `json:"id"`

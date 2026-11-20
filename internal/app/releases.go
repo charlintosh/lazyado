@@ -11,6 +11,7 @@ import (
 	"github.com/charlintosh/lazyado/internal/api"
 	"github.com/charlintosh/lazyado/internal/components/modals"
 	"github.com/charlintosh/lazyado/internal/components/panels"
+	"github.com/charlintosh/lazyado/internal/debug"
 	"github.com/charlintosh/lazyado/internal/models"
 	"github.com/charlintosh/lazyado/internal/styles"
 )
@@ -37,6 +38,8 @@ const (
 )
 
 var releasePivots = []string{"Releases", "Approvals"}
+
+var logReleases = debug.Scope("releases")
 
 type releaseState struct {
 	defsLoad  inflight
@@ -116,6 +119,11 @@ type approvalsLoadedMsg struct {
 	err    error
 }
 
+type starredDefinitionsMsg struct {
+	seq  int
+	defs []models.ReleaseDefinition
+}
+
 type approvalPreviewDueMsg struct {
 	release int
 }
@@ -133,6 +141,46 @@ func loadReleaseDefinitionsCmd(client *api.Client, seq int, search, token string
 		}
 		return msg
 	}
+}
+
+func loadStarredDefinitionsCmd(client *api.Client, seq int, ids []int) tea.Cmd {
+	return func() tea.Msg {
+		defs, err := client.ReleaseDefinitionsByID(ids)
+		if err != nil {
+			logReleases.Debugf("starred release pipelines: %v", err)
+		}
+		return starredDefinitionsMsg{seq: seq, defs: defs}
+	}
+}
+
+func mergeDefinitions(old, fresh []models.ReleaseDefinition) []models.ReleaseDefinition {
+	seen := make(map[int]bool, len(old))
+	for _, d := range old {
+		seen[d.ID] = true
+	}
+	out := slices.Clone(old)
+	for _, d := range fresh {
+		if !seen[d.ID] {
+			seen[d.ID] = true
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func (a *App) missingStarred() []int {
+	loaded := make(map[int]bool, len(a.rl.definitions))
+	for _, d := range a.rl.definitions {
+		loaded[d.ID] = true
+	}
+	var missing []int
+	for id := range a.starredReleases() {
+		if !loaded[id] {
+			missing = append(missing, id)
+		}
+	}
+	slices.Sort(missing)
+	return missing
 }
 
 func loadReleasesCmd(client *api.Client, seq, definition int, token string, more, silent bool) tea.Cmd {
@@ -361,16 +409,22 @@ func (a *App) activeReleases() bool {
 	return false
 }
 
-func (a *App) toggleReleaseStar(id int, star bool) tea.Cmd {
+func (a *App) toggleReleaseStar(d models.ReleaseDefinition, star bool) tea.Cmd {
+	id := d.ID
 	a.rl.localStars = slices.DeleteFunc(slices.Clone(a.rl.localStars), func(v int) bool { return v == id })
 	if star {
 		a.rl.localStars = append(a.rl.localStars, id)
-	} else if slices.Contains(a.rl.adoStars, id) {
+		a.rl.definitions = mergeDefinitions(a.rl.definitions, []models.ReleaseDefinition{d})
+		a.rl.defs.SetStarred(a.starredReleases())
+		a.rl.defs.SetDefinitions(a.rl.definitions, a.rl.defsToken != "")
+		return tea.Batch(saveFiltersCmd(a.savedState()), a.notify("Starred "+d.Name))
+	}
+	if slices.Contains(a.rl.adoStars, id) {
 		a.rl.defs.SetStarred(a.starredReleases())
 		return tea.Batch(saveFiltersCmd(a.savedState()), a.info("This pipeline is starred in Azure DevOps. Unstar it there to move it out of Starred."))
 	}
 	a.rl.defs.SetStarred(a.starredReleases())
-	return saveFiltersCmd(a.savedState())
+	return tea.Batch(saveFiltersCmd(a.savedState()), a.notify("Unstarred "+d.Name))
 }
 
 func (a *App) searchReleaseDefinitions(text string) tea.Cmd {
@@ -421,6 +475,11 @@ func (a App) handleReleaseKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		return a, a.selectReleasePivot((a.rl.pivot + 1) % len(releasePivots))
 	case a.rl.pivot == approvalsTab && key.Matches(msg, k.AllApprovals):
 		return a, a.toggleApprovalScope()
+	case a.rl.pane == paneReleases && key.Matches(msg, k.ToggleFavorite):
+		if d := a.rl.defs.Selected(); d != nil {
+			return a, panels.StarCmd(*d, !a.rl.defs.Starred(d.ID))
+		}
+		return a, nil
 	case key.Matches(msg, k.NextPanel), key.Matches(msg, k.PrevPanel):
 		a.setReleasePane(1 - a.rl.pane)
 	case key.Matches(msg, k.Left):
@@ -477,13 +536,23 @@ func (a App) handleReleaseHubResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		a.rl.loaded = true
 		if msg.more {
-			a.rl.definitions = append(a.rl.definitions, msg.defs...)
+			a.rl.definitions = mergeDefinitions(a.rl.definitions, msg.defs)
 		} else {
 			a.rl.definitions, a.rl.adoStars = msg.defs, msg.starred
 		}
 		a.rl.defsToken = msg.token
 		a.rl.defs.SetStarred(a.starredReleases())
 		a.rl.defs.SetDefinitions(a.rl.definitions, msg.token != "")
+		if missing := a.missingStarred(); !msg.more && len(missing) > 0 {
+			return a, loadStarredDefinitionsCmd(a.client, a.rl.seq, missing), true
+		}
+		return a, nil, true
+	case starredDefinitionsMsg:
+		if msg.seq != a.rl.seq || len(msg.defs) == 0 {
+			return a, nil, true
+		}
+		a.rl.definitions = mergeDefinitions(a.rl.definitions, msg.defs)
+		a.rl.defs.SetDefinitions(a.rl.definitions, a.rl.defsToken != "")
 		return a, nil, true
 	case panels.MoreReleaseDefinitionsMsg:
 		if a.rl.defsToken == "" || a.rl.loading {
@@ -516,7 +585,7 @@ func (a App) handleReleaseHubResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, a.openRelease(msg.id, panels.ReleasePipelineTab), true
 	case panels.StarReleaseDefinitionMsg:
-		return a, a.toggleReleaseStar(msg.ID, msg.Star), true
+		return a, a.toggleReleaseStar(msg.Definition, msg.Star), true
 	case panels.FocusReleasesMsg:
 		a.setReleasePane(paneReleases)
 		return a, nil, true

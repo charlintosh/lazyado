@@ -301,7 +301,7 @@ See [Releases](releases.md) for details.
 | `1` / `2` | Releases / Approvals (`[` / `]` also switch) |
 | `Tab` / `Shift+Tab`, `h` / `l` | Move between release pipelines and releases (or approvals) |
 | `/` | [Search](releases.md#searching-release-pipelines) release pipelines by name. In the bar: `↑` / `↓` move, `Enter` goes into the match's releases, `Esc` clears |
-| `Ctrl+t` | Star / unstar a release pipeline |
+| `Ctrl+t` | Star / unstar a release pipeline, also while searching and from its releases |
 | `enter` | Release pipeline: show its releases. Release or approval: open the release |
 | `v` | Release pipeline: open its latest release. Release: open it |
 | `a` | Approve or reject |

@@ -21,7 +21,7 @@ The *Pipelines › Releases* hub (`R`) shows the classic release pipelines of th
 
 `[` / `]` also switch views.
 
-The left pane lists the release pipelines, with **Starred** ones first: the ones you star here with `Ctrl+t` (saved in `state.json`), plus any release pipelines Azure DevOps reports as favorites for your account. The group is always shown; while it's empty it says how to star one. Each row shows the pipeline's latest release. `Tab` (or `h` / `l`) moves between the two panes, `enter` on a pipeline moves to its releases, and `v` opens its latest release directly.
+The left pane lists the release pipelines, with **Starred** ones first: the ones you star here with `Ctrl+t` (saved in `state.json`), plus any release pipelines Azure DevOps reports as favorites for your account. Starred pipelines show even when they aren't among the ones loaded so far: lazyado fetches them by ID in one request. The group is always shown; while it's empty it says how to star one. Each row shows the pipeline's latest release. `Tab` (or `h` / `l`) moves between the two panes, `enter` on a pipeline moves to its releases, and `v` opens its latest release directly.
 
 Each release shows its stages as chips:
 
@@ -42,7 +42,7 @@ The row's second line shows the primary artifact's version and branch, who creat
 | Key | Action |
 | --- | ------ |
 | `/` | [Search](#searching-release-pipelines) release pipelines by name |
-| `Ctrl+t` | Star / unstar the selected release pipeline |
+| `Ctrl+t` | Star / unstar the selected release pipeline; in the search bar, the highlighted match (including one found on Azure DevOps); in the releases pane, the pipeline they belong to |
 | `enter` | On a pipeline: go to its releases. On a release: open it |
 | `v` | On a pipeline: open its latest release. On a release: open it |
 | `a` | Approve or reject the release's pending approval |

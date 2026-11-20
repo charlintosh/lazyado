@@ -6,6 +6,11 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- fix: `Ctrl+t` did nothing in the Releases hub while the search bar was open or once `Enter` had moved to a pipeline's releases. It now stars the highlighted match while searching, and the pipeline whose releases you're looking at from the releases pane, with a notice either way
+- fix: a release pipeline starred from *Found on Azure DevOps*, or starred earlier but beyond the first 200 loaded (Azure DevOps favorites too), never showed in Starred. Starred pipelines that aren't loaded are now fetched by ID in one request, and pages that load later don't list them twice
+
 ## [v1.6.0] - 2026-11-20
 
 Release pipeline editor: see a classic release pipeline's stages, jobs, tasks, settings, variables and history as in Azure DevOps; edit tasks, agent jobs and variables with color-coded changes, pickers for everything Azure fills (never typed), a reviewed diff and a conflict-safe save; and edit a single release's stages that haven't deployed yet.

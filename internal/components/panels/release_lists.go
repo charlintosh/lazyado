@@ -33,8 +33,8 @@ const (
 type FocusReleasesMsg struct{}
 
 type StarReleaseDefinitionMsg struct {
-	ID   int
-	Star bool
+	Definition models.ReleaseDefinition
+	Star       bool
 }
 
 type MoreReleaseDefinitionsMsg struct{}
@@ -297,12 +297,9 @@ func (p *ReleaseDefinitionsPanel) KeyBindings() []key.Binding {
 		if p.search.Value() != "" {
 			back = widgets.Relabel(k.Back, "clear")
 		}
-		return []key.Binding{widgets.Combine("match", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, p.enterLabel), back}
+		return []key.Binding{widgets.Combine("match", k.PickerUp, k.PickerDown), widgets.Relabel(k.Select, p.enterLabel), p.StarBinding(), back}
 	}
-	star := widgets.Relabel(k.ToggleFavorite, "star")
-	if d := p.Selected(); d != nil && p.starred[d.ID] {
-		star = widgets.Relabel(k.ToggleFavorite, "unstar")
-	}
+	star := p.StarBinding()
 	bindings := []key.Binding{widgets.Relabel(k.Select, p.enterLabel), widgets.Relabel(k.View, "open latest release")}
 	if p.Filter() != "" {
 		bindings = append(bindings, widgets.Relabel(k.Search, "edit filter"), widgets.Relabel(k.Back, "clear filter"))
@@ -362,8 +359,7 @@ func (p ReleaseDefinitionsPanel) handleKey(msg tea.KeyPressMsg) (ReleaseDefiniti
 	case key.Matches(msg, k.EditPipeline):
 		return p, func() tea.Msg { return OpenReleaseEditorMsg{Kind: models.DocDefinition, ID: chosen.ID} }
 	case key.Matches(msg, k.ToggleFavorite):
-		star := !p.starred[chosen.ID]
-		return p, func() tea.Msg { return StarReleaseDefinitionMsg{ID: chosen.ID, Star: star} }
+		return p, p.starCmd()
 	case key.Matches(msg, k.OpenBrowser):
 		return p, func() tea.Msg { return BrowseReleaseMsg{DefinitionID: chosen.ID, URL: chosen.WebURL} }
 	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):
@@ -402,8 +398,29 @@ func (p ReleaseDefinitionsPanel) handleSearchKey(msg tea.KeyPressMsg) (ReleaseDe
 	case key.Matches(msg, k.PickerDown), arrow && key.Matches(msg, k.Down):
 		p.list.move(1)
 		return p, nil
+	case key.Matches(msg, k.ToggleFavorite):
+		return p, p.starCmd()
 	}
 	return p.updateSearch(msg)
+}
+
+func (p *ReleaseDefinitionsPanel) StarBinding() key.Binding {
+	if d := p.Selected(); d != nil && p.starred[d.ID] {
+		return widgets.Relabel(p.keys.ToggleFavorite, "unstar")
+	}
+	return widgets.Relabel(p.keys.ToggleFavorite, "star")
+}
+
+func (p *ReleaseDefinitionsPanel) starCmd() tea.Cmd {
+	d := p.Selected()
+	if d == nil {
+		return nil
+	}
+	return StarCmd(*d, !p.starred[d.ID])
+}
+
+func StarCmd(d models.ReleaseDefinition, star bool) tea.Cmd {
+	return func() tea.Msg { return StarReleaseDefinitionMsg{Definition: d, Star: star} }
 }
 
 func (p ReleaseDefinitionsPanel) updateSearch(msg tea.Msg) (ReleaseDefinitionsPanel, tea.Cmd) {

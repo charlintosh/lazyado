@@ -187,3 +187,18 @@ func TestCancelReleaseStageSendsCanceledStatus(t *testing.T) {
 		t.Fatalf("cancel %s %s %s", seen[0].method, seen[0].url, seen[0].body)
 	}
 }
+
+func TestReleaseDefinitionsByIDAsksForThoseIDsOnly(t *testing.T) {
+	var seen []recorded
+	c := clientRouting(t, map[string]string{"/release/definitions": `{"value":[{"id":77,"name":"infra - Nightly"}]}`}, &seen)
+	defs, err := c.ReleaseDefinitionsByID([]int{77, 78})
+	if err != nil || len(defs) != 1 || defs[0].Name != "infra - Nightly" {
+		t.Fatalf("got %v, %v", defs, err)
+	}
+	if !strings.Contains(seen[0].url, "definitionIdFilter=77%2C78") || strings.Contains(seen[0].url, "searchText") {
+		t.Fatalf("asked %s", seen[0].url)
+	}
+	if none, err := c.ReleaseDefinitionsByID(nil); none != nil || err != nil || len(seen) != 1 {
+		t.Fatal("no IDs must not send a request")
+	}
+}
