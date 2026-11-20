@@ -6,6 +6,15 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- feat: see and edit a release pipeline, like the Azure DevOps release pipeline editor. `e` on a release pipeline opens it read-only with **Pipeline** (artifacts, triggers, stages with their approvals, gates, jobs, variables and retention), **Tasks** (each stage's jobs and tasks as a tree, and the selected job's or task's settings, named and grouped as in Azure DevOps, with settings hidden by other settings left out), **Variables** (value, scope, settable at release time, variable groups) and **History** (revisions and their comments). `e` again starts editing: change settings with pickers for lists and service connections, turn tasks on or off with `space`, change variable values and secrets, undo with `u`, then `Ctrl+s` to review every change as before and after and save it as the next revision with a comment. If someone else saved meanwhile nothing is overwritten, and `r` reloads their revision and reapplies your changes, dropping and naming any they also changed
+- feat: edit a job's agent settings, as in Azure DevOps: select the job in **Tasks** to change its agent pool (picked from the project's pools), agent specification (the Microsoft-hosted images), demands, parallelism, timeouts, artifact download, OAuth token access and run condition
+- feat: settings Azure fills (service connections, subscriptions, resource groups, locations, app names and the like) are tagged `from Azure` and never typed: their values are listed by Azure through the task's service connection, as Azure DevOps' editor does, with the saved value marked and the pipeline's variables one `Tab` away. When Azure can't list them the dialog shows Azure's error, with retry, a pipeline variable, the browser or keeping the saved value as the only ways out. Changing a setting others depend on marks them `!` to pick again, and saving waits until they are
+- feat: the editor uses color and glyphs to tell things apart: orange for unsaved changes (`▎`, counts on tasks, stages, tabs and the header) with the saved value struck through underneath, red `!` for settings to pick again, `●` / `○` for on and off, `▾` for picked and `›` for typed settings, a colored tag per settings group, `$(variables)` in violet, connections, pools and images as chips, `■` per variable scope and `⊘` for read-only
+- feat: edit a single release (`e` on a release, or on the release screen), like *Edit release* in Azure DevOps: stages that have already deployed are read-only, and the release pipeline stays as it is
+- feat: `y` in the release pipeline editor copies a task as YAML, or a variable's value
+
 ## [v1.5.1] - 2026-11-20
 
 Performance and releases patch: lazyado follows Azure DevOps rate limits, sends fewer requests and uses less memory; release logs show one stage at a time and Approvals follow the selected release pipeline.

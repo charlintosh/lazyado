@@ -45,6 +45,7 @@ type releaseState struct {
 	list      panels.ReleasesPanel
 	approvals panels.ApprovalsPanel
 	view      panels.ReleaseView
+	editor    panels.ReleaseEditor
 	pivot     int
 	pane      int
 
@@ -71,6 +72,14 @@ type releaseState struct {
 	preview          *models.Release
 
 	viewSeq int
+
+	editorFrom ViewMode
+	editorSeq  int
+	taskDefs   map[string]*models.TaskDefinition
+	endpoints  map[string][]models.ServiceEndpoint
+	queues     []models.AgentQueue
+	azureLists map[string][]models.AzureValue
+	conflict   *models.ReleaseDoc
 }
 
 type releaseDefinitionsMsg struct {

@@ -12,7 +12,7 @@ Start here if you want to use lazyado.
 | [Repos](guide/repos.md) | Files, commit history, branches, tags and cloning |
 | [Pull requests](guide/pull-requests.md) | The pull request list, reviews, comments, the diff and voting |
 | [Pipelines](guide/pipelines.md) | Pipeline lists, runs, stages and logs, and running a pipeline with its options |
-| [Releases](guide/releases.md) | Release pipelines, stages, approvals, deploying a stage and creating a release |
+| [Releases](guide/releases.md) | Release pipelines, stages, approvals, deploying a stage, creating a release and editing a release pipeline |
 | [Sharing](guide/sharing.md) | `y`: copy links, IDs, paths, permalinks and code snippets from any hub |
 | [Keybindings](guide/keybindings.md) | Every key, grouped by screen |
 | [Troubleshooting](guide/troubleshooting.md) | Common problems, API errors and debug logging |

@@ -86,6 +86,11 @@ func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
 		a.rl.view, cmd = a.rl.view.Update(msg)
 		return a, cmd
 	}
+	if a.viewingReleaseEditor() {
+		var cmd tea.Cmd
+		a.rl.editor, cmd = a.rl.editor.Update(msg)
+		return a, cmd
+	}
 	if a.viewMode == ViewDetail {
 		if cmd, ok := a.handleDetailAction(msg); ok {
 			return a, cmd
@@ -193,6 +198,9 @@ func (a *App) refresh() tea.Cmd {
 	}
 	if a.viewingRelease() {
 		return a.refreshRelease()
+	}
+	if a.viewingReleaseEditor() {
+		return a.refreshReleaseEditor()
 	}
 	if a.inPullRequests() {
 		return a.refreshPullRequests()

@@ -391,6 +391,8 @@ func (v ReleaseView) handlePipelineKey(msg tea.KeyPressMsg, r models.Release) (R
 		return v, func() tea.Msg { return CancelDeploymentMsg{Release: r, Stage: s} }
 	case key.Matches(msg, k.Select):
 		v.openStageLogs()
+	case key.Matches(msg, k.EditPipeline):
+		return v, func() tea.Msg { return OpenReleaseEditorMsg{Kind: models.DocRelease, ID: r.ID} }
 	default:
 		var cmd tea.Cmd
 		v.body, cmd = v.body.Update(msg)
@@ -452,7 +454,7 @@ func (v *ReleaseView) KeyBindings() []key.Binding {
 			bindings = append(bindings, widgets.Relabel(k.Select, "logs"))
 		}
 	}
-	return append(bindings, k.CreateRelease, tabs, k.Share, k.OpenBrowser, back)
+	return append(bindings, widgets.Relabel(k.EditPipeline, "edit release"), k.CreateRelease, tabs, k.Share, k.OpenBrowser, back)
 }
 
 func (v *ReleaseView) Mode() string {

@@ -247,7 +247,7 @@ func (a App) handleReleaseViewResult(msg tea.Msg) (App, tea.Cmd, bool) {
 		}
 		return a, tea.Batch(cmds...), true
 	}
-	return a, nil, false
+	return a.handleReleaseEditorResult(msg)
 }
 
 func (a *App) renderRelease() string {

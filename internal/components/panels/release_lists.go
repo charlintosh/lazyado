@@ -309,7 +309,7 @@ func (p *ReleaseDefinitionsPanel) KeyBindings() []key.Binding {
 	} else {
 		bindings = append(bindings, widgets.Relabel(k.Search, "search"))
 	}
-	return append(bindings, star, k.CreateRelease, k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh)
+	return append(bindings, widgets.Relabel(k.EditPipeline, "view/edit pipeline"), star, k.CreateRelease, k.Share, k.OpenBrowser, widgets.Relabel(k.NextPanel, "pane"), k.Refresh)
 }
 
 func (p ReleaseDefinitionsPanel) Update(msg tea.Msg) (ReleaseDefinitionsPanel, tea.Cmd) {
@@ -359,6 +359,8 @@ func (p ReleaseDefinitionsPanel) handleKey(msg tea.KeyPressMsg) (ReleaseDefiniti
 		return p, func() tea.Msg { return FocusReleasesMsg{} }
 	case key.Matches(msg, k.View):
 		return p, func() tea.Msg { return OpenLatestReleaseMsg{DefinitionID: chosen.ID, Name: chosen.Name} }
+	case key.Matches(msg, k.EditPipeline):
+		return p, func() tea.Msg { return OpenReleaseEditorMsg{Kind: models.DocDefinition, ID: chosen.ID} }
 	case key.Matches(msg, k.ToggleFavorite):
 		star := !p.starred[chosen.ID]
 		return p, func() tea.Msg { return StarReleaseDefinitionMsg{ID: chosen.ID, Star: star} }
@@ -541,7 +543,7 @@ func (p *ReleasesPanel) KeyBindings() []key.Binding {
 	if p.Selected() == nil {
 		return []key.Binding{k.CreateRelease, widgets.Relabel(k.NextPanel, "pane"), k.Refresh}
 	}
-	bindings := []key.Binding{widgets.Relabel(k.Select, "open release"), k.CreateRelease}
+	bindings := []key.Binding{widgets.Relabel(k.Select, "open release"), widgets.Relabel(k.EditPipeline, "edit release"), k.CreateRelease}
 	if r := p.Selected(); r != nil && hasPendingApproval(*r) {
 		bindings = append(bindings, k.Approve)
 	}
@@ -592,6 +594,8 @@ func (p ReleasesPanel) handleKey(msg tea.KeyPressMsg) (ReleasesPanel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, k.Select), key.Matches(msg, k.View):
 		return p, func() tea.Msg { return OpenReleaseMsg{ReleaseID: chosen.ID} }
+	case key.Matches(msg, k.EditPipeline):
+		return p, func() tea.Msg { return OpenReleaseEditorMsg{Kind: models.DocRelease, ID: chosen.ID} }
 	case key.Matches(msg, k.OpenBrowser):
 		return p, func() tea.Msg { return BrowseReleaseMsg{ReleaseID: chosen.ID, URL: chosen.WebURL} }
 	case key.Matches(msg, k.Share), key.Matches(msg, k.ShareLink):

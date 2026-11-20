@@ -59,6 +59,7 @@ const (
 	ViewPullRequest
 	ViewRun
 	ViewRelease
+	ViewReleaseEditor
 )
 
 type App struct {
@@ -140,7 +141,7 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		pl: pipelineState{panel: panels.NewPipelinesPanel(k), view: panels.NewPipelineRunView(k)},
 		rl: releaseState{
 			defs: panels.NewReleaseDefinitionsPanel(k), list: panels.NewReleasesPanel(k),
-			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k),
+			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k), editor: panels.NewReleaseEditor(k),
 		},
 		commits:      commitsState{panel: panels.NewCommitsPanel(k)},
 		branches:     branchesState{panel: panels.NewBranchesPanel(k)},
@@ -252,6 +253,8 @@ func (a App) handleMouse(msg tea.MouseMsg) (App, tea.Cmd) {
 		a.pl.view, cmd = a.pl.view.Update(msg)
 	case a.viewingRelease():
 		a.rl.view, cmd = a.rl.view.Update(msg)
+	case a.viewingReleaseEditor():
+		a.rl.editor, cmd = a.rl.editor.Update(msg)
 	case a.viewMode == ViewDetail:
 		a.detailView, cmd = a.detailView.Update(msg)
 	case a.activePanel == PanelWorkItems:
@@ -319,6 +322,7 @@ func (a *App) syncSpinner() {
 	a.rl.list.SetSpinner(frame)
 	a.rl.approvals.SetSpinner(frame)
 	a.rl.view.SetSpinner(frame)
+	a.rl.editor.SetSpinner(frame)
 	a.code.files.tree.SetSpinner(frame)
 	a.code.files.content.SetSpinner(frame)
 	a.commits.panel.SetSpinner(frame)
@@ -365,7 +369,7 @@ func (a *App) busy() bool {
 	return a.loading || a.pr.loading || a.commentsPanel.Loading() || (a.viewMode == ViewDetail && a.detailView.Loading()) ||
 		(a.reviewing() && a.pr.view.Loading()) || (a.inPullRequests() && a.pr.checksFor != 0 && !a.pr.checksLoaded) ||
 		(a.inPipelines() && (a.pl.loading || a.pl.panel.Loading() || a.previewLoading())) || (a.viewingRun() && a.pl.view.Loading()) ||
-		(a.inReleases() && a.releaseLoading()) || (a.viewingRelease() && a.rl.view.Loading()) ||
+		(a.inReleases() && a.releaseLoading()) || (a.viewingRelease() && a.rl.view.Loading()) || (a.viewingReleaseEditor() && a.rl.editor.Loading()) ||
 		(a.inFiles() && a.filesLoading()) || (a.inCommits() && a.commitsLoading()) ||
 		(a.inBranches() && (a.pr.reposLoading || a.branches.loading)) || (a.inTags() && a.tagsLoading())
 }

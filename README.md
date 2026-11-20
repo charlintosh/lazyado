@@ -33,7 +33,7 @@ lazyado follows the layout of the Azure DevOps web UI (a navigation rail, hub pi
 - Recently run pipelines, every pipeline by folder, and the latest runs, with server-side search by name, state, branch, pipeline and requester.
 - Run details with stages, jobs, errors and step logs that follow a running job.
 - Run a pipeline from a branch or tag, with its YAML parameters, the stages to run and queue-time variables.
-- Classic releases: starred release pipelines first, stage progress, approvals waiting on you, deploying a stage, and creating a release with chosen artifact versions, stages and variables.
+- Classic releases: starred release pipelines first, stage progress, approvals waiting on you, deploying a stage, creating a release with chosen artifact versions, stages and variables, and seeing or editing a release pipeline's tasks, settings and variables.
 
 **Everywhere**
 - Quick search (`Ctrl+F`) for a work item or pull request by ID or by pasted link.
@@ -74,7 +74,7 @@ Other options are covered in [Getting started](docs/guide/getting-started.md#ins
 | [Repos](docs/guide/repos.md) | Files, commits, branches, tags and cloning |
 | [Pull requests](docs/guide/pull-requests.md) | Browsing, reviewing, commenting and voting on pull requests |
 | [Pipelines](docs/guide/pipelines.md) | Pipelines, runs, logs, and running a pipeline |
-| [Releases](docs/guide/releases.md) | Releases, approvals, deploying stages and creating releases |
+| [Releases](docs/guide/releases.md) | Releases, approvals, deploying stages, creating releases and editing release pipelines |
 | [Keybindings](docs/guide/keybindings.md) | Every key, by screen |
 | [Troubleshooting](docs/guide/troubleshooting.md) | Common problems and debug logging |
 

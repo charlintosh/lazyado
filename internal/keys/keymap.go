@@ -97,6 +97,12 @@ type KeyMap struct {
 	NextStage     key.Binding
 	AllApprovals  key.Binding
 	OpenBuild     key.Binding
+	EditPipeline  key.Binding
+	ToggleTask    key.Binding
+	UndoField     key.Binding
+	ReapplyEdits  key.Binding
+	RetryList     key.Binding
+	UseVariable   key.Binding
 
 	HubFiles        key.Binding
 	FindFile        key.Binding
@@ -469,6 +475,30 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("A"),
 			key.WithHelp("A", "approvals: this pipeline / all"),
 		),
+		EditPipeline: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "edit release pipeline or release"),
+		),
+		ToggleTask: key.NewBinding(
+			key.WithKeys("space"),
+			key.WithHelp("space", "turn a task on or off (editing)"),
+		),
+		UndoField: key.NewBinding(
+			key.WithKeys("u"),
+			key.WithHelp("u", "undo a field or task change (editing)"),
+		),
+		ReapplyEdits: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reload and reapply your changes"),
+		),
+		RetryList: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "ask Azure again for a list"),
+		),
+		UseVariable: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "use a pipeline variable instead"),
+		),
 		OpenBuild: key.NewBinding(
 			key.WithKeys("b"),
 			key.WithHelp("b", "open build"),
@@ -560,7 +590,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.View, k.Select, k.ChangeState, k.Assign, k.AddComment, k.CreateParent, k.CreateTask, k.EditTask, k.DeleteTask},
 		{k.MoveItemLeft, k.MoveItemRight, k.ToggleRows, k.DragTask, k.DropTask, k.EditComment, k.DeleteComment, k.QuickSearch, k.PickerUp, k.PickerDown, k.Refresh, k.Save, k.Confirm, k.Help, k.Back, k.Quit},
 		{k.NewPullRequest, k.Repository, k.ToggleFavorite, k.Vote, k.AddComment, k.Reply, k.LikeComment, k.ResolveThread, k.SelectLines, k.Yank, k.ShareLines, k.LinkedWorkItems, k.OpenBuild, k.NextFile, k.PrevFile, k.NextChange, k.PrevChange},
-		{k.RunPipeline, k.FollowLog, k.NextIssue, k.PrevIssue, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy, k.PrevStage, k.NextStage, k.AllApprovals},
+		{k.RunPipeline, k.FollowLog, k.NextIssue, k.PrevIssue, k.CreateRelease, k.Approve, k.DeployStage, k.CancelDeploy, k.PrevStage, k.NextStage, k.AllApprovals, k.EditPipeline, k.ToggleTask, k.UndoField, k.ReapplyEdits, k.RetryList, k.UseVariable},
 		{k.HubFiles, k.FindFile, k.HubCommits, k.HubBranches, k.HubTags, k.Version, k.Clone, k.NewRef, k.DeleteRef, k.PullRequestFrom},
 	}
 }

@@ -76,6 +76,7 @@ func (a *App) syncLayout() {
 	a.pr.view.SetSize(a.width, l.bodyHeight)
 	a.pl.view.SetSize(a.width, l.bodyHeight)
 	a.rl.view.SetSize(a.width, l.bodyHeight)
+	a.rl.editor.SetSize(a.width, l.bodyHeight)
 }
 
 func (a *App) syncFocus() {

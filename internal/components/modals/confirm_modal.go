@@ -30,6 +30,7 @@ type ConfirmModal struct {
 	title   string
 	message string
 	warning string
+	action  string
 	confirm tea.Msg
 }
 
@@ -83,11 +84,15 @@ func (m ConfirmModal) View() string {
 		message = message[:room]
 	}
 	body := strings.Join(append(message, tail...), "\n")
+	action := m.action
+	if action == "" {
+		action = "delete"
+	}
 	k := m.env.Keys
 	return widgets.Dialog{
 		Title:  m.title,
 		Body:   body,
-		Footer: widgets.Hints(inner, widgets.Relabel(k.Confirm, "delete"), widgets.Relabel(k.Back, "cancel")),
+		Footer: widgets.Hints(inner, widgets.Relabel(k.Confirm, action), widgets.Relabel(k.Back, "cancel")),
 		Width:  width,
 		Accent: styles.ColorError,
 	}.View()

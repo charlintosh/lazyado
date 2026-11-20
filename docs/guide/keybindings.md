@@ -305,6 +305,7 @@ See [Releases](releases.md) for details.
 | `enter` | Release pipeline: show its releases. Release or approval: open the release |
 | `v` | Release pipeline: open its latest release. Release: open it |
 | `a` | Approve or reject |
+| `e` | Release pipeline: [see or edit it](releases.md#editing-a-release-pipeline). Release: edit that release |
 | `A` | Approvals: switch between the selected pipeline's approvals and every pipeline's |
 | `n` | Create a release |
 | `y` | Share the release pipeline, release or approval's release |
@@ -320,6 +321,7 @@ See [Releases](releases.md) for details.
 | `a` | Approve or reject the stage's pending approval |
 | `d` | Deploy or redeploy the stage |
 | `x` | Cancel the stage's deployment |
+| `e` | Edit this release |
 | `<` / `>` | Previous / next stage, also in Logs |
 | `enter` | Open the stage's logs |
 | `Tab` / `Shift+Tab`, `j` / `k`, `F` | In Logs: as in a [pipeline run](#pipeline-run) |
@@ -327,6 +329,28 @@ See [Releases](releases.md) for details.
 | `y` | Share the release: link, name, stages, its release pipeline |
 | `o` | Open in the browser |
 | `esc` | Back a pane, then back to the hub |
+
+## Release pipeline editor
+
+See [Editing a release pipeline](releases.md#editing-a-release-pipeline).
+
+| Key | Action |
+| --- | ------ |
+| `1` – `4` | Pipeline / Tasks / Variables / History tab (`[` / `]` also switch) |
+| `<` / `>` | Previous / next stage (`h` / `l` in Pipeline) |
+| `Tab` / `Shift+Tab`, `h` / `l` | Tasks: move between the task list and the task's settings. Variables: switch scope |
+| `j` / `k` | Move between jobs and tasks, settings or variables |
+| `e` | Start or stop editing |
+| `enter` | Pipeline: open the stage's tasks. Tasks: go to the job's or task's settings, or change the selected one while editing. Variables: change the value while editing. Save dialog with settings to pick again: go to the first one |
+| `space` | Turn the selected task on or off (editing) |
+| `u` | Undo the selected setting, or every change to the selected task (editing) |
+| `Ctrl+s` | Review and save your changes |
+| `r` | In the save dialog, after someone else saved: reload their revision and reapply your changes. In a list from Azure that failed: ask again |
+| `v` | In a list from Azure that failed: use a pipeline variable instead |
+| `Tab` | In a list from Azure: switch between Azure's values and the pipeline's variables |
+| `y` | Copy the task as YAML, or the variable's value |
+| `o` | Open in the browser |
+| `esc` | Stop editing (asks before discarding changes), back a pane, then back |
 
 ## Dialogs and pickers
 

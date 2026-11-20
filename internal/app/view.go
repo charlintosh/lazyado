@@ -87,6 +87,8 @@ func (a *App) renderBase() string {
 		return a.renderRun()
 	case a.viewingRelease():
 		return a.renderRelease()
+	case a.viewingReleaseEditor():
+		return a.renderReleaseEditor()
 	case a.viewMode == ViewDetail:
 		return a.renderDetailView()
 	default:
@@ -285,6 +287,8 @@ func (a *App) modeLabel() string {
 		return a.pl.view.Mode()
 	case a.viewingRelease():
 		return a.rl.view.Mode()
+	case a.viewingReleaseEditor():
+		return a.rl.editor.Mode()
 	case a.viewMode == ViewDetail:
 		return "WORK ITEM"
 	case a.keyword.Focused():
@@ -304,7 +308,7 @@ func (a *App) modeLabel() string {
 }
 
 func (a *App) renderStatusBar() string {
-	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(styles.ColorPrimary).Bold(true).
+	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(a.modeColor()).Bold(true).
 		Padding(0, 1).Render(a.modeLabel())
 	rightItems := panels.HelpItems(a.statusHelp, []key.Binding{a.keys.Help, a.keys.Quit})
 	right := panels.FitItems(rightItems, "   ", max(a.width-lipgloss.Width(pill)-1, 0))
@@ -324,6 +328,8 @@ func (a *App) statusBindings() []key.Binding {
 		return a.pl.view.KeyBindings()
 	case a.viewingRelease():
 		return a.rl.view.KeyBindings()
+	case a.viewingReleaseEditor():
+		return a.rl.editor.KeyBindings()
 	case a.viewMode == ViewDetail:
 		return a.detailView.KeyBindings()
 	case a.keyword.Focused():
