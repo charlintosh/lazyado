@@ -6,18 +6,22 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [v1.7.0] - 2026-11-20
+
+Releases and focus release: an Azure DevOps-style release list with the deployment that's live on each stage, latest deployments and starred pipelines that always show, Ctrl+t that works while searching and from releases, and a status bar that names what has focus, colored by area, with its keys split into actions and navigation.
+
 ### Changed
 
-- feat: the status bar names what has focus, like a game's mode label: the screen, then the focused item by name (`RELEASES › Release-64`, `BOARD › TASK #1051`, `REVIEW !4821 › retry.go`, `RELEASE-64 › STAGE QA`, `EDIT › Resource group`, `› 3 LINES`), colored by area (Boards blue, Repos violet, Pipelines teal) or by what you're doing (editing orange, searching yellow, dragging pink). The keys that act on the focus come first, then, after a `│` and dimmer, the keys that move around
-- feat: the releases pane reads like Azure DevOps' release list: **Releases**, **Created** and **Stages** columns, and a chip per stage with its state glyph and full name. The release deployed on a stage now is the bright green chip; earlier deployments, failures, deployments in progress, approvals and canceled or not-deployed stages each have their own color and glyph
-- feat: release pipelines carry their latest deployment on the second line (`✓ Dev1 · Release-64 · 2h ago`), from one request for the project's recent deployments; starred pipelines show a gold `★`, pending approvals `◐ n` badges, and the Starred, All and Found on Azure DevOps groups their own colored tags
-- perf: release, approval and pipeline lists render only the selected row on a cursor move; the other rows are kept until the list or its width changes
+- feat: the status bar names what has focus, like a game's mode label: the screen, then the focused item by name (`RELEASES › Release-64`, `BOARD › TASK #1051`, `REVIEW !4821 › retry.go`, `RELEASE-64 › STAGE QA`, `EDIT › Resource group`, `› 3 LINES`), colored by area (Boards blue, Repos violet, Pipelines teal) or by what you're doing (editing orange, searching yellow, dragging pink). The keys that act on the focus come first, then, after a `│` and dimmer, the keys that move around (1de247d)
+- feat: the releases pane reads like Azure DevOps' release list: **Releases**, **Created** and **Stages** columns, and a chip per stage with its state glyph and full name. The release deployed on a stage now is the bright green chip; earlier deployments, failures, deployments in progress, approvals and canceled or not-deployed stages each have their own color and glyph (c54b7ad)
+- feat: release pipelines carry their latest deployment on the second line (`✓ Dev1 · Release-64 · 2h ago`), from one request for the project's recent deployments; starred pipelines show a gold `★`, pending approvals `◐ n` badges, and the Starred, All and Found on Azure DevOps groups their own colored tags (c54b7ad)
+- perf: release, approval and pipeline lists render only the selected row on a cursor move; the other rows are kept until the list or its width changes (c54b7ad)
 
 ### Fixed
 
-- fix: starred release pipelines' `★` could look out of line where the terminal's font draws it wider than a cell; it now has a two-cell slot on every row, so stars and approval badges keep one column
-- fix: `Ctrl+t` did nothing in the Releases hub while the search bar was open or once `Enter` had moved to a pipeline's releases. It now stars the highlighted match while searching, and the pipeline whose releases you're looking at from the releases pane, with a notice either way
-- fix: a release pipeline starred from *Found on Azure DevOps*, or starred earlier but beyond the first 200 loaded (Azure DevOps favorites too), never showed in Starred. Starred pipelines that aren't loaded are now fetched by ID in one request, and pages that load later don't list them twice
+- fix: starred release pipelines' `★` could look out of line where the terminal's font draws it wider than a cell; it now has a two-cell slot on every row, so stars and approval badges keep one column (d5d3c69)
+- fix: `Ctrl+t` did nothing in the Releases hub while the search bar was open or once `Enter` had moved to a pipeline's releases. It now stars the highlighted match while searching, and the pipeline whose releases you're looking at from the releases pane, with a notice either way (3e4b254)
+- fix: a release pipeline starred from *Found on Azure DevOps*, or starred earlier but beyond the first 200 loaded (Azure DevOps favorites too), never showed in Starred. Starred pipelines that aren't loaded are now fetched by ID in one request, and pages that load later don't list them twice (3e4b254)
 
 ## [v1.6.0] - 2026-11-20
 
