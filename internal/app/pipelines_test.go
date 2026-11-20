@@ -184,7 +184,7 @@ func TestRunViewLogsLoadTheRunningStepAndFollowIt(t *testing.T) {
 	}
 	a = feed(t, a, runLogMsg{id: 812, logID: 12, from: 1, lines: []string{"##[section]Starting: Run integration suite", "PASS checkout/guest.int.ts"}})
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Jobs in run", "TEST", "Run integration suite", "Test › Integration tests › Run integration suite", "Agent: Hosted Agent 14", "PASS checkout/guest.int.ts", "FOLLOWING", "LOGS · JOBS"} {
+	for _, want := range []string{"Jobs in run", "TEST", "Run integration suite", "Test › Integration tests › Run integration suite", "Agent: Hosted Agent 14", "PASS checkout/guest.int.ts", "FOLLOWING", "› JOBS"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("logs tab is missing %q", want)
 		}
@@ -348,7 +348,7 @@ func TestErrorKeyOnAFailedRunOpensItsLogsAtTheError(t *testing.T) {
 func TestRunSummaryListsStagesAndTheSelectedStagesJobs(t *testing.T) {
 	a := openRunView(t, 160, 45)
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Stages", "1 done · 1 running", "Jobs in Test", "0 of 1 done", "RUN · STAGES"} {
+	for _, want := range []string{"Stages", "1 done · 1 running", "Jobs in Test", "0 of 1 done", "› STAGES"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("summary is missing %q", want)
 		}
@@ -361,7 +361,7 @@ func TestRunSummaryListsStagesAndTheSelectedStagesJobs(t *testing.T) {
 		}
 	}
 	a = feed(t, a, special(tea.KeyTab))
-	if out := ansi.Strip(a.render()); !strings.Contains(out, "RUN · JOBS") {
+	if out := ansi.Strip(a.render()); !strings.Contains(out, "› JOBS") {
 		t.Error("tab must move to the jobs pane")
 	}
 	a = feed(t, a, special(tea.KeyEnter))

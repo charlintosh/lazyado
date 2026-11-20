@@ -85,7 +85,7 @@ func TestDraggingATaskToAColumnChangesItsState(t *testing.T) {
 			a, _ = step(t, a, tea.MouseClickMsg(mouse(x+2, y)))
 			a, _ = step(t, a, tea.MouseMotionMsg(mouse(tx, ty)))
 			screen := ansi.Strip(a.render())
-			if a.modeLabel() != "MOVING" || !strings.Contains(screen, "moving 1052 to "+target) || !strings.Contains(screen, "→ "+target) {
+			if !strings.HasPrefix(a.statusFocus().item, "MOVING") || !strings.Contains(screen, "moving 1052 to "+target) || !strings.Contains(screen, "→ "+target) {
 				t.Fatalf("dragging 1052 over %s shows no feedback:\n%s", target, screen)
 			}
 			_, msgs := step(t, a, tea.MouseReleaseMsg(mouse(tx, ty)))

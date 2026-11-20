@@ -1004,13 +1004,6 @@ func (l *runLogs) logsBindings() []key.Binding {
 	return []key.Binding{widgets.Combine("step", k.Up, k.Down), widgets.Combine("expand", k.Left, k.Right), widgets.Relabel(k.NextPanel, "log"), issue, follow}
 }
 
-func (l *runLogs) paneLabel() string {
-	if l.pane == runPaneLog {
-		return "LOG"
-	}
-	return "JOBS"
-}
-
 func (l *runLogs) logsBody() string {
 	now := time.Now()
 	tw, lw := l.treeWidth(), l.logPaneWidth()

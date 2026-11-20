@@ -457,13 +457,6 @@ func (v *ReleaseView) KeyBindings() []key.Binding {
 	return append(bindings, widgets.Relabel(k.EditPipeline, "edit release"), k.CreateRelease, tabs, k.Share, k.OpenBrowser, back)
 }
 
-func (v *ReleaseView) Mode() string {
-	if v.tab == ReleaseLogsTab {
-		return "LOGS"
-	}
-	return "RELEASE"
-}
-
 func (v *ReleaseView) header() string {
 	inner := max(v.width-2, 1)
 	rule := lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat(ruleGlyph, v.width))

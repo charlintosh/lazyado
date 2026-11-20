@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ### Changed
 
+- feat: the status bar names what has focus, like a game's mode label: the screen, then the focused item by name (`RELEASES › Release-64`, `BOARD › TASK #1051`, `REVIEW !4821 › retry.go`, `RELEASE-64 › STAGE QA`, `EDIT › Resource group`, `› 3 LINES`), colored by area (Boards blue, Repos violet, Pipelines teal) or by what you're doing (editing orange, searching yellow, dragging pink). The keys that act on the focus come first, then, after a `│` and dimmer, the keys that move around
 - feat: the releases pane reads like Azure DevOps' release list: **Releases**, **Created** and **Stages** columns, and a chip per stage with its state glyph and full name. The release deployed on a stage now is the bright green chip; earlier deployments, failures, deployments in progress, approvals and canceled or not-deployed stages each have their own color and glyph
 - feat: release pipelines carry their latest deployment on the second line (`✓ Dev1 · Release-64 · 2h ago`), from one request for the project's recent deployments; starred pipelines show a gold `★`, pending approvals `◐ n` badges, and the Starred, All and Found on Azure DevOps groups their own colored tags
 - perf: release, approval and pipeline lists render only the selected row on a cursor move; the other rows are kept until the list or its width changes

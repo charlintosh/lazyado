@@ -79,6 +79,8 @@ type App struct {
 	splashScreen   screens.SplashScreen
 	notification   notification.Notification
 	statusHelp     help.Model
+	statusNavHelp  help.Model
+	navKeys        map[string]bool
 	spinner        spinner.Model
 	modals         modalStack
 	keyword        textinput.Model
@@ -143,12 +145,14 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 			defs: panels.NewReleaseDefinitionsPanel(k), list: panels.NewReleasesPanel(k),
 			approvals: panels.NewApprovalsPanel(k), view: panels.NewReleaseView(k), editor: panels.NewReleaseEditor(k),
 		},
-		commits:      commitsState{panel: panels.NewCommitsPanel(k)},
-		branches:     branchesState{panel: panels.NewBranchesPanel(k)},
-		tags:         tagsState{panel: panels.NewTagsPanel(k)},
-		code:         codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k), limits.MaxFileBytes())},
-		splashScreen: screens.NewSplashScreen(st),
-		statusHelp:   widgets.NewHelp(),
+		commits:       commitsState{panel: panels.NewCommitsPanel(k)},
+		branches:      branchesState{panel: panels.NewBranchesPanel(k)},
+		tags:          tagsState{panel: panels.NewTagsPanel(k)},
+		code:          codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k), limits.MaxFileBytes())},
+		splashScreen:  screens.NewSplashScreen(st),
+		statusHelp:    widgets.NewHelp(),
+		statusNavHelp: dimHelp(widgets.NewHelp()),
+		navKeys:       navigationKeys(k),
 		spinner: spinner.New(
 			spinner.WithSpinner(spinner.MiniDot),
 			spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorPrimary)),

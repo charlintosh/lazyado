@@ -91,7 +91,7 @@ While the run is queued or running, the screen refreshes every 5 seconds.
 
 ### Logs
 
-The left pane, **Jobs in run**, is a tree: stages, their jobs, and each job's steps. The right pane shows the log of the selected step, or the whole job's log when a job is selected. Its header shows the step's state and duration, where it is (`Stage › Job › Step`), the agent and when it started, and how many errors and warnings the log has. A failed or running job and step are selected and expanded for you when the logs open. The focused pane has a blue border, and the status bar says which one it is (`LOGS · JOBS` or `LOGS · LOG`).
+The left pane, **Jobs in run**, is a tree: stages, their jobs, and each job's steps. The right pane shows the log of the selected step, or the whole job's log when a job is selected. Its header shows the step's state and duration, where it is (`Stage › Job › Step`), the agent and when it started, and how many errors and warnings the log has. A failed or running job and step are selected and expanded for you when the logs open. The focused pane has a blue border, and the status bar says which one it is (`RUN 20261120.3 › JOBS`, or `› LOG · ` and the step's name).
 
 | Key | Action |
 | --- | ------ |

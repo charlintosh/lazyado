@@ -599,16 +599,6 @@ func (v *PipelineRunView) KeyBindings() []key.Binding {
 	return append(v.logsBindings(), again, tabs, k.Share, k.OpenBrowser, back)
 }
 
-func (v *PipelineRunView) Mode() string {
-	if v.tab == RunLogsTab {
-		return "LOGS · " + v.paneLabel()
-	}
-	if v.focus == summaryPaneJobs {
-		return "RUN · JOBS"
-	}
-	return "RUN · STAGES"
-}
-
 func (v *PipelineRunView) header() string {
 	r := *v.run
 	now := time.Now()

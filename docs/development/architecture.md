@@ -30,7 +30,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 1. `update` dispatches by message kind: window size, keys, mouse, spinner ticks, then results (`update_results.go`), and finally anything left over goes to the open modal (paste, cursor blink, quick-search results).
 2. `reconcile` derives child state from the root state after every message: panel focus from `activePanel`/`hub`, panel sizes from the terminal size, the details pane and comment loading from the current selection, and whether the shared spinner must tick. Child setters are no-ops when nothing changed, so this is cheap and there is exactly one place that keeps children in sync.
-3. `View` only renders. Values that are derived at render time (header breadcrumbs, spinner frame, notification text) are passed as props, for example `panels.RenderHeader(panels.HeaderProps{...})`.
+3. `View` only renders. The status bar comes from `App.statusFocus` (`internal/app/status_focus.go`): the screen, the focused item (views answer `Focus()`), its area color and a tone for editing, searching, moving or selecting. Hints are split into actions and navigation by key: a hint is navigation when its whole key set is that of a navigation binding, or of two combined, and no action binding in `KeyMap.FullHelp()` has the same set (`navigationKeys`, computed once), and up to a third of the bar is kept for navigation. Values that are derived at render time (header breadcrumbs, spinner frame, notification text) are passed as props, for example `panels.RenderHeader(panels.HeaderProps{...})`.
 
 ## Keeping Update and View cheap
 

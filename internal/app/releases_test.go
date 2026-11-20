@@ -281,7 +281,7 @@ func TestReleaseLogsLoadFromTheTaskLogURL(t *testing.T) {
 	}
 	a = feed(t, a, releaseLogMsg{release: 64, logID: 104, from: 1, lines: []string{"##[section]Starting: Azure App Service deploy", "Deployed to smarthotel-dev"}})
 	out := ansi.Strip(a.render())
-	for _, want := range []string{"Agent job", "Azure App Service deploy", "Deployed to smarthotel-dev", "LOGS"} {
+	for _, want := range []string{"Agent job", "Azure App Service deploy", "Deployed to smarthotel-dev", "› JOBS"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("release logs are missing %q", want)
 		}

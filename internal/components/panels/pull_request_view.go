@@ -667,13 +667,6 @@ func (v *PullRequestView) KeyBindings() []key.Binding {
 	return append(bindings, widgets.Combine("comment", k.Up, k.Down), tabs, k.OpenBrowser, back)
 }
 
-func (v *PullRequestView) Mode() string {
-	if n := v.files.selectedLines(); v.tab == PullRequestFiles && n > 0 {
-		return fmt.Sprintf("SELECT %d LINES", n)
-	}
-	return "REVIEW"
-}
-
 func (v *PullRequestView) header() string {
 	pr := *v.pr
 	inner := max(v.width-2, 1)

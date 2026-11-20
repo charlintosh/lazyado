@@ -279,47 +279,6 @@ func (a *App) renderDetailView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, a.renderHeader("Boards", a.hub.Name(), id), body, a.renderStatusBar())
 }
 
-func (a *App) modeLabel() string {
-	switch {
-	case a.reviewing():
-		return a.pr.view.Mode()
-	case a.viewingRun():
-		return a.pl.view.Mode()
-	case a.viewingRelease():
-		return a.rl.view.Mode()
-	case a.viewingReleaseEditor():
-		return a.rl.editor.Mode()
-	case a.viewMode == ViewDetail:
-		return "WORK ITEM"
-	case a.keyword.Focused():
-		return "FILTER"
-	case a.searchingPullRequests(), a.searchingPipelines(), a.searchingReleases(), a.searchingCommits(), a.searchingBranches(), a.searchingTags():
-		return "SEARCH"
-	case a.mainView() == viewTaskboard && a.taskboardPanel.Dragging(),
-		a.mainView() == viewBoard && a.boardPanel.Dragging():
-		return "MOVING"
-	case a.activePanel == PanelDetails:
-		return "DETAILS"
-	case a.activePanel == PanelComments:
-		return "DISCUSSION"
-	default:
-		return a.hub.Mode()
-	}
-}
-
-func (a *App) renderStatusBar() string {
-	pill := lipgloss.NewStyle().Foreground(styles.ColorOnAccent).Background(a.modeColor()).Bold(true).
-		Padding(0, 1).Render(a.modeLabel())
-	rightItems := panels.HelpItems(a.statusHelp, []key.Binding{a.keys.Help, a.keys.Quit})
-	right := panels.FitItems(rightItems, "   ", max(a.width-lipgloss.Width(pill)-1, 0))
-	budget := max(a.width-lipgloss.Width(pill)-lipgloss.Width(right)-styles.StatusBarGaps, 0)
-	hints := panels.FitItems(panels.HelpItems(a.statusHelp, a.statusBindings()), "   ", budget)
-	left := pill + " " + hints
-	gap := max(a.width-lipgloss.Width(left)-lipgloss.Width(right)-1, 1)
-	return lipgloss.NewStyle().Background(styles.ColorSurface).Width(a.width).MaxWidth(a.width).
-		Render(left + strings.Repeat(" ", gap) + right + " ")
-}
-
 func (a *App) statusBindings() []key.Binding {
 	switch {
 	case a.reviewing():

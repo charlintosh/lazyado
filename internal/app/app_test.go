@@ -263,7 +263,7 @@ func TestMeFallsBackToServerWhenIdentityIsUnknown(t *testing.T) {
 func TestKeywordFilterNarrowsTheBacklog(t *testing.T) {
 	a := newTestApp(t, 160, 45)
 	a, _ = step(t, a, press("/"))
-	if !a.keyword.Focused() || !a.filterBar || a.modeLabel() != "FILTER" {
+	if !a.keyword.Focused() || !a.filterBar || a.statusFocus().item != "FILTER" {
 		t.Fatal("/ must open the filter bar and focus the keyword")
 	}
 	before := a.activeFilterCount()

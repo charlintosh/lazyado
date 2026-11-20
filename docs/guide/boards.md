@@ -111,7 +111,7 @@ On the **Boards** and **Sprints** hubs, `<` and `>` move the selected card to th
 You can also **drag a card with the mouse** onto another column, on the Board and on the Sprints taskboard:
 
 - Under the pointer a card lightens and shows a ⠿ grip.
-- While you drag, the card's place shows a dotted outline (*moving…*), the column under the pointer is tinted with a dashed preview of the card at its top (*↳ drop to set Committed*), the column counts show the change (`2 → 3`), and a label follows the pointer. The status bar reads **MOVING**.
+- While you drag, the card's place shows a dotted outline (*moving…*), the column under the pointer is tinted with a dashed preview of the card at its top (*↳ drop to set Committed*), the column counts show the change (`2 → 3`), and a label follows the pointer. The status bar reads **BOARD › MOVING #id**, in pink.
 - Releasing over the card's own column, outside any column, or over a state the item's type doesn't have (for example a Bug over a column only Product Backlog Items use) does nothing; the label says why.
 - On the Board, when not every column fits, hold the pointer at the left or right edge for half a second to scroll to the hidden columns.
 - `esc` cancels a drag. On the Board, a double click opens the work item form.

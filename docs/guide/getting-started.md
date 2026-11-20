@@ -63,9 +63,11 @@ lazyado is laid out like the Azure DevOps web UI.
 | **Navigation rail** (left) | *Boards* → Boards (`B`), Backlogs (`L`), Sprints (`S`), *Repos* → Pull requests (`P`), and *Pipelines* → Builds (`D`), Releases (`R`). On narrow terminals it shrinks to the hub keys; `z` hides it. |
 | **Hub header** | The team (and sprint, on Sprints), the view pivots on the left (Pull requests, Builds, Releases and Repos hubs), and the pickers and filter funnel on the right. |
 | **Content** | The backlog grid, board, taskboard, pull request list or pipeline list, with a details or preview pane on wide terminals. |
-| **Status bar** (bottom) | The current mode and the keys that work right now. |
+| **Status bar** (bottom) | Where you are and what has focus, then the keys that work on it. |
 
-The status bar only lists keys that apply where you are. Press `?` for the full list.
+The status bar starts with a two-part pill: the screen, then what has focus, by name: `RELEASES › Release-64`, `BOARD › TASK #1051`, `REVIEW !4821 › retry.go`, `RELEASE-64 › STAGE QA`, `EDIT › Resource group`. Its color says where you are: blue for Boards, violet for Repos and teal for Pipelines; orange while editing, yellow while searching or filtering, pink while dragging a card, and a gold focus while lines are selected (`› 3 LINES`).
+
+After the pill come the keys that act on what has focus, then, after a `│` and dimmer, the keys that move around (switch pane, tab or stage, go back). The status bar only lists keys that apply where you are; on a narrow terminal the screen part shrinks first. Press `?` for the full list.
 
 ## Moving around
 

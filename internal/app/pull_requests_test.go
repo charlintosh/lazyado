@@ -446,7 +446,7 @@ func TestReviewSelectsSeveralLinesForOneComment(t *testing.T) {
 	a := openFiles(t, 160, 45)
 	a = feed(t, a, press("j"), press("j"), press("j"), press("v"), press("j"), press("j"))
 	status := ansi.Strip(a.render())
-	if !strings.Contains(status, "SELECT 3 LINES") || !strings.Contains(status, "comment on 3 lines") {
+	if !strings.Contains(status, "› 3 LINES") || !strings.Contains(status, "comment on 3 lines") {
 		t.Fatalf("the status bar must show the selection:\n%s", status[len(status)-200:])
 	}
 	a, msgs := step(t, a, press("c"))
@@ -470,7 +470,7 @@ func TestReviewSelectsSeveralLinesForOneComment(t *testing.T) {
 func TestReviewSelectionStaysInItsHunkAndEscCancelsIt(t *testing.T) {
 	a := openFiles(t, 160, 45)
 	a = feed(t, a, press("v"), press("G"))
-	if !strings.Contains(ansi.Strip(a.render()), "SELECT 9 LINES") {
+	if !strings.Contains(ansi.Strip(a.render()), "› 9 LINES") {
 		t.Fatalf("selection from deleted line 4 to the end of the hunk should be 9 lines")
 	}
 	a, msgs := step(t, a, special(tea.KeyEscape))
