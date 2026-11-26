@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="docs/images/logo.png" alt="lazyado logo: a sloth asleep on the Azure DevOps mark" width="160">
-</p>
-
-# lazyado
+<h1 align="center">
+  <img src="docs/images/wordmark.png" alt="lazyado" width="420">
+</h1>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
 [![Go Report Card](https://goreportcard.com/badge/github.com/charlintosh/lazyado)](https://goreportcard.com/report/github.com/charlintosh/lazyado)
