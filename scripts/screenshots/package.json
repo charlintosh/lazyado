@@ -1,0 +1,13 @@
+{
+  "name": "lazyado-screenshots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@xterm/addon-canvas": "0.7.0",
+    "@xterm/xterm": "5.5.0",
+    "playwright": "1.63.0"
+  }
+}

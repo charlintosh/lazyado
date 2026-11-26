@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- docs: the README shows a screenshot of every view. `task screenshots` regenerates them: a test renders each view with demo data and `scripts/screenshots` draws the frames in xterm.js on Chromium
+
 ## [v1.7.0] - 2026-11-20
 
 Releases and focus release: an Azure DevOps-style release list with the deployment that's live on each stage, latest deployments and starred pipelines that always show, Ctrl+t that works while searching and from releases, and a status bar that names what has focus, colored by area, with its keys split into actions and navigation.

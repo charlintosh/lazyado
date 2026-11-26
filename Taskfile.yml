@@ -22,6 +22,17 @@ tasks:
     cmds:
       - go run . -debug
 
+  screenshots:
+    desc: Render a PNG of every view into docs/images/screenshots (needs Node.js and Playwright's Chromium)
+    vars:
+      frames: "{{.ROOT_DIR}}/.screenshots"
+    cmds:
+      - rm -rf "{{.frames}}" && mkdir -p "{{.frames}}"
+      - LAZYADO_SCREENSHOTS_DIR="{{.frames}}" go test ./internal/app -run TestRenderScreenshots -count=1
+      - npm ci --prefix scripts/screenshots
+      - node scripts/screenshots/render.mjs "{{.frames}}" docs/images/screenshots
+      - rm -rf "{{.frames}}"
+
   install:
     desc: Move built binary to /usr/local/bin (requires sudo)
     check-update-antipatterns:
