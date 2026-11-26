@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/logo.png" alt="lazyado logo: a sloth asleep on the Azure DevOps mark" width="160">
+</p>
+
 # lazyado
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
