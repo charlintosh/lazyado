@@ -39,3 +39,7 @@ dist/
 
 # Git backup/conflict artifacts (filenames with ~ are invalid in go module zips)
 *~*
+
+# Screenshot renderer
+.screenshots/
+scripts/screenshots/node_modules/
