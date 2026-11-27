@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
 [![Lint](https://github.com/charlintosh/lazyado/actions/workflows/lint.yml/badge.svg)](https://github.com/charlintosh/lazyado/actions/workflows/lint.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
-![version](https://img.shields.io/badge/version-1.8.0-purple)
+![version](https://img.shields.io/badge/version-1.8.1-purple)
 
 **A keyboard-driven terminal UI for Azure DevOps.** Plan work on your boards and review pull requests without leaving the terminal.
 
