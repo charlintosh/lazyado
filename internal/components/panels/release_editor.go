@@ -1,7 +1,6 @@
 package panels
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -786,11 +785,4 @@ func (v *ReleaseEditor) KeyBindings() []key.Binding {
 		bindings = append(bindings, save())
 	}
 	return slices.DeleteFunc(append(bindings, edit, tabs, k.OpenBrowser, back), func(b key.Binding) bool { return !b.Enabled() })
-}
-
-func editCountLabel(n int) string {
-	if n == 0 {
-		return ""
-	}
-	return fmt.Sprintf(" (%d)", n)
 }

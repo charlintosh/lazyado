@@ -6,6 +6,17 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- ci: a Lint workflow runs [golangci-lint](https://golangci-lint.run) v2 (standard linters and `gofmt`, configured in `.golangci.yml`) on every push to `main` and every pull request; `task lint` runs it locally and `task check` lints and tests. Its badge replaces Go Report Card's, which shut down and now only reads *retired*
+
+- ci: required git hooks, like Husky: `pre-commit` lints, `pre-push` lints and runs the tests, and a pushed `v*` tag must have its `CHANGELOG.md` section and README version badge. `task build`, `task dev` and `task debug` turn them on (`git config core.hooksPath .githooks`)
+- ci: the Release workflow lints and tests before GoReleaser runs, so a failing tag publishes nothing; the release-bump skill makes `task check` its first, mandatory step
+
+### Fixed
+
+- chore: the code is lint-clean: unused helpers and a field are gone, two tests no longer overwrite values they never read, and `cmd/lazyado/main.go` is `gofmt`-formatted
+
 ## [v1.8.0] - 2026-11-26
 
 Splash release: the sleeping sloth logo drawn in the terminal while lazyado connects, sized to the window, kind to 16-colour and `NO_COLOR` terminals, skippable with any key and configurable with `ui.splash`; plus a README with the wordmark, the icon and a screenshot of every view.

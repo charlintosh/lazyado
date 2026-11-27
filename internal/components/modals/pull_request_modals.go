@@ -109,10 +109,6 @@ type RepositoryFavorites struct {
 	Local   map[string]bool
 }
 
-func (f RepositoryFavorites) has(id string) bool {
-	return f.Starred[strings.ToLower(id)] || f.Local[id]
-}
-
 type RepositoryPickerModal struct {
 	ChoiceModal
 	repos     []models.Repository

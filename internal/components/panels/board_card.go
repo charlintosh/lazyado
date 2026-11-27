@@ -2,7 +2,6 @@ package panels
 
 import (
 	"fmt"
-	"image/color"
 	"strconv"
 	"strings"
 
@@ -180,7 +179,7 @@ func cardFooter(item *models.WorkItem, p cardPalette, inner int) string {
 }
 
 func initialsBadge(name string, plain bool) string {
-	var bg color.Color = styles.AvatarColor(name)
+	bg := styles.AvatarColor(name)
 	if plain {
 		bg = styles.ColorChip
 	}

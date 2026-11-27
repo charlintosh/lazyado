@@ -10,9 +10,19 @@ pushing the changes to the remote.
 
 - `git` installed and configured.
 - Work on the branch you want to release from (e.g. `main`).
+- golangci-lint v2.15.0 installed, and the repository's git hooks on (`task hooks`, or `git config core.hooksPath .githooks`).
+
+## Mandatory checks
+
+A release is never cut from code that fails lint or tests. These gates are not optional:
+
+- Before step 1, run `task check` (`golangci-lint run ./...` and `go test ./...`). If either fails, stop, fix the cause, and commit the fix first. Never bump, tag or push over a failure.
+- Never pass `--no-verify` to `git commit` or `git push`. The `pre-commit` hook lints; the `pre-push` hook lints, runs the tests and, for a `v*` tag, checks that `CHANGELOG.md` has a `## [vX.Y.Z] - YYYY-MM-DD` section and that the README badge says `X.Y.Z`.
+- The Release workflow runs the same lint and tests and publishes nothing when they fail.
 
 ## Quick Steps
 
+0. Run `task check` and stop if it fails (see Mandatory checks).
 1. Get the latest tag: `git describe --tags --abbrev=0` (fallback to `v0.0.0` if none).
 2. Compute the next patch version (increment Z in `vX.Y.Z`).
 3. List commits since the last tag and format them as bullets for the changelog.

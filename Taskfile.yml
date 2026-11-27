@@ -5,22 +5,45 @@ vars:
   output: lazyado
   debug_output: lazyado-debug
   cmd_path: .
+  golangci_lint:
+    sh: command -v golangci-lint || echo "$(go env GOPATH)/bin/golangci-lint"
 
 tasks:
+  hooks:
+    desc: Turn on the git hooks in .githooks (lint before commit; lint and tests before push)
+    status:
+      - test "$(git config --get core.hooksPath)" = ".githooks"
+    cmds:
+      - git config core.hooksPath .githooks
+
+  check:
+    desc: Lint and test, the same checks the pre-push hook and CI run
+    cmds:
+      - '{{.golangci_lint}} run ./...'
+      - go test ./...
+
   build:
     desc: Build release binary
+    deps: [hooks]
     cmds:
       - go build -trimpath -o {{.output}} {{.cmd_path}}
 
   dev:
     desc: Run in development (rebuilds by Go on each run)
+    deps: [hooks]
     cmds:
       - go run .
 
   debug:
     desc: Build binary and run with `-debug` flag (simple runtime debug)
+    deps: [hooks]
     cmds:
       - go run . -debug
+
+  lint:
+    desc: Run golangci-lint with the repository's .golangci.yml
+    cmds:
+      - '{{.golangci_lint}} run ./...'
 
   screenshots:
     desc: Render a PNG of every view into docs/images/screenshots (needs Node.js and Playwright's Chromium)

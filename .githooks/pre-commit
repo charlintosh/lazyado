@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+. .githooks/lib.sh
+
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -Eq '\.go$|^go\.(mod|sum)$|^\.golangci\.yml$'; then
+	exit 0
+fi
+
+lint=$(find_golangci_lint) || exit 1
+step "golangci-lint (pre-commit)"
+"$lint" run ./... || fail "lint failed: fix the issues above, then commit again."

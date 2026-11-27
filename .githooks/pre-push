@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+. .githooks/lib.sh
+
+zero=0000000000000000000000000000000000000000
+tags=""
+while read -r local_ref local_sha _remote_ref _remote_sha; do
+	[ "$local_sha" = "$zero" ] && continue
+	case "$local_ref" in
+	refs/tags/v*) tags="$tags ${local_ref#refs/tags/}" ;;
+	esac
+done
+
+for tag in $tags; do
+	step "release $tag: changelog and version badge"
+	version=${tag#v}
+	git show "$tag:CHANGELOG.md" | grep -q "^## \[$tag\] - " ||
+		fail "$tag: CHANGELOG.md at the tag has no '## [$tag] - YYYY-MM-DD' section."
+	git show "$tag:README.md" | grep -q "badge/version-$version-" ||
+		fail "$tag: the README version badge at the tag is not $version."
+done
+
+lint=$(find_golangci_lint) || exit 1
+step "golangci-lint (pre-push)"
+"$lint" run ./... || fail "lint failed: nothing was pushed."
+
+step "go test ./... (pre-push)"
+go test ./... || fail "tests failed: nothing was pushed."

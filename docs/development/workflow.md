@@ -20,6 +20,13 @@ Notes
 
 - Do not modify production builder scripts or factory patterns unless explicitly requested.
 
+## Linting
+
+[golangci-lint](https://golangci-lint.run) v2 checks every push to `main` and every pull request (`.github/workflows/lint.yml`, pinned to v2.15.0), and the Release workflow lints and tests before GoReleaser publishes anything. Locally, the required git hooks in `.githooks` run it on commit and, with the tests, on push (see [CONTRIBUTING.md](../../CONTRIBUTING.md)); run it by hand with `task lint`, or `task check` for lint and tests. `.golangci.yml` uses the standard linters and `gofmt`, with two deliberate exceptions:
+
+- `errcheck` ignores `Close` (deferred closes of response bodies and files) and viper's `BindEnv`, which can only fail without arguments.
+- `staticcheck` leaves out ST1005: lazyado's error messages are shown to users as sentences ("Title is required"), so they start with a capital letter.
+
 ## Splash logo
 
 The splash screen draws `docs/images/logo.png` with half-block cells (`▀`: the top pixel is the foreground, the bottom pixel the background), so the app never decodes the image. `scripts/logo_gen` samples the PNG at 48, 32 and 24 columns into `internal/components/screens/splash_logo_gen.go`; regenerate it after changing the logo with:

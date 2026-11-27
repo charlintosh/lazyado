@@ -202,10 +202,9 @@ func RenderApprovalPreview(p ApprovalPreviewProps) string {
 		{"Requested", releaseStamp(a.Created)},
 	})
 	parts := []string{bold.Render(a.KindName() + " approval · " + a.StageName), Muted(a.ReleaseName + " · " + a.Definition), "", FieldRows(rows, fieldLabel, p.Width)}
-	switch {
-	case p.Release == nil:
+	if p.Release == nil {
 		parts = append(parts, "", Loading(p.Spinner, "Loading release"))
-	default:
+	} else {
 		parts = append(parts, "", Line(Muted(p.Release.ArtifactSummary()), p.Width), "", sectionTitle("Stages", p.Width))
 		for _, s := range p.Release.Stages {
 			parts = append(parts, spreadLine(StageBadge(s.State)+" "+s.Name, Muted(s.State.Name()), p.Width))
@@ -297,13 +296,6 @@ func stageBoxes(stages []models.ReleaseStage, selected, width int) (string, int)
 	}
 	out := strings.Join(rows, "\n")
 	return out, lipgloss.Height(out)
-}
-
-func durationOf(start, end time.Time) string {
-	if start.IsZero() || end.IsZero() {
-		return ""
-	}
-	return models.FormatDuration(end.Sub(start))
 }
 
 func plural1(n int, noun string) string {

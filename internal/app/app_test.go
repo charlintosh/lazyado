@@ -161,8 +161,8 @@ func TestCommentEditTargetsDetailItem(t *testing.T) {
 func TestCreateFormHonoursChosenSprint(t *testing.T) {
 	a := newTestApp(t, 120, 40)
 	a.iterations = append(a.iterations, models.Iteration{Name: "Sprint 25", Path: "storefront\\Sprint 25"})
-	a, msgs := step(t, a, press("n"))
-	a, msgs = step(t, a, special(tea.KeyEnter))
+	a, _ = step(t, a, press("n"))
+	a, msgs := step(t, a, special(tea.KeyEnter))
 	for _, m := range msgs {
 		a, _ = step(t, a, m)
 	}

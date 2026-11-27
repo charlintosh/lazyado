@@ -530,7 +530,8 @@ func (m RunPipelineForm) request() (tea.Msg, error) {
 			}
 			opts.StagesToSkip = f.values(false)
 		case runVariable:
-			if value != e.variable.Value && !(e.variable.Secret && value == "") {
+			keepsSecret := e.variable.Secret && value == ""
+			if value != e.variable.Value && !keepsSecret {
 				opts.Variables[e.variable.Name] = value
 			}
 		case runDiagnostics:

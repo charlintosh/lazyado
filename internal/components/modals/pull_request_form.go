@@ -317,7 +317,7 @@ func (m *PullRequestForm) replaceBranches(target string) {
 			initial = target
 		}
 		name := m.entries[i].field.label()
-		var f field = branchField(m.env, name, m.branches, open, initial).resize(inner)
+		f := branchField(m.env, name, m.branches, open, initial).resize(inner)
 		if i == m.focus {
 			f, _ = f.focus()
 		}

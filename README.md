@@ -3,7 +3,7 @@
 </h1>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
-[![Go Report Card](https://goreportcard.com/badge/github.com/charlintosh/lazyado)](https://goreportcard.com/report/github.com/charlintosh/lazyado)
+[![Lint](https://github.com/charlintosh/lazyado/actions/workflows/lint.yml/badge.svg)](https://github.com/charlintosh/lazyado/actions/workflows/lint.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 ![version](https://img.shields.io/badge/version-1.8.0-purple)
 

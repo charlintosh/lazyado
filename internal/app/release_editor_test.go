@@ -123,7 +123,7 @@ func TestReleaseEditorShowsThePipelineTasksAndVariables(t *testing.T) {
 
 func TestReleaseEditorRequiresEditModeBeforeChanging(t *testing.T) {
 	a := openEditor(t, 160, 45)
-	a, msgs := pressAll(t, a, press("2"), press("j"), press("j"), special(tea.KeyEnter), special(tea.KeyEnter))
+	_, msgs := pressAll(t, a, press("2"), press("j"), press("j"), special(tea.KeyEnter), special(tea.KeyEnter))
 	if n, ok := find[panels.ReleaseNoticeMsg](msgs); !ok || !strings.Contains(n.Text, "Press e") {
 		t.Fatalf("enter outside edit mode must say how to edit, got %v", msgs)
 	}

@@ -539,7 +539,8 @@ func (m CreateReleaseForm) request() (models.NewRelease, error) {
 		case relStages:
 			rel.ManualStages = e.field.(checklistField).values(false)
 		case relVariable:
-			if value != e.variable.Value && !(e.variable.Secret && value == "") {
+			keepsSecret := e.variable.Secret && value == ""
+			if value != e.variable.Value && !keepsSecret {
 				rel.Variables[e.variable.Name] = value
 			}
 		case relDescription:

@@ -503,7 +503,6 @@ func (p ReleaseDefinitionsPanel) View() string {
 type ReleasesPanel struct {
 	list        selectList
 	releases    []models.Release
-	me          models.Identity
 	loading     bool
 	more        bool
 	loadingMore bool
