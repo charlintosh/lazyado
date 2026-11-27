@@ -44,6 +44,7 @@ Some keys mean different things in different places. For example, `a` assigns a 
 | `,` | Dismiss the notification |
 | `?` | Help |
 | `q` / `Ctrl+c` | Quit |
+| any other key | Skip the splash screen while lazyado connects ([settings](configuration.md#splash-screen)) |
 
 ## Share menu
 

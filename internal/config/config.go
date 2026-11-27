@@ -19,6 +19,11 @@ type Config struct {
 	Defaults     Defaults `mapstructure:"defaults"`
 	Diff         Diff     `mapstructure:"diff"`
 	Boards       Boards   `mapstructure:"boards"`
+	UI           UI       `mapstructure:"ui"`
+}
+
+type UI struct {
+	Splash string `mapstructure:"splash"`
 }
 
 type Boards struct {
@@ -75,6 +80,7 @@ func Load() (*Config, error) {
 	v.SetDefault("diff.max_file_lines", models.DefaultMaxFileLines)
 	v.SetDefault("diff.max_file_kb", models.DefaultMaxFileKB)
 	v.SetDefault("boards.max_work_items", models.DefaultMaxWorkItems)
+	v.SetDefault("ui.splash", "animated")
 
 	// Read config file (ignore if not found)
 	if err := v.ReadInConfig(); err != nil {
@@ -164,6 +170,8 @@ pat: ""
 
 # UI settings
 theme: "default"  # default, dark, light
+ui:
+  splash: "animated"  # animated, static, off
 
 # Default filters at startup
 defaults:

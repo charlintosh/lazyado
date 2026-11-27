@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charlintosh/lazyado/internal/api"
 	ui "github.com/charlintosh/lazyado/internal/app"
+	"github.com/charlintosh/lazyado/internal/components/screens"
 	"github.com/charlintosh/lazyado/internal/config"
 )
 
@@ -27,7 +28,7 @@ func Execute() error {
 
 	client := api.NewClient(cfg)
 
-	app := ui.NewApp(client, cfg.DiffLimits())
+	app := ui.NewApp(client, cfg.DiffLimits()).WithSplash(screens.ParseSplashMode(cfg.UI.Splash))
 
 	p := tea.NewProgram(app)
 

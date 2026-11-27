@@ -8,7 +8,13 @@ The format is based on "Keep a Changelog" and adheres to Semantic Versioning.
 
 ### Added
 
+- feat: the splash screen draws the lazyado logo in the terminal, the sleeping sloth on its box, in half-block cells. It appears line by line, then its *zzz* ripple until your data arrives. The logo fits the window (48, 32 or 24 columns, beside the text in short windows, the name only in tiny ones), falls back to the terminal's 256 or 16 colours where full colour isn't available, and draws only its outline with `NO_COLOR`. Loading never waits for it, and any key skips it
+- feat: `ui.splash` in the config chooses `animated` (default), `static` (no motion) or `off` (name and spinner only); see [Configuration](docs/guide/configuration.md#splash-screen)
 - docs: the README shows a screenshot of every view. `task screenshots` regenerates them: a test renders each view with demo data and `scripts/screenshots` draws the frames in xterm.js on Chromium
+
+### Changed
+
+- perf: the splash redraws about 12 times a second instead of 60, and its logo rows are built once per window size, so a frame only joins cached strings. The `harmonica` springs it used are gone
 
 ## [v1.7.0] - 2026-11-20
 

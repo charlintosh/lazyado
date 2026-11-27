@@ -35,6 +35,10 @@ var panelActions = map[Panel][]itemAction{
 }
 
 func (a App) handleKey(msg tea.KeyPressMsg) (App, tea.Cmd) {
+	if a.showSplash() && !key.Matches(msg, a.keys.Quit) {
+		a.splashSkipped = true
+		return a, nil
+	}
 	if a.modals.open() {
 		return a.updateModal(msg)
 	}

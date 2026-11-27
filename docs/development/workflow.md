@@ -20,6 +20,16 @@ Notes
 
 - Do not modify production builder scripts or factory patterns unless explicitly requested.
 
+## Splash logo
+
+The splash screen draws `docs/images/logo.png` with half-block cells (`▀`: the top pixel is the foreground, the bottom pixel the background), so the app never decodes the image. `scripts/logo_gen` samples the PNG at 48, 32 and 24 columns into `internal/components/screens/splash_logo_gen.go`; regenerate it after changing the logo with:
+
+```bash
+go generate ./internal/components/screens
+```
+
+`splash_logo.go` turns each grid into styled rows once per size and colour profile, including the scanline and *zzz* variants, so a frame only looks rows up. The colours are the `ColorLogo*` values in `internal/styles`.
+
 ## Screenshots
 
 The README's screenshots in `docs/images/screenshots/` are real frames, not mock-ups. Regenerate them after a visible change with:

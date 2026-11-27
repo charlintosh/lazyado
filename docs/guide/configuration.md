@@ -4,6 +4,7 @@
 - [Environment variables](#environment-variables)
 - [Large files in diffs](#large-files-in-diffs)
 - [Large boards](#large-boards)
+- [Splash screen](#splash-screen)
 - [Personal access token](#personal-access-token)
 - [Who you are](#who-you-are)
 - [What lazyado remembers](#what-lazyado-remembers)
@@ -77,6 +78,23 @@ boards:
 | Key | Default | Description |
 | --- | ------- | ----------- |
 | `boards.max_work_items` | `1000` | The most work items one query loads. Each 200 items is one more request to Azure DevOps. |
+
+## Splash screen
+
+While lazyado connects to Azure DevOps it shows its logo, drawn in the terminal: the sloth appears line by line and its *zzz* ripple until your data arrives. It never delays loading. If the data is quick, the splash is gone before the animation ends, and any key skips it.
+
+```yaml
+ui:
+  splash: animated
+```
+
+| Value | What you see |
+| ----- | ------------ |
+| `animated` (default) | The logo with its reveal and *zzz*, about 12 frames a second |
+| `static` | The same logo without motion: one frame, nothing redrawn but the spinner |
+| `off` | Just the name and the loading spinner, no logo. Best with a screen reader. |
+
+The logo shrinks to fit: 48 columns wide in a window of at least 60×34, 32 columns in a window of at least 50×22, and 24 columns beside the text in a short window of at least 56×14. Smaller windows get the name only. The colours follow your terminal: full colour where it's supported, the terminal's own 256 or 16 colours otherwise, and only the logo's outline when `NO_COLOR` is set.
 
 ## Personal access token
 

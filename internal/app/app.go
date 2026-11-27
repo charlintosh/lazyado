@@ -103,6 +103,7 @@ type App struct {
 	commentsFor     int
 	detailFromPR    bool
 	initialLoadDone bool
+	splashSkipped   bool
 	throttleSeen    int
 	truncatedFor    workItemQuery
 
@@ -149,7 +150,7 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 		branches:      branchesState{panel: panels.NewBranchesPanel(k)},
 		tags:          tagsState{panel: panels.NewTagsPanel(k)},
 		code:          codeState{files: newFilesState(panels.NewRepoTreePanel(k), panels.NewRepoContentPanel(k), limits.MaxFileBytes())},
-		splashScreen:  screens.NewSplashScreen(st),
+		splashScreen:  screens.NewSplashScreen(),
 		statusHelp:    widgets.NewHelp(),
 		statusNavHelp: dimHelp(widgets.NewHelp()),
 		navKeys:       navigationKeys(k),
@@ -173,8 +174,7 @@ func NewApp(client *api.Client, limits models.DiffLimits) App {
 func (a App) Init() tea.Cmd {
 	return tea.Batch(
 		loadDataCmd(a.client),
-		screens.AnimateCmd(),
-		a.splashScreen.Tick(),
+		a.splashScreen.Init(),
 		a.spinner.Tick,
 	)
 }
@@ -186,6 +186,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a App) update(msg tea.Msg) (App, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.ColorProfileMsg:
+		a.splashScreen.SetProfile(msg.Profile)
+		return a, nil
 	case tea.WindowSizeMsg:
 		return a.resize(msg)
 	case tea.KeyPressMsg:
@@ -379,7 +382,12 @@ func (a *App) busy() bool {
 }
 
 func (a *App) showSplash() bool {
-	return a.loading && len(a.workItems) == 0 && !a.initialLoadDone
+	return a.loading && len(a.workItems) == 0 && !a.initialLoadDone && !a.splashSkipped
+}
+
+func (a App) WithSplash(mode screens.SplashMode) App {
+	a.splashScreen = a.splashScreen.WithMode(mode)
+	return a
 }
 
 func (a *App) env() modals.Env {
